@@ -1,0 +1,25 @@
+# Java / Spring Boot
+target/
+*.class
+*.jar
+*.war
+*.iml
+.idea/
+
+# Node / Vue
+node_modules/
+dist/
+.env
+
+# Go
+vendor/
+bin/
+*.exe
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
