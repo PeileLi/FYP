@@ -7,10 +7,11 @@ The project is based on **Hyperledger Fabric** a blockchain crowdfunding donatio
 - Blockchain: Hyperledger Fabric  
 - Smart Contract: Go  
 - Backend: Spring Boot + Java  
-- Frontend: Vue.js  
+- Frontend: React  
 - Storage: IPFS  
 - Identity: Fabric CA  
 
 ---
 
 ## 📁 Project structure
+
