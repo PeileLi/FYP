@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/fyp_db
     username: postgres
-    password: yourpassword
+    password: 123456
   jpa:
     hibernate:
       ddl-auto: update
