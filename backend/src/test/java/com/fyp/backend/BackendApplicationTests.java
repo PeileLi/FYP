@@ -1,4 +1,4 @@
-package com.blockaid.backend;
+package com.fyp.backend;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

@@ -1,4 +1,4 @@
-package com.blockaid.backend;
+package com.fyp.backend;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
