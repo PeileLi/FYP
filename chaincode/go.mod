@@ -1,6 +1,6 @@
-module chaincode
+module github.com/fyp/chaincode
 
-go 1.22.2
+go 1.23.0
 
 require github.com/hyperledger/fabric-contract-api-go/v2 v2.2.0
 
