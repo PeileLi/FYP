@@ -15,3 +15,13 @@ The project is based on **Hyperledger Fabric** a blockchain crowdfunding donatio
 
 ## 📁 Project structure
 
+```
+FYP/
+├── backend/          # Spring Boot backend service
+├── frontend/         # React frontend application
+├── chaincode/        # Hyperledger Fabric smart contracts (Go)
+├── fabric/           # Fabric samples (git submodule)
+├── docker-compose.yml # Docker compose configuration
+└── README.md
+```
+
