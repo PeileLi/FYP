@@ -8,7 +8,7 @@ The project is based on **Hyperledger Fabric** a blockchain crowdfunding donatio
 - Smart Contract: Go  
 - Backend: Spring Boot + Java  
 - Frontend: React  
-- Storage: IPFS  
+- Database: PostgreSQL 
 - Identity: Fabric CA  
 
 ---
@@ -24,4 +24,5 @@ FYP/
 ├── docker-compose.yml # Docker compose configuration
 └── README.md
 ```
+
 
