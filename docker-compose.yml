@@ -13,6 +13,42 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: always
+    networks:
+      - fyp-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fyp-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fyp_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 123456
+    depends_on:
+      - postgres
+    restart: always
+    networks:
+      - fyp-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fyp-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - fyp-network
 
 volumes:
   pgdata:
+
+networks:
+  fyp-network:
+    driver: bridge
