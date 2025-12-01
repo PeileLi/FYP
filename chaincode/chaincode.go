@@ -37,7 +37,7 @@ func projectKey(id int) string {
 	return strconv.Itoa(id)
 }
 
-//  1. Creator creates project
+// 1. Creator creates project
 func (s *SmartContract) CreateProject(ctx contractapi.TransactionContextInterface,
 	id int, title, description, owner string) error {
 
@@ -61,7 +61,7 @@ func (s *SmartContract) CreateProject(ctx contractapi.TransactionContextInterfac
 	return ctx.GetStub().PutState(projectKey(id), data)
 }
 
-//  2. Creator submits for audit (Pending)
+// 2. Creator submits for audit (Pending)
 func (s *SmartContract) SubmitForAudit(ctx contractapi.TransactionContextInterface, id int) error {
 	p, err := s.ReadProject(ctx, id)
 	if err != nil {
@@ -77,7 +77,7 @@ func (s *SmartContract) SubmitForAudit(ctx contractapi.TransactionContextInterfa
 	return ctx.GetStub().PutState(projectKey(id), data)
 }
 
-//  3. Auditor approves/rejects project
+// 3. Auditor approves/rejects project
 func (s *SmartContract) AuditProject(ctx contractapi.TransactionContextInterface,
 	id int, auditor string, approve bool, reason string) error {
 
@@ -104,7 +104,7 @@ func (s *SmartContract) AuditProject(ctx contractapi.TransactionContextInterface
 	return ctx.GetStub().PutState(projectKey(id), data)
 }
 
-//  4. Guarantor guarantees project (Approved → Guaranteed)
+// 4. Guarantor guarantees project (Approved → Guaranteed)
 func (s *SmartContract) GuaranteeProject(ctx contractapi.TransactionContextInterface,
 	id int, guaranteeOrg string) error {
 
@@ -124,7 +124,7 @@ func (s *SmartContract) GuaranteeProject(ctx contractapi.TransactionContextInter
 	return ctx.GetStub().PutState(projectKey(id), data)
 }
 
-//  5. Project is published (Guaranteed → Listed)
+// 5. Project is published (Guaranteed → Listed)
 func (s *SmartContract) PublishProject(ctx contractapi.TransactionContextInterface, id int) error {
 	p, err := s.ReadProject(ctx, id)
 	if err != nil {

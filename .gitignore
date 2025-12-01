@@ -5,6 +5,7 @@ target/
 *.war
 *.iml
 .idea/
+.vscode/
 
 # Node / Vue
 node_modules/
