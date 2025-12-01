@@ -11,7 +11,6 @@ import (
 const (
 	StatusDraft        = "DRAFT"
 	StatusPendingAudit = "PENDING_AUDIT"
-	StatusApproved     = "APPROVED"
 	StatusRejected     = "REJECTED"
 	StatusGuaranteed   = "GUARANTEED"
 	StatusListed       = "LISTED"
@@ -22,22 +21,22 @@ type DonateProject struct {
 	Title        string `json:"title"`
 	Description  string `json:"description"`
 	Owner        string `json:"owner"`
-	Auditor      string `json:"auditor,omitempty"`
-	GuaranteeOrg string `json:"guaranteeOrg,omitempty"`
+	Auditor      string `json:"auditor"`
+	GuaranteeOrg string `json:"guaranteeOrg"`
 	Status       string `json:"status"`
-	RejectReason string `json:"rejectReason,omitempty"`
+	RejectReason string `json:"rejectReason"`
 }
 
 type SmartContract struct {
 	contractapi.Contract
 }
 
-// Utility function
+// Utility: build world state key
 func projectKey(id int) string {
 	return strconv.Itoa(id)
 }
 
-// 1. Creator creates project
+// 1. Creator creates project (Status = DRAFT)
 func (s *SmartContract) CreateProject(ctx contractapi.TransactionContextInterface,
 	id int, title, description, owner string) error {
 
@@ -50,18 +49,21 @@ func (s *SmartContract) CreateProject(ctx contractapi.TransactionContextInterfac
 	}
 
 	p := DonateProject{
-		ID:          id,
-		Title:       title,
-		Description: description,
-		Owner:       owner,
-		Status:      StatusDraft,
+		ID:           id,
+		Title:        title,
+		Description:  description,
+		Owner:        owner,
+		Status:       StatusDraft,
+		Auditor:      "",
+		GuaranteeOrg: "",
+		RejectReason: "",
 	}
 
 	data, _ := json.Marshal(p)
 	return ctx.GetStub().PutState(projectKey(id), data)
 }
 
-// 2. Creator submits for audit (Pending)
+// 2. Creator submits project for audit (Status = PENDING_AUDIT)
 func (s *SmartContract) SubmitForAudit(ctx contractapi.TransactionContextInterface, id int) error {
 	p, err := s.ReadProject(ctx, id)
 	if err != nil {
@@ -69,15 +71,17 @@ func (s *SmartContract) SubmitForAudit(ctx contractapi.TransactionContextInterfa
 	}
 
 	if p.Status != StatusDraft {
-		return fmt.Errorf("only DRAFT projects can be submitted")
+		return fmt.Errorf("only DRAFT projects can be submitted for audit")
 	}
 
 	p.Status = StatusPendingAudit
+
 	data, _ := json.Marshal(p)
 	return ctx.GetStub().PutState(projectKey(id), data)
 }
 
-// 3. Auditor approves/rejects project
+// 3. Auditor approves or rejects
+//    ✔ If approve = true → GUARANTEED + GuaranteeOrg = auditor
 func (s *SmartContract) AuditProject(ctx contractapi.TransactionContextInterface,
 	id int, auditor string, approve bool, reason string) error {
 
@@ -87,44 +91,27 @@ func (s *SmartContract) AuditProject(ctx contractapi.TransactionContextInterface
 	}
 
 	if p.Status != StatusPendingAudit {
-		return fmt.Errorf("project %d not in PENDING_AUDIT state", id)
+		return fmt.Errorf("project %d is not in PENDING_AUDIT state", id)
 	}
 
 	p.Auditor = auditor
 
 	if approve {
-		p.Status = StatusApproved
+		// 审核通过 = 自动担保
+		p.Status = StatusGuaranteed
+		p.GuaranteeOrg = auditor
 		p.RejectReason = ""
 	} else {
 		p.Status = StatusRejected
 		p.RejectReason = reason
+		p.GuaranteeOrg = ""
 	}
 
 	data, _ := json.Marshal(p)
 	return ctx.GetStub().PutState(projectKey(id), data)
 }
 
-// 4. Guarantor guarantees project (Approved → Guaranteed)
-func (s *SmartContract) GuaranteeProject(ctx contractapi.TransactionContextInterface,
-	id int, guaranteeOrg string) error {
-
-	p, err := s.ReadProject(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	if p.Status != StatusApproved {
-		return fmt.Errorf("project %d must be APPROVED before guarantee", id)
-	}
-
-	p.GuaranteeOrg = guaranteeOrg
-	p.Status = StatusGuaranteed
-
-	data, _ := json.Marshal(p)
-	return ctx.GetStub().PutState(projectKey(id), data)
-}
-
-// 5. Project is published (Guaranteed → Listed)
+// 4. publish (Guaranteed → Listed)
 func (s *SmartContract) PublishProject(ctx contractapi.TransactionContextInterface, id int) error {
 	p, err := s.ReadProject(ctx, id)
 	if err != nil {
@@ -132,7 +119,7 @@ func (s *SmartContract) PublishProject(ctx contractapi.TransactionContextInterfa
 	}
 
 	if p.Status != StatusGuaranteed {
-		return fmt.Errorf("project %d must be GUARANTEED before publishing", id)
+		return fmt.Errorf("project %d must be GUARANTEED before being published", id)
 	}
 
 	p.Status = StatusListed
@@ -141,7 +128,7 @@ func (s *SmartContract) PublishProject(ctx contractapi.TransactionContextInterfa
 	return ctx.GetStub().PutState(projectKey(id), data)
 }
 
-// Utility: Check if project exists
+// Utility: check existence
 func (s *SmartContract) ProjectExists(ctx contractapi.TransactionContextInterface, id int) (bool, error) {
 	data, err := ctx.GetStub().GetState(projectKey(id))
 	if err != nil {
@@ -150,7 +137,7 @@ func (s *SmartContract) ProjectExists(ctx contractapi.TransactionContextInterfac
 	return data != nil, nil
 }
 
-// Utility: Read project
+// Utility: read project
 func (s *SmartContract) ReadProject(ctx contractapi.TransactionContextInterface, id int) (*DonateProject, error) {
 	data, err := ctx.GetStub().GetState(projectKey(id))
 	if err != nil {
