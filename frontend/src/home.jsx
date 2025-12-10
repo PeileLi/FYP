@@ -286,7 +286,7 @@ export default function App() {
           <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
             <Search size={48} className="mx-auto text-gray-300 mb-4" />
             <h3 className="text-lg font-medium text-gray-900">No campaigns found</h3>
-            <p className="text-gray-500">Try switching to another category</p>
+            
           </div>
         )}
 
