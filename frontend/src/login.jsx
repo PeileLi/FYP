@@ -72,9 +72,6 @@ export default function Login() {
               </span>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-3">Welcome Back</h1>
-            <p className="text-gray-500">
-              Sign in to continue your journey of kindness and make the world a better place.
-            </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
