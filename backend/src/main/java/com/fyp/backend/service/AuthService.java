@@ -14,57 +14,80 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
-    private final AuthenticationManager authenticationManager;
+        private final UserRepository userRepository;
+        private final PasswordEncoder passwordEncoder;
+        private final JwtUtil jwtUtil;
+        private final AuthenticationManager authenticationManager;
 
-    @Transactional
-    public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+        private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        private static final SecureRandom RANDOM = new SecureRandom();
+
+        /**
+         * Generate a unique random display name
+         */
+        private String generateUniqueDisplayName() {
+                String displayName;
+                do {
+                        StringBuilder sb = new StringBuilder("user_");
+                        for (int i = 0; i < 8; i++) {
+                                sb.append(CHARACTERS.charAt(RANDOM.nextInt(CHARACTERS.length())));
+                        }
+                        displayName = sb.toString();
+                } while (userRepository.existsByDisplayName(displayName));
+                return displayName;
         }
 
-        User user = User.builder()
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .role(User.Role.USER)
-                .enabled(true)
-                .build();
+        @Transactional
+        public AuthResponse register(RegisterRequest request) {
+                if (userRepository.existsByEmail(request.getEmail())) {
+                        throw new RuntimeException("Email already exists");
+                }
 
-        user = userRepository.save(user);
+                // Generate a unique random display name
+                String displayName = generateUniqueDisplayName();
 
-        String token = jwtUtil.generateToken(user);
+                User user = User.builder()
+                                .email(request.getEmail())
+                                .displayName(displayName)
+                                .password(passwordEncoder.encode(request.getPassword()))
+                                .role(User.Role.USER)
+                                .enabled(true)
+                                .build();
 
-        return AuthResponse.builder()
-                .token(token)
-                .id(user.getId())
-                .email(user.getEmail())
-                .build();
-    }
+                user = userRepository.save(user);
 
-    public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
+                String token = jwtUtil.generateToken(user);
 
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+                return AuthResponse.builder()
+                                .token(token)
+                                .id(user.getId())
+                                .email(user.getEmail())
+                                .displayName(user.getDisplayName())
+                                .build();
+        }
 
-        String token = jwtUtil.generateToken(user);
+        public AuthResponse login(LoginRequest request) {
+                authenticationManager.authenticate(
+                                new UsernamePasswordAuthenticationToken(
+                                                request.getEmail(),
+                                                request.getPassword()));
 
-        return AuthResponse.builder()
-                .token(token)
-                .id(user.getId())
-                .email(user.getEmail())
-                .build();
-    }
+                User user = userRepository.findByEmail(request.getEmail())
+                                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+                String token = jwtUtil.generateToken(user);
+
+                return AuthResponse.builder()
+                                .token(token)
+                                .id(user.getId())
+                                .email(user.getEmail())
+                                .displayName(user.getDisplayName())
+                                .build();
+        }
 }
-

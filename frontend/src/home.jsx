@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { getToken, getUser, removeToken, removeUser } from '@/utils/api';
 import {
     Heart,
     Search,
@@ -12,7 +13,10 @@ import {
     ShieldCheck,
     Clock,
     Target,
-    Sprout
+    Sprout,
+    User,
+    LogOut,
+    ChevronDown
 } from 'lucide-react';
 
 const CATEGORIES = [
@@ -102,6 +106,33 @@ const NavButton = ({ children, primary = false, onClick }) => (
 export default function Home() {
     const [activeCategory, setActiveCategory] = useState('all');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const navigate = useNavigate();
+
+    // Get current user info
+    const user = getUser();
+    const isLoggedIn = !!getToken();
+
+    // Handle logout
+    const handleLogout = () => {
+        removeToken();
+        removeUser();
+        setIsUserMenuOpen(false);
+        navigate('/');
+        window.location.reload();
+    };
+
+    // Check if user is logged in and navigate accordingly
+    const handleStartCampaign = () => {
+        const token = getToken();
+        if (token) {
+            // User is logged in, go to create campaign page
+            navigate('/create-campaign');
+        } else {
+            // User is not logged in, redirect to login page
+            navigate('/login');
+        }
+    };
 
     const filteredCampaigns = activeCategory === 'all'
         ? CAMPAIGNS
@@ -140,10 +171,34 @@ export default function Home() {
                                     className="pl-9 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 w-48 transition-all hover:bg-gray-50 border border-transparent hover:border-emerald-100"
                                 />
                             </div>
-                            <Link to="/login">
-                                <NavButton>Login</NavButton>
-                            </Link>
-                            <NavButton primary>Start Campaign</NavButton>
+                            <NavButton primary onClick={handleStartCampaign}>Start Campaign</NavButton>
+                            {isLoggedIn ? (
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 transition-colors cursor-pointer"
+                                    >
+                                        <User size={18} />
+                                        <span>{user?.displayName || 'User'}</span>
+                                        <ChevronDown size={16} className={`transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    {isUserMenuOpen && (
+                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
+                                            <button
+                                                onClick={handleLogout}
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                            >
+                                                <LogOut size={18} />
+                                                <span>Logout</span>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <Link to="/login">
+                                    <NavButton>Login</NavButton>
+                                </Link>
+                            )}
                         </div>
 
                         {/* Mobile Menu Button */}
@@ -166,8 +221,24 @@ export default function Home() {
                             <a href="#" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600">How It Works</a>
                             <a href="#" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600">About Us</a>
                             <div className="pt-4 flex flex-col gap-2">
-                                <Link to="/login" className="w-full py-3 rounded-xl border border-gray-200 font-medium text-gray-700 text-center hover:bg-gray-50 transition-colors">Login</Link>
-                                <button className="w-full py-3 rounded-xl bg-emerald-600 font-medium text-white shadow-lg shadow-emerald-200">Start Campaign</button>
+                                <button onClick={handleStartCampaign} className="w-full py-3 rounded-xl bg-emerald-600 font-medium text-white shadow-lg shadow-emerald-200">Start Campaign</button>
+                                {isLoggedIn ? (
+                                    <>
+                                        <div className="w-full py-3 rounded-xl bg-emerald-50 font-medium text-emerald-700 text-center flex items-center justify-center gap-2">
+                                            <User size={18} />
+                                            <span>{user?.displayName || 'User'}</span>
+                                        </div>
+                                        <button
+                                            onClick={handleLogout}
+                                            className="w-full py-3 rounded-xl border border-red-200 font-medium text-red-600 text-center hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <LogOut size={18} />
+                                            <span>Logout</span>
+                                        </button>
+                                    </>
+                                ) : (
+                                    <Link to="/login" className="w-full py-3 rounded-xl border border-gray-200 font-medium text-gray-700 text-center hover:bg-gray-50 transition-colors">Login</Link>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -211,7 +282,7 @@ export default function Home() {
                             <button className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-full text-lg shadow-lg shadow-emerald-900/30 transition-all hover:scale-105 flex items-center justify-center gap-2 border border-emerald-400/20">
                                 Start Donating <Heart size={20} fill="currentColor" />
                             </button>
-                            <button className="px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold rounded-full text-lg border border-white/20 transition-all flex items-center justify-center gap-2">
+                            <button onClick={handleStartCampaign} className="px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold rounded-full text-lg border border-white/20 transition-all flex items-center justify-center gap-2">
                                 Start Campaign <ArrowRight size={20} />
                             </button>
                         </div>

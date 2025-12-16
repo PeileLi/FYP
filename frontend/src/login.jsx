@@ -27,11 +27,12 @@ export default function Login() {
     try {
       const response = await authAPI.login(email, password);
 
-      // Store token and user info
+      // Store token and user info (displayName comes from backend)
       setToken(response.token);
       setUser({
         id: response.id,
         email: response.email,
+        displayName: response.displayName,
       });
 
       // Redirect to home page or dashboard

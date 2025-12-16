@@ -15,4 +15,5 @@ public class AuthResponse {
     private String type = "Bearer";
     private Long id;
     private String email;
+    private String displayName;
 }
