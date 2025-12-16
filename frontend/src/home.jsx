@@ -202,7 +202,7 @@ export default function App() {
                     <div className="text-center max-w-3xl mx-auto">
                         <h1 className="text-4xl md:text-6xl font-extrabold text-white tracking-tight mb-6 drop-shadow-lg">
                             The best time to plant a tree was ten years ago;<br className="hidden sm:block" />
-                            the <span className="text-emerald-400">second best time</span>  is now
+                            the <span className="text-emerald-400">second best time</span> is now
                         </h1>
                         <p className="text-emerald-100 text-lg md:text-xl mb-10 leading-relaxed max-w-2xl mx-auto">
                             Every moment presents an opportunity to make a positive impact. Join us in creating meaningful change, no matter where you start your journey.
