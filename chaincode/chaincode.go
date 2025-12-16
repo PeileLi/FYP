@@ -80,8 +80,8 @@ func (s *SmartContract) SubmitForAudit(ctx contractapi.TransactionContextInterfa
 	return ctx.GetStub().PutState(projectKey(id), data)
 }
 
-// 3. Auditor approves or rejects
-//    ✔ If approve = true → GUARANTEED + GuaranteeOrg = auditor
+//  3. Auditor approves or rejects
+//     ✔ If approve = true → GUARANTEED + GuaranteeOrg = auditor
 func (s *SmartContract) AuditProject(ctx contractapi.TransactionContextInterface,
 	id int, auditor string, approve bool, reason string) error {
 
