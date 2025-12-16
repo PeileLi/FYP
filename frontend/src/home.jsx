@@ -91,15 +91,15 @@ const NavButton = ({ children, primary = false, onClick }) => (
     <button
         onClick={onClick}
         className={`px-5 py-2.5 rounded-full font-medium transition-all duration-200 ${primary
-                ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300/50'
-                : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
+            ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300/50'
+            : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
             }`}
     >
         {children}
     </button>
 );
 
-export default function App() {
+export default function Home() {
     const [activeCategory, setActiveCategory] = useState('all');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -262,8 +262,8 @@ export default function App() {
                                 key={cat.id}
                                 onClick={() => setActiveCategory(cat.id)}
                                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${activeCategory === cat.id
-                                        ? 'bg-gray-900 text-white shadow-lg'
-                                        : 'bg-white text-gray-600 border border-gray-200 hover:border-emerald-200 hover:text-emerald-600 hover:bg-emerald-50'
+                                    ? 'bg-gray-900 text-white shadow-lg'
+                                    : 'bg-white text-gray-600 border border-gray-200 hover:border-emerald-200 hover:text-emerald-600 hover:bg-emerald-50'
                                     }`}
                             >
                                 {cat.name}

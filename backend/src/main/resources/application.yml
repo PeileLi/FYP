@@ -1,14 +1,37 @@
 spring:
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/fyp_db}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:123456}
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
   application:
     name: fyp-backend
 
+  datasource:
+    # Supabase PostgreSQL（Direct connection）
+    url: jdbc:postgresql://db.jxqrdqnfwqukunugydxd.supabase.co:5432/postgres?sslmode=require
+    username: postgres
+    password: ${SPRING_DATASOURCE_PASSWORD:CHANGE_ME}
+
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 30000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update  
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
 server:
   port: 8080
+
+jwt:
+  secret: ${JWT_SECRET:change-this-secret-to-a-long-random-string-at-least-32-bytes}
+  expiration: 86400000
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+    org.hibernate.type.descriptor.sql.BasicBinder: trace
