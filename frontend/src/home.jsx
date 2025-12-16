@@ -120,7 +120,7 @@ export default function App() {
                 <Sprout className="text-white" size={20} strokeWidth={2.5} />
               </div>
               <span className="text-xl font-bold tracking-tight text-gray-900">
-                CloudFund
+                BlockFund
               </span>
             </div>
 
@@ -301,7 +301,7 @@ export default function App() {
       <section className="bg-gradient-to-b from-emerald-50 to-white py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900">Why Choose CloudFund?</h2>
+            <h2 className="text-3xl font-bold text-gray-900">Why Choose BlockFund?</h2>
             <p className="mt-4 text-gray-600 max-w-2xl mx-auto">We are committed to building the most transparent and efficient crowdfunding platform, ensuring every donation makes a real impact.</p>
           </div>
 
@@ -340,7 +340,7 @@ export default function App() {
                 <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-1.5 rounded-lg">
                   <Sprout className="text-white" size={18} strokeWidth={2.5} />
                 </div>
-                <span className="text-xl font-bold text-white">CloudFund</span>
+                <span className="text-xl font-bold text-white">BlockFund</span>
               </div>
               <p className="text-sm text-gray-400 leading-relaxed">
                 Connecting every kind soul, making compassion know no distance.
@@ -375,7 +375,7 @@ export default function App() {
           </div>
           
           <div className="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-gray-500">
-            <p>© 2025 CloudFund Inc. All rights reserved.</p>
+            <p>© 2025 BlockFund Inc. All rights reserved.</p>
             <div className="flex gap-6 mt-4 md:mt-0">
               <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
               <a href="#" className="hover:text-white transition-colors">Terms of Service</a>

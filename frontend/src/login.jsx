@@ -56,7 +56,7 @@ export default function Login() {
                 <Sprout className="text-white" size={24} strokeWidth={2.5} />
               </div>
               <span className="text-2xl font-bold tracking-tight text-gray-900">
-                CloudFund
+                BlockFund
               </span>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-3">Welcome Back</h1>
