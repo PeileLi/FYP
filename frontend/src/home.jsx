@@ -107,19 +107,20 @@ export default function Home() {
     const [activeCategory, setActiveCategory] = useState('all');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    // Use state to manage authentication status for proper re-rendering
+    const [isLoggedIn, setIsLoggedIn] = useState(!!getToken());
+    const [user, setUserState] = useState(getUser());
     const navigate = useNavigate();
-
-    // Get current user info
-    const user = getUser();
-    const isLoggedIn = !!getToken();
 
     // Handle logout
     const handleLogout = () => {
         removeToken();
         removeUser();
         setIsUserMenuOpen(false);
+        // Update state to trigger re-render without page reload
+        setIsLoggedIn(false);
+        setUserState(null);
         navigate('/');
-        window.location.reload();
     };
 
     // Check if user is logged in and navigate accordingly
