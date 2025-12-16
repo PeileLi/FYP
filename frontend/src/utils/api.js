@@ -53,7 +53,7 @@ const apiRequest = async (endpoint, options = {}) => {
     } catch (error) {
         // Network error or connection refused
         if (error instanceof TypeError && error.message.includes('fetch')) {
-            throw new Error('无法连接到服务器。请确保后端服务正在运行在 http://localhost:8080');
+            throw new Error('Unable to connect to server. Please ensure the backend service is running on http://localhost:8080');
         }
         throw error;
     }
