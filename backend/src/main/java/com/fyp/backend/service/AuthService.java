@@ -69,6 +69,7 @@ public class AuthService {
                                 .id(user.getId())
                                 .email(user.getEmail())
                                 .displayName(user.getDisplayName())
+                                .avatarUrl(user.getAvatarUrl())
                                 .build();
         }
 
@@ -88,6 +89,7 @@ public class AuthService {
                                 .id(user.getId())
                                 .email(user.getEmail())
                                 .displayName(user.getDisplayName())
+                                .avatarUrl(user.getAvatarUrl())
                                 .build();
         }
 }

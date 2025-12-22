@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getUser, removeToken, removeUser } from '@/utils/api';
+import { getUser, setUser, removeToken, removeUser, userAPI } from '@/utils/api';
 import {
     User,
     Mail,
@@ -8,16 +8,23 @@ import {
     Lock,
     LogOut,
     AlertTriangle,
-    Pencil
+    Pencil,
+    Loader,
+    Camera
 } from 'lucide-react';
 
 export default function Settings() {
     const navigate = useNavigate();
-    const [user] = useState(getUser());
+    const [user, setUserState] = useState(getUser());
+    const fileInputRef = useRef(null);
 
     // Separate editing states
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [isEditingPassword, setIsEditingPassword] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+    const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(null);
 
     // Form states
     const [formData, setFormData] = useState({
@@ -32,6 +39,80 @@ export default function Settings() {
         removeToken();
         removeUser();
         navigate('/');
+    };
+
+    const handleAvatarClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleAvatarChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            setError('Please select an image file');
+            return;
+        }
+
+        // Validate file size (max 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            setError('Image size must be less than 2MB');
+            return;
+        }
+
+        setIsUploadingAvatar(true);
+        setError(null);
+
+        try {
+            // Convert to base64
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const base64 = event.target?.result;
+                try {
+                    const response = await userAPI.updateAvatar(base64);
+                    const updatedUser = { ...user, avatarUrl: response.avatarUrl };
+                    setUser(updatedUser);
+                    setUserState(updatedUser);
+                    setSuccess('Avatar updated successfully');
+                    setTimeout(() => setSuccess(null), 3000);
+                } catch (err) {
+                    setError(err.message || 'Failed to update avatar');
+                } finally {
+                    setIsUploadingAvatar(false);
+                }
+            };
+            reader.onerror = () => {
+                setError('Failed to read image file');
+                setIsUploadingAvatar(false);
+            };
+            reader.readAsDataURL(file);
+        } catch (err) {
+            setError('Failed to process image');
+            setIsUploadingAvatar(false);
+        }
+    };
+
+    const handleSaveProfile = async () => {
+        setIsSaving(true);
+        setError(null);
+        setSuccess(null);
+
+        try {
+            const response = await userAPI.updateProfile(formData.displayName);
+            // Update localStorage with new user data
+            const updatedUser = { ...user, displayName: response.displayName };
+            setUser(updatedUser);
+            setUserState(updatedUser);
+            setIsEditingProfile(false);
+            setSuccess('Profile updated successfully');
+            // Clear success message after 3 seconds
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err) {
+            setError(err.message || 'Failed to update profile');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -65,8 +146,40 @@ export default function Settings() {
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="p-6 sm:p-8 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50">
                             <div className="flex items-center gap-6">
-                                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-md text-emerald-600 border border-emerald-100">
-                                    <User size={40} />
+                                {/* Avatar with edit overlay */}
+                                <div className="relative group">
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleAvatarChange}
+                                        accept="image/*"
+                                        className="hidden"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleAvatarClick}
+                                        disabled={isUploadingAvatar}
+                                        className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-md text-emerald-600 border border-emerald-100 overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-500 transition-all"
+                                    >
+                                        {isUploadingAvatar ? (
+                                            <Loader size={24} className="animate-spin text-emerald-600" />
+                                        ) : user.avatarUrl ? (
+                                            <img
+                                                src={user.avatarUrl}
+                                                alt="Avatar"
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <User size={40} />
+                                        )}
+                                    </button>
+                                    {/* Camera overlay */}
+                                    <div
+                                        onClick={handleAvatarClick}
+                                        className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                    >
+                                        <Camera size={20} className="text-white" />
+                                    </div>
                                 </div>
                                 <div>
                                     <h2 className="text-2xl font-bold text-gray-900">{user.displayName || 'User'}</h2>
@@ -89,12 +202,22 @@ export default function Settings() {
                                 Personal Information
                             </h3>
 
+                            {error && (
+                                <div className="mb-4 p-3 bg-red-50 border border-red-100 text-red-700 rounded-lg text-sm">
+                                    {error}
+                                </div>
+                            )}
+                            {success && (
+                                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-lg text-sm">
+                                    {success}
+                                </div>
+                            )}
                             <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
                                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                                     <div className="sm:col-span-2">
                                         <div className="flex justify-between items-center mb-2">
                                             <label className="block text-sm font-medium text-gray-700">
-                                                Display Name
+                                                User Name
                                             </label>
                                             {!isEditingProfile ? (
                                                 <button
@@ -111,19 +234,20 @@ export default function Settings() {
                                                         onClick={() => {
                                                             setIsEditingProfile(false);
                                                             setFormData(prev => ({ ...prev, displayName: user?.displayName || '' }));
+                                                            setError(null);
                                                         }}
                                                         className="text-gray-500 hover:text-gray-700 text-xs font-medium"
+                                                        disabled={isSaving}
                                                     >
                                                         Cancel
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        onClick={() => {
-                                                            setIsEditingProfile(false);
-                                                            alert('Display name updated (Simulation)');
-                                                        }}
-                                                        className="text-emerald-600 hover:text-emerald-700 text-xs font-medium"
+                                                        onClick={handleSaveProfile}
+                                                        className="text-emerald-600 hover:text-emerald-700 text-xs font-medium flex items-center gap-1"
+                                                        disabled={isSaving}
                                                     >
+                                                        {isSaving ? <Loader size={12} className="animate-spin" /> : null}
                                                         Save
                                                     </button>
                                                 </div>

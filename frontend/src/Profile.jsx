@@ -18,8 +18,12 @@ export default function Profile() {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-8 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50">
                         <div className="flex items-center gap-6">
-                            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-md text-emerald-600 border border-emerald-100">
-                                <User size={48} />
+                            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-md text-emerald-600 border border-emerald-100 overflow-hidden">
+                                {user.avatarUrl ? (
+                                    <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                ) : (
+                                    <User size={48} />
+                                )}
                             </div>
                             <div>
                                 <h2 className="text-3xl font-bold text-gray-900">{user.displayName || 'User'}</h2>

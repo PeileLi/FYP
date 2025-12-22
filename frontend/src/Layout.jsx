@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import PropTypes from 'prop-types';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { getToken, getUser, removeToken, removeUser } from '@/utils/api';
 import {
@@ -28,12 +27,6 @@ const NavButton = ({ children, primary = false, onClick }) => (
         {children}
     </button>
 );
-
-NavButton.propTypes = {
-    children: PropTypes.node.isRequired,
-    primary: PropTypes.bool,
-    onClick: PropTypes.func
-};
 
 export default function Layout({ children }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -102,9 +95,15 @@ export default function Layout({ children }) {
                                 <div className="relative">
                                     <button
                                         onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 transition-colors cursor-pointer"
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 transition-colors cursor-pointer"
                                     >
-                                        <User size={18} />
+                                        <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-emerald-200 flex items-center justify-center bg-white">
+                                            {user?.avatarUrl ? (
+                                                <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <User size={18} className="text-emerald-600" />
+                                            )}
+                                        </div>
                                         <span>{user?.displayName || 'User'}</span>
                                         <ChevronDown size={16} className={`transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                                     </button>
@@ -297,8 +296,3 @@ export default function Layout({ children }) {
         </div>
     );
 }
-
-Layout.propTypes = {
-    children: PropTypes.node.isRequired
-};
-

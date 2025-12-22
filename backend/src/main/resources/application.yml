@@ -4,7 +4,8 @@ spring:
 
   datasource:
     # Supabase PostgreSQL (Pooler connection for IPv4 support)
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require}
+    # prepareThreshold=0 disables prepared statements (required for PgBouncer/Supabase Pooler)
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0}
     username: ${SPRING_DATASOURCE_USERNAME:postgres.jxqrdqnfwqukunugydxd}
     password: ${SPRING_DATASOURCE_PASSWORD:CHANGE_ME}
 

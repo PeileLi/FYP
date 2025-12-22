@@ -103,3 +103,24 @@ export const donationAPI = {
         });
     },
 };
+
+// User API
+export const userAPI = {
+    getProfile: async () => {
+        return apiRequest('/user/profile', {
+            method: 'GET',
+        });
+    },
+    updateProfile: async (displayName, avatarUrl) => {
+        return apiRequest('/user/profile', {
+            method: 'PUT',
+            body: JSON.stringify({ displayName, avatarUrl }),
+        });
+    },
+    updateAvatar: async (avatarUrl) => {
+        return apiRequest('/user/profile', {
+            method: 'PUT',
+            body: JSON.stringify({ avatarUrl }),
+        });
+    },
+};

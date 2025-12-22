@@ -6,15 +6,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class AuthResponse {
-    private String token;
-    @Builder.Default
-    private String type = "Bearer";
-    private Long id;
-    private String email;
+public class UpdateProfileRequest {
     private String displayName;
     private String avatarUrl;
 }

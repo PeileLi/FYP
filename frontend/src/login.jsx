@@ -33,6 +33,7 @@ export default function Login() {
         id: response.id,
         email: response.email,
         displayName: response.displayName,
+        avatarUrl: response.avatarUrl,
       });
 
       // Redirect to home page or dashboard
