@@ -3,9 +3,9 @@ spring:
     name: fyp-backend
 
   datasource:
-    # Supabase PostgreSQL（Direct connection）
-    url: jdbc:postgresql://db.jxqrdqnfwqukunugydxd.supabase.co:5432/postgres?sslmode=require
-    username: postgres
+    # Supabase PostgreSQL (Pooler connection for IPv4 support)
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres.jxqrdqnfwqukunugydxd}
     password: ${SPRING_DATASOURCE_PASSWORD:CHANGE_ME}
 
     hikari:
