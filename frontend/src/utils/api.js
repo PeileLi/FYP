@@ -63,12 +63,12 @@ const apiRequest = async (endpoint, options = {}) => {
         try {
             const error = await response.json();
             errorMessage = error.message || errorMessage;
-        } catch (e) {
+        } catch (_) {
             // If response is not JSON, try to get text
             try {
                 const text = await response.text();
                 if (text) errorMessage = text;
-            } catch (textError) {
+            } catch (__) {
                 // Use default error message
             }
         }
@@ -95,3 +95,11 @@ export const authAPI = {
     },
 };
 
+// Donation API
+export const donationAPI = {
+    getMyHistory: async () => {
+        return apiRequest('/donations/my-history', {
+            method: 'GET',
+        });
+    },
+};

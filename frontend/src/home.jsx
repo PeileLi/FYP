@@ -1,22 +1,16 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { getToken, getUser, removeToken, removeUser } from '@/utils/api';
+import { useNavigate } from 'react-router-dom';
+import { getToken, getUser } from '@/utils/api';
 import {
     Heart,
-    Search,
-    Menu,
-    X,
-    TrendingUp,
-    Users,
-    Globe,
-    ArrowRight,
     ShieldCheck,
     Clock,
     Target,
+    Users,
+    Search,
     Sprout,
-    User,
-    LogOut,
-    ChevronDown
+    ArrowRight,
+    TrendingUp
 } from 'lucide-react';
 
 const CATEGORIES = [
@@ -91,46 +85,15 @@ const CampaignCard = ({ data }) => {
     );
 };
 
-const NavButton = ({ children, primary = false, onClick }) => (
-    <button
-        onClick={onClick}
-        className={`px-5 py-2.5 rounded-full font-medium transition-all duration-200 ${primary
-            ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-200 hover:shadow-lg hover:shadow-emerald-300/50'
-            : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
-            }`}
-    >
-        {children}
-    </button>
-);
-
 export default function Home() {
     const [activeCategory, setActiveCategory] = useState('all');
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-    // Use state to manage authentication status for proper re-rendering
-    const [isLoggedIn, setIsLoggedIn] = useState(!!getToken());
-    const [user, setUserState] = useState(getUser());
     const navigate = useNavigate();
 
-    // Handle logout
-    const handleLogout = () => {
-        removeToken();
-        removeUser();
-        setIsUserMenuOpen(false);
-        // Update state to trigger re-render without page reload
-        setIsLoggedIn(false);
-        setUserState(null);
-        navigate('/');
-    };
-
-    // Check if user is logged in and navigate accordingly
     const handleStartCampaign = () => {
         const token = getToken();
         if (token) {
-            // User is logged in, go to create campaign page
             navigate('/create-campaign');
         } else {
-            // User is not logged in, redirect to login page
             navigate('/login');
         }
     };
@@ -140,112 +103,7 @@ export default function Home() {
         : CAMPAIGNS.filter(c => c.category === activeCategory);
 
     return (
-        <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
-            {/* Navigation */}
-            <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center h-16">
-                        {/* Logo */}
-                        <div className="flex items-center gap-2 cursor-pointer group">
-                            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-1.5 rounded-lg group-hover:scale-110 transition-transform shadow-sm">
-                                <Sprout className="text-white" size={20} strokeWidth={2.5} />
-                            </div>
-                            <span className="text-xl font-bold tracking-tight text-gray-900">
-                                BlockFund
-                            </span>
-                        </div>
-
-                        {/* Desktop Navigation */}
-                        <div className="hidden md:flex items-center gap-8">
-                            <a href="#" className="text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors">Browse Projects</a>
-                            <a href="#" className="text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors">How It Works</a>
-                            <a href="#" className="text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors">About Us</a>
-                        </div>
-
-                        {/* Desktop Actions */}
-                        <div className="hidden md:flex items-center gap-3">
-                            <div className="relative hidden lg:block">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                <input
-                                    type="text"
-                                    placeholder="Search campaigns..."
-                                    className="pl-9 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 w-48 transition-all hover:bg-gray-50 border border-transparent hover:border-emerald-100"
-                                />
-                            </div>
-                            <NavButton primary onClick={handleStartCampaign}>Start Campaign</NavButton>
-                            {isLoggedIn ? (
-                                <div className="relative">
-                                    <button
-                                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 transition-colors cursor-pointer"
-                                    >
-                                        <User size={18} />
-                                        <span>{user?.displayName || 'User'}</span>
-                                        <ChevronDown size={16} className={`transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
-                                    </button>
-                                    {isUserMenuOpen && (
-                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
-                                            <button
-                                                onClick={handleLogout}
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"
-                                            >
-                                                <LogOut size={18} />
-                                                <span>Logout</span>
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <Link to="/login">
-                                    <NavButton>Login</NavButton>
-                                </Link>
-                            )}
-                        </div>
-
-                        {/* Mobile Menu Button */}
-                        <div className="md:hidden">
-                            <button
-                                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                            >
-                                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Mobile Menu Dropdown */}
-                {isMobileMenuOpen && (
-                    <div className="md:hidden bg-white border-b border-gray-100 animate-in slide-in-from-top-5">
-                        <div className="px-4 pt-2 pb-6 space-y-2">
-                            <a href="#" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600">Browse Projects</a>
-                            <a href="#" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600">How It Works</a>
-                            <a href="#" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600">About Us</a>
-                            <div className="pt-4 flex flex-col gap-2">
-                                <button onClick={handleStartCampaign} className="w-full py-3 rounded-xl bg-emerald-600 font-medium text-white shadow-lg shadow-emerald-200">Start Campaign</button>
-                                {isLoggedIn ? (
-                                    <>
-                                        <div className="w-full py-3 rounded-xl bg-emerald-50 font-medium text-emerald-700 text-center flex items-center justify-center gap-2">
-                                            <User size={18} />
-                                            <span>{user?.displayName || 'User'}</span>
-                                        </div>
-                                        <button
-                                            onClick={handleLogout}
-                                            className="w-full py-3 rounded-xl border border-red-200 font-medium text-red-600 text-center hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <LogOut size={18} />
-                                            <span>Logout</span>
-                                        </button>
-                                    </>
-                                ) : (
-                                    <Link to="/login" className="w-full py-3 rounded-xl border border-gray-200 font-medium text-gray-700 text-center hover:bg-gray-50 transition-colors">Login</Link>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </nav>
-
+        <div className="bg-gray-50">
             {/* Hero Section */}
             <div className="relative bg-gradient-to-br from-emerald-900 via-green-800 to-teal-900 overflow-hidden">
                 {/* Background Texture */}
@@ -399,59 +257,6 @@ export default function Home() {
                     </div>
                 </div>
             </section>
-
-            {/* Footer */}
-            <footer className="bg-gray-900 text-gray-300 py-12 border-t border-gray-800">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
-                        <div className="col-span-1 md:col-span-1">
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-1.5 rounded-lg">
-                                    <Sprout className="text-white" size={18} strokeWidth={2.5} />
-                                </div>
-                                <span className="text-xl font-bold text-white">BlockFund</span>
-                            </div>
-                            <p className="text-sm text-gray-400 leading-relaxed">
-                                Connecting every kind soul, making compassion know no distance.
-                            </p>
-                        </div>
-
-                        <div>
-                            <h4 className="text-white font-bold mb-4">About Us</h4>
-                            <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-emerald-400 transition-colors">Platform Overview</a></li>
-                            </ul>
-                        </div>
-
-                        <div>
-                            <h4 className="text-white font-bold mb-4">Help Center</h4>
-                            <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-emerald-400 transition-colors">FAQ</a></li>
-                            </ul>
-                        </div>
-
-                        <div>
-                            <h4 className="text-white font-bold mb-4">Follow Us</h4>
-                            <div className="flex gap-4">
-                                <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-emerald-600 cursor-pointer transition-colors">
-                                    <Globe size={18} />
-                                </div>
-                                <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-emerald-600 cursor-pointer transition-colors">
-                                    <Users size={18} />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-gray-500">
-                        <p>© 2025 BlockFund Inc. All rights reserved.</p>
-                        <div className="flex gap-6 mt-4 md:mt-0">
-                            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-                            <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-                        </div>
-                    </div>
-                </div>
-            </footer>
         </div>
     );
 }
