@@ -1,5 +1,5 @@
-// API base URL - adjust based on your environment
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+// API base URL - uses relative path, nginx will proxy to backend
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // Get token from localStorage
 export const getToken = () => {
@@ -122,5 +122,16 @@ export const userAPI = {
             method: 'PUT',
             body: JSON.stringify({ avatarUrl }),
         });
+    },
+};
+
+// Stats API (public, no auth required)
+export const statsAPI = {
+    getPublicStats: async () => {
+        const response = await fetch(`${API_BASE_URL}/stats/public`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch stats');
+        }
+        return response.json();
     },
 };

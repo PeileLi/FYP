@@ -1,4 +1,24 @@
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: fyp-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fyp_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - fyp-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -7,10 +27,16 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require
-      SPRING_DATASOURCE_USERNAME: postgres.jxqrdqnfwqukunugydxd
-      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      # Database configuration - defaults to local DB, override with .env file for Supabase
+      # For local DB: jdbc:postgresql://postgres:5432/fyp_db
+      # For Supabase: Set SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD in .env
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/fyp_db}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-to-a-long-random-string-at-least-32-bytes}
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - fyp-network
@@ -31,3 +57,6 @@ services:
 networks:
   fyp-network:
     driver: bridge
+
+volumes:
+  postgres_data:

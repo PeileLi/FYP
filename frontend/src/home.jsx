@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getToken, getUser } from '@/utils/api';
+import { getToken, getUser, statsAPI } from '@/utils/api';
 import {
     Heart,
     ShieldCheck,
@@ -87,7 +87,43 @@ const CampaignCard = ({ data }) => {
 
 export default function Home() {
     const [activeCategory, setActiveCategory] = useState('all');
+    const [stats, setStats] = useState({
+        totalRaised: 0,
+        donorCount: 0,
+        successfulProjects: 0,
+        totalCampaigns: 0
+    });
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const data = await statsAPI.getPublicStats();
+                setStats(data);
+            } catch (error) {
+                console.error('Failed to fetch stats:', error);
+            }
+        };
+        fetchStats();
+    }, []);
+
+    // Format currency for display
+    const formatCurrency = (amount) => {
+        if (amount >= 1000000) {
+            return `€${(amount / 1000000).toFixed(1)}M`;
+        } else if (amount >= 1000) {
+            return `€${(amount / 1000).toFixed(1)}K`;
+        }
+        return `€${amount}`;
+    };
+
+    // Format number for display
+    const formatNumber = (num) => {
+        if (num >= 1000) {
+            return `${(num / 1000).toFixed(1)}K+`;
+        }
+        return num.toString();
+    };
 
     const handleStartCampaign = () => {
         const token = getToken();
@@ -157,15 +193,15 @@ export default function Home() {
                 <div className="px-4 sm:px-6 py-8">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-8 divide-x divide-gray-100">
                         <div className="text-center group">
-                            <div className="text-3xl font-bold text-gray-900 group-hover:text-emerald-600 transition-colors">¥120M</div>
+                            <div className="text-3xl font-bold text-gray-900 group-hover:text-emerald-600 transition-colors">{formatCurrency(stats.totalRaised)}</div>
                             <div className="text-sm text-gray-500 mt-1 uppercase tracking-wide">Total Raised</div>
                         </div>
                         <div className="text-center group">
-                            <div className="text-3xl font-bold text-gray-900 group-hover:text-emerald-600 transition-colors">350K+</div>
+                            <div className="text-3xl font-bold text-gray-900 group-hover:text-emerald-600 transition-colors">{formatNumber(stats.donorCount)}</div>
                             <div className="text-sm text-gray-500 mt-1 uppercase tracking-wide">Donors</div>
                         </div>
                         <div className="text-center group">
-                            <div className="text-3xl font-bold text-gray-900 group-hover:text-emerald-600 transition-colors">12K</div>
+                            <div className="text-3xl font-bold text-gray-900 group-hover:text-emerald-600 transition-colors">{stats.successfulProjects}</div>
                             <div className="text-sm text-gray-500 mt-1 uppercase tracking-wide">Successful Projects</div>
                         </div>
                         <div className="text-center hidden md:block group">

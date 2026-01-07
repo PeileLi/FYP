@@ -1,16 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getUser } from '@/utils/api';
+import { getUser, userAPI } from '@/utils/api';
 import { User, Mail, Calendar, ShieldCheck } from 'lucide-react';
 
 export default function Profile() {
     const navigate = useNavigate();
-    const [user] = useState(getUser());
+    const [user, setUser] = useState(getUser());
+    const [profile, setProfile] = useState(null);
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const data = await userAPI.getProfile();
+                setProfile(data);
+            } catch (error) {
+                console.error('Failed to fetch profile:', error);
+            }
+        };
+        if (user) {
+            fetchProfile();
+        }
+    }, [user]);
 
     if (!user) {
         navigate('/login');
         return null;
     }
+
+    // Format date to "Month Year" format
+    const formatMemberSince = (dateString) => {
+        if (!dateString) return 'Unknown';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    };
 
     return (
         <div className="bg-gray-50 py-8">
@@ -34,7 +56,7 @@ export default function Profile() {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div className="p-8">
                         <div className="grid gap-6 md:grid-cols-2">
                             <div className="p-6 bg-gray-50 rounded-xl border border-gray-100">
@@ -48,13 +70,13 @@ export default function Profile() {
                                 </div>
                                 <p className="text-sm text-gray-500 mt-2">Your account is fully verified and active.</p>
                             </div>
-                            
+
                             <div className="p-6 bg-gray-50 rounded-xl border border-gray-100">
                                 <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                                     <Calendar className="text-emerald-600" size={20} />
                                     Member Since
                                 </h3>
-                                <p className="text-gray-700 font-medium">December 2025</p>
+                                <p className="text-gray-700 font-medium">{formatMemberSince(profile?.createdAt)}</p>
                                 <p className="text-sm text-gray-500 mt-2">Thank you for being part of our community.</p>
                             </div>
                         </div>

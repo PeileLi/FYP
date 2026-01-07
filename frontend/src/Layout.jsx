@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { getToken, getUser, removeToken, removeUser } from '@/utils/api';
 import {
@@ -35,12 +35,30 @@ export default function Layout({ children }) {
     const [user, setUserState] = useState(getUser());
     const navigate = useNavigate();
     const location = useLocation();
+    const userMenuRef = useRef(null);
 
     // Check auth status on location change (in case of login/logout elsewhere)
     useEffect(() => {
         setIsLoggedIn(!!getToken());
         setUserState(getUser());
     }, [location]);
+
+    // Close user menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+                setIsUserMenuOpen(false);
+            }
+        };
+
+        if (isUserMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isUserMenuOpen]);
 
     const handleLogout = () => {
         removeToken();
@@ -92,7 +110,7 @@ export default function Layout({ children }) {
                             </div>
 
                             {isLoggedIn ? (
-                                <div className="relative">
+                                <div className="relative" ref={userMenuRef}>
                                     <button
                                         onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                                         className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 transition-colors cursor-pointer"

@@ -6,8 +6,6 @@ import {
     Mail,
     Shield,
     Lock,
-    LogOut,
-    AlertTriangle,
     Pencil,
     Loader,
     Camera
@@ -34,12 +32,6 @@ export default function Settings() {
         newPassword: '',
         confirmPassword: ''
     });
-
-    const handleLogout = () => {
-        removeToken();
-        removeUser();
-        navigate('/');
-    };
 
     const handleAvatarClick = () => {
         fileInputRef.current?.click();
@@ -381,26 +373,6 @@ export default function Settings() {
                         </div>
                     </div>
 
-                    {/* Account Actions */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4 text-red-600 flex items-center gap-2">
-                            <AlertTriangle size={20} />
-                            Danger Zone
-                        </h3>
-                        <div className="flex items-center justify-between p-4 bg-red-50 rounded-xl border border-red-100">
-                            <div>
-                                <h4 className="font-medium text-red-900">Sign Out</h4>
-                                <p className="text-sm text-red-700 mt-1">Sign out of your account on this device</p>
-                            </div>
-                            <button
-                                onClick={handleLogout}
-                                className="px-4 py-2 bg-white border border-red-200 text-red-600 font-medium rounded-lg hover:bg-red-50 hover:border-red-300 transition-colors flex items-center gap-2"
-                            >
-                                <LogOut size={16} />
-                                Sign Out
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </main>
         </div>
