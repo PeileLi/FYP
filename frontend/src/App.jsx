@@ -1,14 +1,14 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
-import Home from "./home";
-import Login from "./login";
-import Register from "./register";
-import CreateCampaign from "./CreateCampaign";
-import Settings from "./Settings";
-import Profile from "./Profile";
-import DonationHistory from "./DonationHistory";
-import Layout from "./Layout";
-import "./App.css";
+import Home from "@/pages/Home";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
+import CreateCampaign from "@/pages/CreateCampaign";
+import Settings from "@/pages/Settings";
+import Profile from "@/pages/Profile";
+import DonationHistory from "@/pages/DonationHistory";
+import Layout from "@/layouts/Layout";
+import "@/assets/App.css";
 
 function App() {
   return (
