@@ -135,3 +135,41 @@ export const statsAPI = {
         return response.json();
     },
 };
+
+// Campaign API
+export const campaignAPI = {
+    create: async (campaignData) => {
+        return apiRequest('/campaigns', {
+            method: 'POST',
+            body: JSON.stringify(campaignData),
+        });
+    },
+};
+
+// File Upload API
+export const uploadAPI = {
+    uploadImage: async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const token = getToken();
+        const headers = {};
+
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/upload/image`, {
+            method: 'POST',
+            headers,
+            body: formData, // Don't set Content-Type, browser will set it with boundary
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to upload image');
+        }
+
+        return response.json();
+    },
+};
