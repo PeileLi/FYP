@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getToken, getUser, statsAPI } from '@/utils/api';
+import { getToken, getUser, statsAPI, campaignAPI } from '@/utils/api';
 import {
     Heart,
     ShieldCheck,
@@ -15,14 +15,17 @@ import {
 
 const CATEGORIES = [
     { id: 'all', name: 'All' },
-    { id: 'medical', name: 'Medical Aid' },
-    { id: 'education', name: 'Education' },
-    { id: 'environment', name: 'Environment' },
-    { id: 'emergency', name: 'Emergency Relief' },
+    { id: 'disaster_relief', name: 'Disaster Relief' },
+    { id: 'medical_assistance', name: 'Medical Aid' },
+    { id: 'education_support', name: 'Education' },
+    { id: 'environmental', name: 'Environment' },
+    { id: 'poverty_alleviation', name: 'Poverty Alleviation' },
+    { id: 'community_development', name: 'Community' },
+    { id: 'children_welfare', name: 'Children' },
+    { id: 'elderly_care', name: 'Elderly' },
+    { id: 'animal_welfare', name: 'Animals' },
+    { id: 'other', name: 'Other' },
 ];
-
-const CAMPAIGNS = [];
-
 
 const ProgressBar = ({ current, total }) => {
     const percentage = Math.min((current / total) * 100, 100);
@@ -36,26 +39,41 @@ const ProgressBar = ({ current, total }) => {
     );
 };
 
-const CampaignCard = ({ data }) => {
-    const percent = Math.round((data.raised / data.goal) * 100);
+const CampaignCard = ({ data, onClick }) => {
+    const percent = Math.round((data.currentAmount / data.goalAmount) * 100);
+
+    const formatAmount = (amount) => {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'EUR',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(amount);
+    };
 
     return (
-        <div className="bg-white rounded-xl shadow-sm hover:shadow-xl hover:shadow-emerald-900/5 transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col h-full group">
+        <div 
+            onClick={onClick}
+            className="bg-white rounded-xl shadow-sm hover:shadow-xl hover:shadow-emerald-900/5 transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col h-full group cursor-pointer"
+        >
             <div className="relative h-48 overflow-hidden">
                 <img
-                    src={data.image}
+                    src={data.imageUrl}
                     alt={data.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    onError={(e) => {
+                        e.target.src = 'https://via.placeholder.com/400x300?text=Campaign+Image';
+                    }}
                 />
                 <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-md px-2 py-1 rounded text-xs font-bold text-emerald-700 uppercase tracking-wide shadow-sm">
-                    {CATEGORIES.find(c => c.id === data.category)?.name}
+                    {CATEGORIES.find(c => c.id === data.category)?.name || data.category}
                 </div>
             </div>
 
             <div className="p-5 flex flex-col flex-grow">
                 <div className="flex items-center gap-2 mb-2 text-gray-500 text-xs font-medium">
                     <ShieldCheck size={14} className="text-emerald-500" />
-                    <span>Organizer: {data.organizer}</span>
+                    <span>Organizer: {data.organizerName}</span>
                 </div>
 
                 <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1 group-hover:text-emerald-600 transition-colors">{data.title}</h3>
@@ -63,20 +81,20 @@ const CampaignCard = ({ data }) => {
 
                 <div className="mt-auto">
                     <div className="flex justify-between text-sm mb-1 font-medium">
-                        <span className="text-emerald-600">¥{data.raised.toLocaleString()}</span>
-                        <span className="text-gray-400">Goal ¥{data.goal.toLocaleString()}</span>
+                        <span className="text-emerald-600">{formatAmount(data.currentAmount)}</span>
+                        <span className="text-gray-400">Goal {formatAmount(data.goalAmount)}</span>
                     </div>
 
-                    <ProgressBar current={data.raised} total={data.goal} />
+                    <ProgressBar current={data.currentAmount} total={data.goalAmount} />
 
                     <div className="flex justify-between items-center text-xs text-gray-400 mt-3 border-t border-gray-50 pt-3">
                         <div className="flex items-center gap-1">
-                            <Users size={14} />
-                            <span>{data.donors} supporters</span>
+                            <Target size={14} />
+                            <span>{percent}% funded</span>
                         </div>
                         <div className="flex items-center gap-1">
                             <Clock size={14} />
-                            <span>{data.daysLeft} days left</span>
+                            <span>{data.status === 'COMPLETED' ? 'Completed' : 'Active'}</span>
                         </div>
                     </div>
                 </div>
@@ -86,25 +104,39 @@ const CampaignCard = ({ data }) => {
 };
 
 export default function Home() {
-    const [activeCategory, setActiveCategory] = useState('all');
+    const [campaigns, setCampaigns] = useState([]);
+    const [displayedCampaigns, setDisplayedCampaigns] = useState([]);
     const [stats, setStats] = useState({
         totalRaised: 0,
         donorCount: 0,
-        successfulProjects: 0,
-        totalCampaigns: 0
+        totalCampaigns: 0,
+        successfulProjects: 0
     });
+    const [isLoading, setIsLoading] = useState(true);
     const navigate = useNavigate();
 
     useEffect(() => {
-        const fetchStats = async () => {
+        const fetchData = async () => {
             try {
-                const data = await statsAPI.getPublicStats();
-                setStats(data);
+                setIsLoading(true);
+                const [statsData, campaignsData] = await Promise.all([
+                    statsAPI.getPublicStats(),
+                    campaignAPI.getActive()
+                ]);
+                setStats(statsData);
+                setCampaigns(campaignsData);
+                
+                // Randomly select 4-5 campaigns
+                const shuffled = [...campaignsData].sort(() => 0.5 - Math.random());
+                const randomCount = Math.floor(Math.random() * 2) + 4; // 4 or 5
+                setDisplayedCampaigns(shuffled.slice(0, Math.min(randomCount, campaignsData.length)));
             } catch (error) {
-                console.error('Failed to fetch stats:', error);
+                console.error('Failed to fetch data:', error);
+            } finally {
+                setIsLoading(false);
             }
         };
-        fetchStats();
+        fetchData();
     }, []);
 
     // Format currency for display
@@ -133,10 +165,6 @@ export default function Home() {
             navigate('/login');
         }
     };
-
-    const filteredCampaigns = activeCategory === 'all'
-        ? CAMPAIGNS
-        : CAMPAIGNS.filter(c => c.category === activeCategory);
 
     return (
         <div className="bg-gray-50">
@@ -215,49 +243,39 @@ export default function Home() {
             {/* Main Content */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
 
-                {/* Title and Filters */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
-                    <div>
-                        <h2 className="text-3xl font-bold text-gray-900 mb-2">Featured Campaigns</h2>
-                        <p className="text-gray-500">Discover those in need and make a difference</p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                        {CATEGORIES.map(cat => (
-                            <button
-                                key={cat.id}
-                                onClick={() => setActiveCategory(cat.id)}
-                                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${activeCategory === cat.id
-                                    ? 'bg-gray-900 text-white shadow-lg'
-                                    : 'bg-white text-gray-600 border border-gray-200 hover:border-emerald-200 hover:text-emerald-600 hover:bg-emerald-50'
-                                    }`}
-                            >
-                                {cat.name}
-                            </button>
-                        ))}
-                    </div>
+                {/* Title */}
+                <div className="mb-10">
+                    <h2 className="text-3xl font-bold text-gray-900 mb-2">Featured Campaigns</h2>
+                    <p className="text-gray-500">Discover those in need and make a difference</p>
                 </div>
 
-                {/* Campaigns Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {filteredCampaigns.map(campaign => (
-                        <CampaignCard key={campaign.id} data={campaign} />
-                    ))}
-                </div>
-
-                {filteredCampaigns.length === 0 && (
-                    <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
-                        <Search size={48} className="mx-auto text-gray-300 mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900">No campaigns found</h3>
-
+                {/* Loading State */}
+                {isLoading ? (
+                    <div className="text-center py-20">
+                        <div className="inline-block w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        <p className="mt-4 text-gray-500">Loading campaigns...</p>
                     </div>
+                ) : (
+                    <>
+                        {/* Campaigns Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {displayedCampaigns.map(campaign => (
+                                <CampaignCard 
+                                    key={campaign.id} 
+                                    data={campaign}
+                                    onClick={() => navigate(`/campaigns/${campaign.id}`)}
+                                />
+                            ))}
+                        </div>
+
+                        {displayedCampaigns.length === 0 && (
+                            <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
+                                <Search size={48} className="mx-auto text-gray-300 mb-4" />
+                                <h3 className="text-lg font-medium text-gray-900">No campaigns found</h3>
+                            </div>
+                        )}
+                    </>
                 )}
-
-                <div className="mt-16 text-center">
-                    <button className="inline-flex items-center gap-2 px-8 py-3 bg-white border border-gray-300 rounded-full font-medium text-gray-700 hover:bg-gray-50 hover:text-emerald-600 hover:border-emerald-300 transition-all shadow-sm hover:shadow">
-                        View More Projects <ArrowRight size={16} />
-                    </button>
-                </div>
             </main>
 
             {/* Trust & Security Section */}

@@ -1,5 +1,6 @@
 package com.fyp.backend.repository;
 
+import com.fyp.backend.model.Campaign;
 import com.fyp.backend.model.Donation;
 import com.fyp.backend.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,6 +13,7 @@ import java.util.List;
 @Repository
 public interface DonationRepository extends JpaRepository<Donation, Long> {
     List<Donation> findByUserOrderByDonationDateDesc(User user);
+    List<Donation> findByCampaignOrderByDonationDateDesc(Campaign campaign);
 
     @Query("SELECT COALESCE(SUM(d.amount), 0) FROM Donation d")
     BigDecimal getTotalDonationAmount();

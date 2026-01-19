@@ -14,10 +14,12 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class DonationResponse {
     private Long id;
+    private Long campaignId;
     private String campaignTitle;
+    private String donorName;
     private BigDecimal amount;
+    private String message;
     private LocalDateTime date;
     private String status;
-    private String transactionHash;
 }
 

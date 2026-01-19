@@ -5,8 +5,9 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  // Use "/FYP/" for GitHub Pages deployment (build), "/" for local development (serve)
-  base: command === 'build' ? "/FYP/" : "/",
+  // Use "/FYP/" for GitHub Pages deployment, "/" for local/Docker
+  // Set VITE_BASE_PATH=FYP for GitHub Pages build
+  base: process.env.VITE_BASE_PATH === 'FYP' ? '/FYP/' : '/',
   server: {
     host: true,
     port: 3000,

@@ -31,11 +31,11 @@ public class Donation {
     @Column(nullable = false)
     private BigDecimal amount;
 
-    @Column(nullable = false)
-    private LocalDateTime donationDate;
+    @Column(columnDefinition = "TEXT")
+    private String message; // Optional donation message
 
     @Column(nullable = false)
-    private String transactionHash;
+    private LocalDateTime donationDate;
 
     @Column(nullable = false)
     private String status; // COMPLETED, PENDING, FAILED
@@ -43,5 +43,8 @@ public class Donation {
     @PrePersist
     protected void onCreate() {
         donationDate = LocalDateTime.now();
+        if (status == null) {
+            status = "COMPLETED";
+        }
     }
 }

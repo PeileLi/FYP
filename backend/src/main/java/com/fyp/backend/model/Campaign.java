@@ -23,6 +23,9 @@ public class Campaign {
     @Column(nullable = false)
     private String title;
 
+    @Column(nullable = false)
+    private String category;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 
@@ -33,13 +36,7 @@ public class Campaign {
     private BigDecimal currentAmount;
 
     @Column(nullable = false)
-    private LocalDateTime startDate;
-
-    @Column(nullable = false)
-    private LocalDateTime endDate;
-
-    @Column(nullable = false)
-    private String status; // ACTIVE, COMPLETED, EXPIRED
+    private String status; // PENDING, ACTIVE, COMPLETED
 
     @Column(nullable = false)
     private String imageUrl;
@@ -60,6 +57,10 @@ public class Campaign {
         updatedAt = LocalDateTime.now();
         if (currentAmount == null)
             currentAmount = BigDecimal.ZERO;
+        if (status == null)
+            status = "ACTIVE"; // Directly published
+        if (title == null || title.equals("Pending Review"))
+            title = "Campaign #" + System.currentTimeMillis(); // Auto-generated title
     }
 
     @PreUpdate

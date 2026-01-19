@@ -95,15 +95,6 @@ export const authAPI = {
     },
 };
 
-// Donation API
-export const donationAPI = {
-    getMyHistory: async () => {
-        return apiRequest('/donations/my-history', {
-            method: 'GET',
-        });
-    },
-};
-
 // User API
 export const userAPI = {
     getProfile: async () => {
@@ -142,6 +133,48 @@ export const campaignAPI = {
         return apiRequest('/campaigns', {
             method: 'POST',
             body: JSON.stringify(campaignData),
+        });
+    },
+    getAll: async (params = {}) => {
+        const query = new URLSearchParams(params).toString();
+        const url = query ? `/campaigns?${query}` : '/campaigns';
+        return apiRequest(url, {
+            method: 'GET',
+        });
+    },
+    getById: async (id) => {
+        return apiRequest(`/campaigns/${id}`, {
+            method: 'GET',
+        });
+    },
+    getActive: async () => {
+        return apiRequest('/campaigns?status=active', {
+            method: 'GET',
+        });
+    },
+    getMyCampaigns: async () => {
+        return apiRequest('/campaigns/my-campaigns', {
+            method: 'GET',
+        });
+    },
+};
+
+// Donation API
+export const donationAPI = {
+    create: async (donationData) => {
+        return apiRequest('/donations', {
+            method: 'POST',
+            body: JSON.stringify(donationData),
+        });
+    },
+    getMyHistory: async () => {
+        return apiRequest('/donations/my-history', {
+            method: 'GET',
+        });
+    },
+    getCampaignDonations: async (campaignId) => {
+        return apiRequest(`/donations/campaign/${campaignId}`, {
+            method: 'GET',
         });
     },
 };

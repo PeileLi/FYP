@@ -13,7 +13,8 @@ import {
     History,
     UserCircle,
     Globe,
-    Users
+    Users,
+    Folders
 } from 'lucide-react';
 
 const NavButton = ({ children, primary = false, onClick }) => (
@@ -147,6 +148,16 @@ export default function Layout({ children }) {
                                                 <History size={18} />
                                                 <span>Donation History</span>
                                             </button>
+                                            <button
+                                                onClick={() => {
+                                                    setIsUserMenuOpen(false);
+                                                    navigate('/my-campaigns');
+                                                }}
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                                            >
+                                                <Folders size={18} />
+                                                <span>My Campaigns</span>
+                                            </button>
 
                                             <div className="h-px bg-gray-100 my-1 mx-2"></div>
 
@@ -222,6 +233,16 @@ export default function Layout({ children }) {
                                         >
                                             <History size={18} />
                                             <span>Donation History</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setIsMobileMenuOpen(false);
+                                                navigate('/my-campaigns');
+                                            }}
+                                            className="w-full py-3 rounded-xl border border-gray-200 font-medium text-gray-700 text-center hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <Folders size={18} />
+                                            <span>My Campaigns</span>
                                         </button>
                                         <div className="h-px bg-gray-100 my-1"></div>
                                         <button
