@@ -45,11 +45,6 @@
 			<scope>runtime</scope>
 		</dependency>
 		<dependency>
-			<groupId>com.h2database</groupId>
-			<artifactId>h2</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-configuration-processor</artifactId>
 			<optional>true</optional>
@@ -94,17 +89,34 @@
 			<artifactId>spring-dotenv</artifactId>
 			<version>4.0.0</version>
 		</dependency>
-		<!-- Hyperledger Fabric Java SDK -->
-		<dependency>
-			<groupId>org.hyperledger.fabric</groupId>
-			<artifactId>fabric-gateway</artifactId>
-			<version>1.5.1</version>
-		</dependency>
-		<dependency>
-			<groupId>io.grpc</groupId>
-			<artifactId>grpc-netty-shaded</artifactId>
-			<version>1.60.0</version>
-		</dependency>
+	<!-- Hyperledger Fabric Java SDK -->
+	<dependency>
+		<groupId>org.hyperledger.fabric</groupId>
+		<artifactId>fabric-gateway</artifactId>
+		<version>1.10.0</version>
+	</dependency>
+	<dependency>
+		<groupId>io.grpc</groupId>
+		<artifactId>grpc-netty-shaded</artifactId>
+		<version>1.68.0</version>
+		<exclusions>
+			<!-- Exclude tcnative to avoid WSL2 compatibility issues -->
+			<exclusion>
+				<groupId>io.netty</groupId>
+				<artifactId>netty-tcnative-classes</artifactId>
+			</exclusion>
+			<exclusion>
+				<groupId>io.netty</groupId>
+				<artifactId>netty-tcnative-boringssl-static</artifactId>
+			</exclusion>
+		</exclusions>
+	</dependency>
+	<!-- Add compatible protobuf version to resolve dependency conflicts -->
+	<dependency>
+		<groupId>com.google.protobuf</groupId>
+		<artifactId>protobuf-java</artifactId>
+		<version>4.28.2</version>
+	</dependency>
 	</dependencies>
 
 	<build>

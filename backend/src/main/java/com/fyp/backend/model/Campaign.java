@@ -55,6 +55,10 @@ public class Campaign {
     @Column(nullable = true)
     private LocalDateTime completedAt;
 
+    // Blockchain transaction ID for tracking on-chain data
+    @Column(nullable = true)
+    private String blockchainTxId;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

@@ -60,12 +60,13 @@ logging:
 
 # Hyperledger Fabric Configuration
 fabric:
-  enabled: ${FABRIC_ENABLED:false}
+  enabled: ${FABRIC_ENABLED:true}
   channel-name: ${FABRIC_CHANNEL_NAME:mychannel}
   chaincode-name: ${FABRIC_CHAINCODE_NAME:donation}
   msp-id: ${FABRIC_MSP_ID:Org1MSP}
   peer-endpoint: ${FABRIC_PEER_ENDPOINT:localhost:7051}
   peer-host-alias: ${FABRIC_PEER_HOST_ALIAS:peer0.org1.example.com}
-  cert-path: ${FABRIC_CERT_PATH:}
-  key-path: ${FABRIC_KEY_PATH:}
-  tls-cert-path: ${FABRIC_TLS_CERT_PATH:}
+  # Default certificate paths for Fabric test-network (can be overridden by environment variables)
+  cert-path: ${FABRIC_CERT_PATH:/home/li/project/FYP/fabric/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem}
+  key-path: ${FABRIC_KEY_PATH:/home/li/project/FYP/fabric/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore}
+  tls-cert-path: ${FABRIC_TLS_CERT_PATH:/home/li/project/FYP/fabric/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/tlscacerts/tls-localhost-7054-ca-org1.pem}

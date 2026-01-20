@@ -206,3 +206,17 @@ export const uploadAPI = {
         return response.json();
     },
 };
+
+// Blockchain API
+export const blockchainAPI = {
+    verifyCampaign: async (campaignId) => {
+        return apiRequest(`/blockchain/verify/${campaignId}`, {
+            method: 'GET',
+        });
+    },
+    searchByTxId: async (txId) => {
+        return apiRequest(`/blockchain/search?txId=${encodeURIComponent(txId)}`, {
+            method: 'GET',
+        });
+    },
+};

@@ -1,0 +1,37 @@
+# Node modules
+node_modules/
+npm-debug.log
+
+# Maven
+target/
+*.class
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+*.tmp
+*.swp
+*.bak
+
+# Documentation (not needed in container)
+docs/
+*.md
+
+# Test files
+**/*test*/
+**/*Test*/

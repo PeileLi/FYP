@@ -1,6 +1,6 @@
-module github.com/fyp/chaincode
+module chaincode
 
-go 1.23.0
+go 1.22.2
 
 require github.com/hyperledger/fabric-contract-api-go/v2 v2.2.0
 
@@ -24,6 +24,3 @@ require (
 	google.golang.org/protobuf v1.36.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-
-

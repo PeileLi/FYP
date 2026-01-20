@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { getToken, getUser, removeToken, removeUser } from '@/utils/api';
+import { getToken, getUser, setUser, removeToken, removeUser, userAPI } from '@/utils/api';
 import {
     Search,
     Menu,
@@ -14,7 +14,8 @@ import {
     UserCircle,
     Globe,
     Users,
-    Folders
+    Folders,
+    Shield
 } from 'lucide-react';
 
 const NavButton = ({ children, primary = false, onClick }) => (
@@ -38,10 +39,55 @@ export default function Layout({ children }) {
     const location = useLocation();
     const userMenuRef = useRef(null);
 
+    // Fetch latest user info from server on mount and when token changes
+    useEffect(() => {
+        const fetchUserInfo = async () => {
+            const token = getToken();
+            if (token) {
+                try {
+                    // Fetch latest user info from server
+                    const userData = await userAPI.getProfile();
+                    // Update localStorage with latest data
+                    setUser({
+                        id: userData.id,
+                        email: userData.email,
+                        displayName: userData.displayName,
+                        avatarUrl: userData.avatarUrl,
+                    });
+                    setUserState({
+                        id: userData.id,
+                        email: userData.email,
+                        displayName: userData.displayName,
+                        avatarUrl: userData.avatarUrl,
+                    });
+                } catch (error) {
+                    // If token is invalid, clear it
+                    console.error('Failed to fetch user info:', error);
+                    removeToken();
+                    removeUser();
+                    setIsLoggedIn(false);
+                    setUserState(null);
+                }
+            } else {
+                setIsLoggedIn(false);
+                setUserState(null);
+            }
+        };
+
+        fetchUserInfo();
+    }, []);
+
     // Check auth status on location change (in case of login/logout elsewhere)
     useEffect(() => {
-        setIsLoggedIn(!!getToken());
-        setUserState(getUser());
+        const token = getToken();
+        setIsLoggedIn(!!token);
+        if (token) {
+            // Try to get from localStorage first, but also fetch from server if needed
+            const localUser = getUser();
+            setUserState(localUser);
+        } else {
+            setUserState(null);
+        }
     }, [location]);
 
     // Listen for user profile updates
@@ -110,6 +156,10 @@ export default function Layout({ children }) {
                             <Link to="/" className="text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors">Browse Projects</Link>
                             <a href="#" className="text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors">How It Works</a>
                             <a href="#" className="text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors">About Us</a>
+                            <Link to="/blockchain-search" className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors flex items-center gap-1">
+                                <Shield size={16} />
+                                Blockchain Verify
+                            </Link>
                         </div>
 
                         {/* Desktop Actions */}
@@ -171,6 +221,16 @@ export default function Layout({ children }) {
                                                 <Folders size={18} />
                                                 <span>My Campaigns</span>
                                             </button>
+                                            <button
+                                                onClick={() => {
+                                                    setIsUserMenuOpen(false);
+                                                    navigate('/blockchain-search');
+                                                }}
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                            >
+                                                <Shield size={18} />
+                                                <span>Blockchain Verify</span>
+                                            </button>
 
                                             <div className="h-px bg-gray-100 my-1 mx-2"></div>
 
@@ -218,6 +278,10 @@ export default function Layout({ children }) {
                     <div className="md:hidden bg-white border-b border-gray-100 animate-in slide-in-from-top-5">
                         <div className="px-4 pt-2 pb-6 space-y-2">
                             <Link to="/" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600" onClick={() => setIsMobileMenuOpen(false)}>Browse Projects</Link>
+                            <Link to="/blockchain-search" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
+                                <Shield size={18} />
+                                Blockchain Verify
+                            </Link>
                             <a href="#" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600">How It Works</a>
                             <a href="#" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600">About Us</a>
                             <div className="pt-4 flex flex-col gap-2">

@@ -46,7 +46,13 @@ public class CampaignService {
                 String campaignID = String.valueOf(savedCampaign.getId());
                 String initiator = user.getEmail();
                 String description = savedCampaign.getCategory() + ": " + savedCampaign.getDescription();
-                fabricGatewayService.createCampaign(campaignID, initiator, description);
+                String txId = fabricGatewayService.createCampaign(campaignID, initiator, description);
+                
+                // Save transaction ID to database
+                if (txId != null && !txId.isEmpty()) {
+                    savedCampaign.setBlockchainTxId(txId);
+                    savedCampaign = campaignRepository.save(savedCampaign);
+                }
             }
         } catch (Exception e) {
             // Log error but don't fail the transaction
@@ -185,6 +191,7 @@ public class CampaignService {
                 .createdAt(campaign.getCreatedAt())
                 .updatedAt(campaign.getUpdatedAt())
                 .completedAt(campaign.getCompletedAt())
+                .blockchainTxId(campaign.getBlockchainTxId())
                 .build();
     }
 }

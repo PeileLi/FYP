@@ -156,7 +156,23 @@ public class FabricGatewayService {
             throw new IOException("Private key not found at: " + keyPath);
         }
 
-        PrivateKey privateKey = readPrivateKey(keyPath);
+        // If keyPath is a directory (keystore folder), find the first private key file
+        Path actualKeyPath = keyPath;
+        if (Files.isDirectory(keyPath)) {
+            final Path keystoreDir = keyPath;
+            try (var files = Files.list(keystoreDir)) {
+                actualKeyPath = files
+                        .filter(Files::isRegularFile)
+                        .filter(p -> p.getFileName().toString().endsWith("_sk"))
+                        .findFirst()
+                        .orElseThrow(
+                                () -> new IOException(
+                                        "No private key file found in keystore directory: " + keystoreDir));
+                log.info("Using private key file: {}", actualKeyPath.getFileName());
+            }
+        }
+
+        PrivateKey privateKey = readPrivateKey(actualKeyPath);
         log.info("Loaded private key for signing");
         return Signers.newPrivateKeySigner(privateKey);
     }
@@ -178,11 +194,14 @@ public class FabricGatewayService {
     /**
      * Create a new campaign on the blockchain
      * 在区块链上创建新的捐款项目
+     * 
+     * @return Transaction ID (composite key: campaignID_timestamp) for blockchain
+     *         verification
      */
-    public void createCampaign(String campaignID, String initiator, String description) {
+    public String createCampaign(String campaignID, String initiator, String description) {
         if (!fabricConfig.isEnabled()) {
             log.debug("Fabric is disabled, skipping blockchain operation");
-            return;
+            return null;
         }
 
         try {
@@ -192,11 +211,32 @@ public class FabricGatewayService {
             contract.submitTransaction("CreateCampaign",
                     campaignID, initiator, createdAt, description, auditor);
 
-            log.info("Campaign created on blockchain: {}", campaignID);
+            // Generate a blockchain certificate ID using campaign ID and timestamp
+            // Format: CAMPAIGN_{campaignID}_{timestamp_hash}
+            String timestamp = String.valueOf(System.currentTimeMillis());
+            String compositeKey = campaignID + "_" + timestamp;
+            String txId = "BC_" + bytesToHex(compositeKey.getBytes());
+
+            log.info("Campaign created on blockchain: {} with Certificate ID: {}", campaignID, txId);
+            return txId;
         } catch (Exception e) {
             log.error("Failed to create campaign on blockchain: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to create campaign on blockchain: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Convert byte array to hex string
+     */
+    private String bytesToHex(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 
     /**

@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  Euro, 
-  Users, 
+import {
+  ArrowLeft,
+  Euro,
+  Users,
   Calendar,
   Heart,
   Share2,
-  AlertCircle
+  AlertCircle,
+  Shield,
+  Copy,
+  CheckCircle
 } from 'lucide-react';
 import { campaignAPI, donationAPI, getUser } from '../utils/api';
 
@@ -70,12 +73,12 @@ export default function CampaignDetail() {
 
       // Refresh campaign data
       await fetchCampaignData();
-      
+
       // Reset form and close modal
       setDonateAmount('');
       setDonateMessage('');
       setShowDonateModal(false);
-      
+
       alert('Thank you for your donation!');
     } catch (err) {
       setError(err.message || 'Failed to process donation');
@@ -160,7 +163,7 @@ export default function CampaignDetail() {
                   {campaign.category.replace('_', ' ')}
                 </span>
               </div>
-              
+
               <h1 className="text-3xl font-bold text-gray-900 mb-4">
                 {campaign.title}
               </h1>
@@ -251,6 +254,54 @@ export default function CampaignDetail() {
                 </div>
               </div>
 
+              {/* Blockchain Certificate */}
+              <div className={`mb-6 p-4 rounded-xl ${campaign.blockchainTxId
+                ? 'bg-blue-50 border border-blue-200'
+                : 'bg-gray-50 border border-gray-200'
+                }`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <Shield className={campaign.blockchainTxId ? 'text-blue-600' : 'text-gray-400'} size={20} />
+                  <h3 className={`font-semibold ${campaign.blockchainTxId ? 'text-blue-900' : 'text-gray-600'}`}>
+                    {campaign.blockchainTxId ? 'Blockchain Verified' : 'Blockchain Certificate'}
+                  </h3>
+                </div>
+
+                {campaign.blockchainTxId ? (
+                  <>
+                    <p className="text-xs text-blue-700 mb-2">Blockchain Certificate ID:</p>
+                    <div className="flex items-start gap-2">
+                      <code className="text-xs font-mono text-blue-900 bg-white px-2 py-1 rounded border border-blue-200 flex-1 break-all cursor-text">
+                        {campaign.blockchainTxId}
+                      </code>
+                      <div className="flex-shrink-0">
+                        <BlockchainCopyButton text={campaign.blockchainTxId} />
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => navigate('/blockchain-search')}
+                      className="mt-3 w-full py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-100 transition-colors rounded-lg"
+                    >
+                      Verify on Blockchain →
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-600 mb-2">
+                      This campaign was created before blockchain verification was enabled.
+                    </p>
+                    <p className="text-xs text-gray-500 italic">
+                      New campaigns will automatically receive a blockchain certificate ID for verification.
+                    </p>
+                    <button
+                      onClick={() => navigate('/blockchain-search')}
+                      className="mt-3 w-full py-2 text-sm font-medium text-gray-600 hover:text-gray-700 hover:bg-gray-100 transition-colors rounded-lg"
+                    >
+                      Learn About Blockchain Verification →
+                    </button>
+                  </>
+                )}
+              </div>
+
               {/* Donate Button */}
               {campaign.status === 'ACTIVE' && (
                 <button
@@ -282,7 +333,7 @@ export default function CampaignDetail() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Make a Donation</h2>
-            
+
             {error && (
               <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mb-4">
                 <AlertCircle size={18} />
@@ -350,5 +401,30 @@ export default function CampaignDetail() {
         </div>
       )}
     </div>
+  );
+}
+
+// Helper component for blockchain copy button
+function BlockchainCopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+      title="Copy transaction ID"
+    >
+      {copied ? (
+        <CheckCircle size={16} className="text-green-600" />
+      ) : (
+        <Copy size={16} />
+      )}
+    </button>
   );
 }

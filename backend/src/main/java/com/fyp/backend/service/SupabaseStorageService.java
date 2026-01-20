@@ -81,13 +81,35 @@ public class SupabaseStorageService {
                 // Return public URL
                 String publicUrl = String.format("%s/storage/v1/object/public/%s/%s", 
                                                supabaseUrl, bucketName, filename);
+                System.out.println("Successfully uploaded file to Supabase: " + publicUrl);
                 return publicUrl;
             } else {
-                throw new IOException("Failed to upload file to Supabase: " + response.getStatusCode());
+                String errorMsg = String.format(
+                    "Failed to upload file to Supabase. Status: %s, Response: %s", 
+                    response.getStatusCode(), 
+                    response.getBody()
+                );
+                System.err.println(errorMsg);
+                throw new IOException(errorMsg);
             }
 
         } catch (Exception e) {
-            throw new IOException("Failed to upload file to Supabase: " + e.getMessage(), e);
+            String errorMsg = String.format(
+                "Failed to upload file to Supabase. URL: %s, Bucket: %s, Filename: %s, Error: %s",
+                supabaseUrl, bucketName, filename, e.getMessage()
+            );
+            System.err.println(errorMsg);
+            
+            // Check if it's a 403 error and provide specific guidance
+            if (e.getMessage().contains("403") || e.getMessage().contains("Forbidden")) {
+                System.err.println("⚠️  403 Error - This is likely a permissions issue:");
+                System.err.println("   1. Check if bucket 'campaign-images' exists in Supabase Dashboard");
+                System.err.println("   2. Verify Storage Policies are configured correctly");
+                System.err.println("   3. Ensure SUPABASE_SERVICE_ROLE_KEY is correct (not anon key)");
+                System.err.println("   4. See SUPABASE_STORAGE_FIX.md for detailed instructions");
+            }
+            
+            throw new IOException(errorMsg, e);
         }
     }
 

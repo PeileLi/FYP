@@ -14,7 +14,8 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Production stage
-FROM eclipse-temurin:17-jre-alpine
+# Use standard Debian-based image instead of Alpine for better gRPC compatibility
+FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 

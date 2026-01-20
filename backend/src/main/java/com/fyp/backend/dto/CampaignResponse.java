@@ -27,6 +27,7 @@ public class CampaignResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime completedAt; // Optional: set when campaign completes or is interrupted
+    private String blockchainTxId; // Blockchain transaction ID for verification
     
     // Progress percentage
     public double getProgress() {

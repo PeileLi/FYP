@@ -9,6 +9,7 @@ import Settings from "@/pages/Settings";
 import Profile from "@/pages/Profile";
 import DonationHistory from "@/pages/DonationHistory";
 import MyCampaigns from "@/pages/MyCampaigns";
+import BlockchainSearch from "@/pages/BlockchainSearch";
 import Layout from "@/layouts/Layout";
 import "@/assets/App.css";
 
@@ -25,6 +26,7 @@ function App() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/donation-history" element={<DonationHistory />} />
+        <Route path="/blockchain-search" element={<BlockchainSearch />} />
       </Routes>
     </Layout>
   );
