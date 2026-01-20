@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -82,6 +83,28 @@ public class CampaignService {
         Campaign campaign = campaignRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Campaign not found"));
         return mapToResponse(campaign);
+    }
+
+    /**
+     * Get campaign by blockchain transaction ID
+     * Only queries from database, does not restore from blockchain
+     * Blockchain is used only for evidence storage, not for data recovery
+     * 通过区块链证书ID获取项目，仅从数据库查询，不从区块链恢复
+     * 区块链仅作为证据储存，不用于数据恢复
+     */
+    @Transactional(readOnly = true)
+    public CampaignResponse getCampaignByBlockchainTxId(String txId) {
+        // Find campaign in database by blockchain transaction ID
+        Optional<Campaign> campaign = campaignRepository.findAll().stream()
+                .filter(c -> txId.equals(c.getBlockchainTxId()))
+                .findFirst();
+        
+        if (campaign.isPresent()) {
+            return mapToResponse(campaign.get());
+        }
+        
+        // Campaign not found in database
+        throw new RuntimeException("Campaign not found in database with blockchain transaction ID: " + txId);
     }
 
     @Transactional(readOnly = true)

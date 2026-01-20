@@ -12,7 +12,7 @@ import {
   Copy,
   CheckCircle
 } from 'lucide-react';
-import { campaignAPI, donationAPI, getUser } from '../utils/api';
+import { campaignAPI, donationAPI, blockchainAPI, getUser } from '../utils/api';
 
 export default function CampaignDetail() {
   const { id } = useParams();
@@ -34,15 +34,53 @@ export default function CampaignDetail() {
   const fetchCampaignData = async () => {
     try {
       setIsLoading(true);
-      const [campaignData, donationsData] = await Promise.all([
-        campaignAPI.getById(id),
-        donationAPI.getCampaignDonations(id)
-      ]);
-      setCampaign(campaignData);
-      setDonations(donationsData);
+      setError('');
+      
+      // Check if id looks like a blockchain transaction ID (starts with BC_)
+      if (id && id.startsWith('BC_')) {
+        console.log('Detected blockchain certificate ID, querying database:', id);
+        // Query database by blockchain transaction ID
+        // Blockchain is only used for evidence storage, not for data recovery
+        try {
+          const campaignData = await campaignAPI.getByTxId(id);
+          console.log('Campaign data received:', campaignData);
+          
+          if (!campaignData || !campaignData.id) {
+            throw new Error('Campaign not found in database with this blockchain certificate ID');
+          }
+          
+          setCampaign(campaignData);
+          
+          // Update URL to use database ID instead of blockchain TxId for better UX
+          if (campaignData.id && campaignData.id.toString() !== id) {
+            console.log('Updating URL from', id, 'to', campaignData.id);
+            navigate(`/campaigns/${campaignData.id}`, { replace: true });
+          }
+          
+          // Get donations
+          try {
+            const donationsData = await donationAPI.getCampaignDonations(campaignData.id);
+            setDonations(donationsData);
+          } catch (donationError) {
+            console.warn('Failed to fetch donations:', donationError);
+            setDonations([]);
+          }
+        } catch (queryError) {
+          console.error('Error querying campaign by blockchain certificate ID:', queryError);
+          throw new Error(queryError.message || 'Campaign not found in database. Blockchain is only used for evidence storage.');
+        }
+      } else {
+        // Normal ID-based lookup
+        const [campaignData, donationsData] = await Promise.all([
+          campaignAPI.getById(id),
+          donationAPI.getCampaignDonations(id)
+        ]);
+        setCampaign(campaignData);
+        setDonations(donationsData);
+      }
     } catch (error) {
       console.error('Failed to fetch campaign:', error);
-      setError(error.message);
+      setError(error.message || 'Failed to load campaign');
     } finally {
       setIsLoading(false);
     }
@@ -121,18 +159,50 @@ export default function CampaignDetail() {
   }
 
   if (error && !campaign) {
+    const isBlockchainId = id && id.startsWith('BC_');
+    
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="text-center">
+        <div className="text-center max-w-md">
           <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Campaign Not Found</h2>
-          <p className="text-gray-500 mb-6">{error}</p>
-          <button
-            onClick={() => navigate('/')}
-            className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-500 transition-colors"
-          >
-            Back to Home
-          </button>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Campaign Not Found
+          </h2>
+          <p className="text-gray-500 mb-4">{error}</p>
+          
+          {isBlockchainId && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl text-left">
+              <p className="text-sm text-blue-800 mb-2">
+                <strong>Note:</strong>
+              </p>
+              <p className="text-sm text-blue-700 mb-2">
+                This campaign was accessed using a blockchain certificate ID, but it was not found in the database.
+              </p>
+              <p className="text-sm text-blue-700 mb-2">
+                Blockchain is used only for evidence storage. To view blockchain evidence, use the Blockchain Search page.
+              </p>
+              <p className="text-xs text-blue-600 mt-3 font-mono break-all">
+                Certificate ID: {id}
+              </p>
+            </div>
+          )}
+          
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => navigate('/')}
+              className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-500 transition-colors"
+            >
+              Back to Home
+            </button>
+            {isBlockchainId && (
+              <button
+                onClick={() => navigate('/blockchain-search')}
+                className="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors"
+              >
+                Blockchain Search
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );

@@ -25,4 +25,5 @@ public class BlockchainController {
         BlockchainCertificateResponse response = blockchainService.searchByTxId(txId);
         return ResponseEntity.ok(response);
     }
+
 }

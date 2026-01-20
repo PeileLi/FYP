@@ -49,6 +49,17 @@ public class CampaignController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Get campaign by blockchain transaction ID
+     * Only queries from database, blockchain is used only for evidence storage
+     * 通过区块链证书ID获取项目，仅从数据库查询，区块链仅作为证据储存
+     */
+    @GetMapping("/by-txid")
+    public ResponseEntity<CampaignResponse> getCampaignByTxId(@RequestParam String txId) {
+        CampaignResponse response = campaignService.getCampaignByBlockchainTxId(txId);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/my-campaigns")
     public ResponseEntity<List<CampaignResponse>> getMyCampaigns() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

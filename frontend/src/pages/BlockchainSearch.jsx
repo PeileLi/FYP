@@ -161,8 +161,8 @@ export default function BlockchainSearch() {
                                         <div className="space-y-3">
                                             <InfoRow
                                                 icon={<Database size={18} />}
-                                                label="Campaign"
-                                                value={result.title || result.campaignId}
+                                                label="Campaign ID"
+                                                value={result.campaignId}
                                                 copyable
                                             />
                                             <InfoRow
@@ -194,7 +194,7 @@ export default function BlockchainSearch() {
                                             {result.blockchainTxId && (
                                                 <InfoRow
                                                     icon={<LinkIcon size={18} />}
-                                                    label="Blockchain TX ID"
+                                                    label="Blockchain Certificate ID"
                                                     value={result.blockchainTxId}
                                                     copyable
                                                     mono
@@ -203,16 +203,18 @@ export default function BlockchainSearch() {
                                         </div>
                                     </div>
 
-                                    {/* View Campaign Button */}
-                                    <div className="mt-6 pt-6 border-t border-gray-200">
-                                        <button
-                                            onClick={() => navigate(`/campaign/${result.databaseId}`)}
-                                            className="w-full flex justify-center items-center py-3 px-4 border border-blue-600 rounded-xl text-blue-600 font-semibold hover:bg-blue-50 transition-colors"
-                                        >
-                                            <ExternalLink size={20} className="mr-2" />
-                                            View Campaign Details
-                                        </button>
-                                    </div>
+                                    {/* View Campaign Button (only if in database) */}
+                                    {result.databaseId && (
+                                        <div className="mt-6 pt-6 border-t border-gray-200">
+                                            <button
+                                                onClick={() => navigate(`/campaigns/${result.databaseId}`)}
+                                                className="w-full flex justify-center items-center py-3 px-4 border border-blue-600 rounded-xl text-blue-600 font-semibold hover:bg-blue-50 transition-colors"
+                                            >
+                                                <ExternalLink size={20} className="mr-2" />
+                                                View Campaign Details
+                                            </button>
+                                        </div>
+                                    )}
                                 </>
                             )}
                         </div>

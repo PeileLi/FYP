@@ -198,6 +198,11 @@ export const campaignAPI = {
             method: 'GET',
         });
     },
+    getByTxId: async (txId) => {
+        return publicApiRequest(`/campaigns/by-txid?txId=${encodeURIComponent(txId)}`, {
+            method: 'GET',
+        });
+    },
 };
 
 // Donation API
