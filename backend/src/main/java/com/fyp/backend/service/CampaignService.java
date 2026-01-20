@@ -20,6 +20,7 @@ public class CampaignService {
 
     private final CampaignRepository campaignRepository;
     private final UserRepository userRepository;
+    private final FabricGatewayService fabricGatewayService;
 
     @Transactional
     public CampaignResponse createCampaign(CreateCampaignRequest request, String userEmail) {
@@ -38,6 +39,21 @@ public class CampaignService {
                 .build();
 
         Campaign savedCampaign = campaignRepository.save(campaign);
+        
+        // Save to blockchain if enabled
+        try {
+            if (fabricGatewayService.isEnabled()) {
+                String campaignID = String.valueOf(savedCampaign.getId());
+                String initiator = user.getEmail();
+                String description = savedCampaign.getCategory() + ": " + savedCampaign.getDescription();
+                fabricGatewayService.createCampaign(campaignID, initiator, description);
+            }
+        } catch (Exception e) {
+            // Log error but don't fail the transaction
+            // Campaign is already saved in DB
+            throw new RuntimeException("Failed to save campaign to blockchain: " + e.getMessage());
+        }
+        
         return mapToResponse(savedCampaign);
     }
 
@@ -80,6 +96,23 @@ public class CampaignService {
         // Check if goal reached
         if (newAmount.compareTo(campaign.getGoalAmount()) >= 0) {
             campaign.setStatus("COMPLETED");
+            // Set completion time when goal is reached
+            if (campaign.getCompletedAt() == null) {
+                campaign.setCompletedAt(java.time.LocalDateTime.now());
+            }
+            
+            // Update status on blockchain
+            try {
+                if (fabricGatewayService.isEnabled()) {
+                    fabricGatewayService.updateCampaignStatus(
+                        String.valueOf(campaignId), 
+                        "COMPLETED"
+                    );
+                }
+            } catch (Exception e) {
+                // Log error but don't fail the transaction
+                System.err.println("Failed to update campaign status on blockchain: " + e.getMessage());
+            }
         }
 
         campaignRepository.save(campaign);
@@ -96,6 +129,47 @@ public class CampaignService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
+    public CampaignResponse closeCampaign(Long campaignId, String userEmail) {
+        Campaign campaign = campaignRepository.findById(campaignId)
+                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+        
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Check if user is the organizer
+        if (!campaign.getOrganizer().getId().equals(user.getId())) {
+            throw new RuntimeException("Only the campaign organizer can close the campaign");
+        }
+        
+        // Check if campaign is already completed
+        if ("COMPLETED".equals(campaign.getStatus()) || "CLOSED".equals(campaign.getStatus())) {
+            throw new RuntimeException("Campaign is already closed or completed");
+        }
+        
+        // Close the campaign
+        campaign.setStatus("CLOSED");
+        if (campaign.getCompletedAt() == null) {
+            campaign.setCompletedAt(java.time.LocalDateTime.now());
+        }
+        
+        // Update status on blockchain (SUSPENDED for closed campaigns)
+        try {
+            if (fabricGatewayService.isEnabled()) {
+                fabricGatewayService.updateCampaignStatus(
+                    String.valueOf(campaignId), 
+                    "SUSPENDED"
+                );
+            }
+        } catch (Exception e) {
+            // Log error but don't fail the transaction
+            System.err.println("Failed to update campaign status on blockchain: " + e.getMessage());
+        }
+        
+        Campaign savedCampaign = campaignRepository.save(campaign);
+        return mapToResponse(savedCampaign);
+    }
+
     private CampaignResponse mapToResponse(Campaign campaign) {
         return CampaignResponse.builder()
                 .id(campaign.getId())
@@ -110,6 +184,7 @@ public class CampaignService {
                 .organizerId(campaign.getOrganizer().getId())
                 .createdAt(campaign.getCreatedAt())
                 .updatedAt(campaign.getUpdatedAt())
+                .completedAt(campaign.getCompletedAt())
                 .build();
     }
 }

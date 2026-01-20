@@ -56,4 +56,12 @@ public class CampaignController {
         List<CampaignResponse> campaigns = campaignService.getUserCampaigns(email);
         return ResponseEntity.ok(campaigns);
     }
+
+    @PutMapping("/{id}/close")
+    public ResponseEntity<CampaignResponse> closeCampaign(@PathVariable Long id) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        CampaignResponse response = campaignService.closeCampaign(id, email);
+        return ResponseEntity.ok(response);
+    }
 }

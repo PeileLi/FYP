@@ -8,7 +8,7 @@ import (
 )
 
 // Campaign status constants
-// All campaigns on-chain have passed third-party audit
+// Audit mechanism is temporarily optional
 const (
 	StatusInProgress = "IN_PROGRESS" // Campaign is in progress, accepting donations (进行中)
 	StatusCompleted  = "COMPLETED"   // Campaign has been completed (已完成)
@@ -16,14 +16,14 @@ const (
 )
 
 // Campaign represents a donation campaign on the blockchain
-// 捐款项目 - 上链即代表已通过第三方审核
+// 捐款项目 - 审核机制暂时可选
 type Campaign struct {
 	CampaignID  string `json:"campaignId"`  // Unique campaign identifier (捐款编号)
 	Initiator   string `json:"initiator"`   // Campaign creator (发起人)
 	CreatedAt   string `json:"createdAt"`   // Creation timestamp (发起时间)
 	Status      string `json:"status"`      // Campaign status (状态)
 	Description string `json:"description"` // Campaign description/keywords (项目描述/关键字)
-	Auditor     string `json:"auditor"`     // Third-party auditor/organization that approved this campaign (审核机构)
+	Auditor     string `json:"auditor"`     // Third-party auditor/organization (审核机构, AUTO_APPROVED if bypassed)
 }
 
 // Donation represents a single donation record on the blockchain
@@ -55,8 +55,8 @@ func donationKey(donationID string) string {
 
 // ==================== Campaign Functions ====================
 
-// CreateCampaign creates a new donation campaign (already approved by auditor)
-// 创建捐款项目 - 上链即代表已通过审核
+// CreateCampaign creates a new donation campaign (auditor is optional for now)
+// 创建捐款项目 - 审核机制暂时可选
 func (s *SmartContract) CreateCampaign(ctx contractapi.TransactionContextInterface,
 	campaignID string, initiator string, createdAt string, description string, auditor string) error {
 
@@ -69,9 +69,10 @@ func (s *SmartContract) CreateCampaign(ctx contractapi.TransactionContextInterfa
 		return fmt.Errorf("campaign %s already exists", campaignID)
 	}
 
-	// Auditor is required since all on-chain campaigns must be audited
+	// If auditor is empty, set default value to bypass audit for now
+	// 如果审核机构为空，设置默认值以暂时跳过审核
 	if auditor == "" {
-		return fmt.Errorf("auditor is required for campaign creation")
+		auditor = "AUTO_APPROVED"
 	}
 
 	campaign := Campaign{

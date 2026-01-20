@@ -26,6 +26,7 @@ public class CampaignResponse {
     private Long organizerId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private LocalDateTime completedAt; // Optional: set when campaign completes or is interrupted
     
     // Progress percentage
     public double getProgress() {

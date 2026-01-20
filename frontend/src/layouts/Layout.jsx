@@ -44,6 +44,19 @@ export default function Layout({ children }) {
         setUserState(getUser());
     }, [location]);
 
+    // Listen for user profile updates
+    useEffect(() => {
+        const handleUserUpdate = () => {
+            setUserState(getUser());
+        };
+
+        window.addEventListener('userProfileUpdated', handleUserUpdate);
+
+        return () => {
+            window.removeEventListener('userProfileUpdated', handleUserUpdate);
+        };
+    }, []);
+
     // Close user menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {

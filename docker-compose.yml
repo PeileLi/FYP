@@ -34,12 +34,33 @@ services:
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-to-a-long-random-string-at-least-32-bytes}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_BUCKET_NAME: ${SUPABASE_BUCKET_NAME:-campaign-images}
+      SUPABASE_STORAGE_ENABLED: ${SUPABASE_STORAGE_ENABLED:-true}
+      # Fabric configuration
+      FABRIC_ENABLED: ${FABRIC_ENABLED:-true}
+      FABRIC_CHANNEL_NAME: ${FABRIC_CHANNEL_NAME:-mychannel}
+      FABRIC_CHAINCODE_NAME: ${FABRIC_CHAINCODE_NAME:-donation}
+      FABRIC_MSP_ID: ${FABRIC_MSP_ID:-Org1MSP}
+      FABRIC_PEER_ENDPOINT: ${FABRIC_PEER_ENDPOINT:-peer0.org1.example.com:7051}
+      FABRIC_PEER_HOST_ALIAS: ${FABRIC_PEER_HOST_ALIAS:-peer0.org1.example.com}
+      FABRIC_CERT_PATH: ${FABRIC_CERT_PATH}
+      FABRIC_KEY_PATH: ${FABRIC_KEY_PATH}
+      FABRIC_TLS_CERT_PATH: ${FABRIC_TLS_CERT_PATH}
+    volumes:
+      # Persist uploaded images
+      - campaign_images:/app/uploads/images
+      # Mount Fabric crypto materials (read-only)
+      - ./fabric-samples/test-network/organizations/peerOrganizations/org1.example.com:/fabric/organizations/peerOrganizations/org1.example.com:ro
+      - ./fabric-samples/test-network/organizations/ordererOrganizations/example.com:/fabric/organizations/ordererOrganizations/example.com:ro
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
     networks:
       - fyp-network
+      - fabric_test
 
   frontend:
     build:
@@ -57,6 +78,10 @@ services:
 networks:
   fyp-network:
     driver: bridge
+  fabric_test:
+    external: true
+    name: fabric_test
 
 volumes:
   postgres_data:
+  campaign_images:

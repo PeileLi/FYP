@@ -67,6 +67,10 @@ export default function Settings() {
                     setUser(updatedUser);
                     setUserState(updatedUser);
                     setSuccess('Avatar updated successfully');
+                    
+                    // Notify Layout component to refresh user data
+                    window.dispatchEvent(new Event('userProfileUpdated'));
+                    
                     setTimeout(() => setSuccess(null), 3000);
                 } catch (err) {
                     setError(err.message || 'Failed to update avatar');
@@ -98,6 +102,10 @@ export default function Settings() {
             setUserState(updatedUser);
             setIsEditingProfile(false);
             setSuccess('Profile updated successfully');
+            
+            // Notify Layout component to refresh user data
+            window.dispatchEvent(new Event('userProfileUpdated'));
+            
             // Clear success message after 3 seconds
             setTimeout(() => setSuccess(null), 3000);
         } catch (err) {

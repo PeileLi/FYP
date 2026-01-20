@@ -36,7 +36,7 @@ public class Campaign {
     private BigDecimal currentAmount;
 
     @Column(nullable = false)
-    private String status; // PENDING, ACTIVE, COMPLETED
+    private String status; // ACTIVE, COMPLETED (goal reached), CLOSED (manually closed/interrupted)
 
     @Column(nullable = false)
     private String imageUrl;
@@ -50,6 +50,10 @@ public class Campaign {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    // Optional: Set when campaign reaches goal or is interrupted/closed
+    @Column(nullable = true)
+    private LocalDateTime completedAt;
 
     @PrePersist
     protected void onCreate() {

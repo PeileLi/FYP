@@ -3,10 +3,14 @@ spring:
     name: fyp-backend
 
   datasource:
-    # Local PostgreSQL Database
+    # PostgreSQL Database Configuration
+    # For local development: jdbc:postgresql://localhost:5432/fyp_db
+    # For Supabase: jdbc:postgresql://db.<your-project-ref>.supabase.co:5432/postgres
+    # Configure in .env file (see .env.example for details)
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/fyp_db}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
 
     hikari:
       maximum-pool-size: 10
@@ -41,7 +45,27 @@ jwt:
   secret: ${JWT_SECRET:my-secret-key-for-jwt-token-generation-change-this-in-production}
   expiration: 86400000
 
+# Supabase Storage Configuration
+supabase:
+  url: ${SUPABASE_URL:https://your-project.supabase.co}
+  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:your-service-role-key}
+  storage:
+    enabled: ${SUPABASE_STORAGE_ENABLED:true}
+    bucket-name: ${SUPABASE_BUCKET_NAME:campaign-images}
+
 logging:
   level:
     org.hibernate.SQL: debug
     org.hibernate.type.descriptor.sql.BasicBinder: trace
+
+# Hyperledger Fabric Configuration
+fabric:
+  enabled: ${FABRIC_ENABLED:false}
+  channel-name: ${FABRIC_CHANNEL_NAME:mychannel}
+  chaincode-name: ${FABRIC_CHAINCODE_NAME:donation}
+  msp-id: ${FABRIC_MSP_ID:Org1MSP}
+  peer-endpoint: ${FABRIC_PEER_ENDPOINT:localhost:7051}
+  peer-host-alias: ${FABRIC_PEER_HOST_ALIAS:peer0.org1.example.com}
+  cert-path: ${FABRIC_CERT_PATH:}
+  key-path: ${FABRIC_KEY_PATH:}
+  tls-cert-path: ${FABRIC_TLS_CERT_PATH:}
