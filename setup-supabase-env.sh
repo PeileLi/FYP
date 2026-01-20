@@ -13,7 +13,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEST_NETWORK_DIR="${PROJECT_ROOT}/fabric-samples/test-network"
+TEST_NETWORK_DIR="${PROJECT_ROOT}/fabric/fabric-samples/test-network"
 
 echo -e "${BLUE}=== Supabase + Fabric Docker Environment Setup ===${NC}"
 echo ""
