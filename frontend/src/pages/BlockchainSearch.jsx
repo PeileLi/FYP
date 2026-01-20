@@ -161,8 +161,8 @@ export default function BlockchainSearch() {
                                         <div className="space-y-3">
                                             <InfoRow
                                                 icon={<Database size={18} />}
-                                                label="Campaign ID"
-                                                value={result.campaignId}
+                                                label="Campaign"
+                                                value={result.title || result.campaignId}
                                                 copyable
                                             />
                                             <InfoRow
@@ -200,32 +200,6 @@ export default function BlockchainSearch() {
                                                     mono
                                                 />
                                             )}
-                                        </div>
-                                    </div>
-
-                                    {/* Database Verification */}
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                            <Database className="mr-2 text-green-600" size={20} />
-                                            Database Verification
-                                        </h3>
-                                        <div className="space-y-3">
-                                            <InfoRow
-                                                icon={<Database size={18} />}
-                                                label="Database ID"
-                                                value={result.databaseId}
-                                            />
-                                            <InfoRow
-                                                icon={<Shield size={18} />}
-                                                label="Database Status"
-                                                value={result.databaseStatus}
-                                                badge
-                                            />
-                                            <InfoRow
-                                                icon={<Calendar size={18} />}
-                                                label="Database Created At"
-                                                value={new Date(result.databaseCreatedAt).toLocaleString()}
-                                            />
                                         </div>
                                     </div>
 

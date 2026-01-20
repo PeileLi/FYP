@@ -32,7 +32,48 @@ export const removeUser = () => {
     localStorage.removeItem('user');
 };
 
-// API request helper
+// Public API request helper (no authentication required)
+const publicApiRequest = async (endpoint, options = {}) => {
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+    };
+
+    let response;
+    try {
+        response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            ...options,
+            headers,
+        });
+    } catch (error) {
+        // Network error or connection refused
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+            throw new Error('Unable to connect to server. Please ensure the backend service is running on http://localhost:8080');
+        }
+        throw error;
+    }
+
+    if (!response.ok) {
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+            const error = await response.json();
+            errorMessage = error.message || errorMessage;
+        } catch (_) {
+            // If response is not JSON, try to get text
+            try {
+                const text = await response.text();
+                if (text) errorMessage = text;
+            } catch (__) {
+                // Use default error message
+            }
+        }
+        throw new Error(errorMessage);
+    }
+
+    return response.json();
+};
+
+// API request helper (with authentication)
 const apiRequest = async (endpoint, options = {}) => {
     const token = getToken();
     const headers = {
@@ -138,17 +179,17 @@ export const campaignAPI = {
     getAll: async (params = {}) => {
         const query = new URLSearchParams(params).toString();
         const url = query ? `/campaigns?${query}` : '/campaigns';
-        return apiRequest(url, {
+        return publicApiRequest(url, {
             method: 'GET',
         });
     },
     getById: async (id) => {
-        return apiRequest(`/campaigns/${id}`, {
+        return publicApiRequest(`/campaigns/${id}`, {
             method: 'GET',
         });
     },
     getActive: async () => {
-        return apiRequest('/campaigns?status=active', {
+        return publicApiRequest('/campaigns?status=active', {
             method: 'GET',
         });
     },
@@ -173,7 +214,7 @@ export const donationAPI = {
         });
     },
     getCampaignDonations: async (campaignId) => {
-        return apiRequest(`/donations/campaign/${campaignId}`, {
+        return publicApiRequest(`/donations/campaign/${campaignId}`, {
             method: 'GET',
         });
     },
@@ -207,15 +248,15 @@ export const uploadAPI = {
     },
 };
 
-// Blockchain API
+// Blockchain API (public, no authentication required)
 export const blockchainAPI = {
     verifyCampaign: async (campaignId) => {
-        return apiRequest(`/blockchain/verify/${campaignId}`, {
+        return publicApiRequest(`/blockchain/verify/${campaignId}`, {
             method: 'GET',
         });
     },
     searchByTxId: async (txId) => {
-        return apiRequest(`/blockchain/search?txId=${encodeURIComponent(txId)}`, {
+        return publicApiRequest(`/blockchain/search?txId=${encodeURIComponent(txId)}`, {
             method: 'GET',
         });
     },

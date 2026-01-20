@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class BlockchainCertificateResponse {
     private String campaignId;
+    private String title;
     private String initiator;
     private String createdAt;
     private String status;

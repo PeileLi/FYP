@@ -62,7 +62,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/hello").permitAll()
                         .requestMatchers("/api/stats/public").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/campaigns/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/donations/campaign/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/upload/images/**").permitAll()
+                        .requestMatchers("/api/blockchain/**").permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
