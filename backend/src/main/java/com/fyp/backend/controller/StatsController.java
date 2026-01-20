@@ -1,6 +1,5 @@
 package com.fyp.backend.controller;
 
-import com.fyp.backend.repository.UserRepository;
 import com.fyp.backend.repository.CampaignRepository;
 import com.fyp.backend.repository.DonationRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +16,6 @@ import java.util.Map;
 @CrossOrigin(origins = "*")
 public class StatsController {
 
-    private final UserRepository userRepository;
     private final CampaignRepository campaignRepository;
     private final DonationRepository donationRepository;
 
@@ -44,6 +42,3 @@ public class StatsController {
         return ResponseEntity.ok(stats);
     }
 }
-
-
-
