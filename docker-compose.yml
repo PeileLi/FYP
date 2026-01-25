@@ -53,9 +53,9 @@ services:
       # Persist uploaded images
       - campaign_images:/app/uploads/images
       # Mount Fabric crypto materials (read-only)
-      # Using absolute paths from actual Fabric network location
-      - /home/li/project/FYP/fabric/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com:/fabric/organizations/peerOrganizations/org1.example.com:ro
-      - /home/li/project/FYP/fabric/fabric-samples/test-network/organizations/ordererOrganizations/example.com:/fabric/organizations/ordererOrganizations/example.com:ro
+      # Use relative paths - works on both Linux/WSL and Mac
+      - ./fabric/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com:/fabric/organizations/peerOrganizations/org1.example.com:ro
+      - ./fabric/fabric-samples/test-network/organizations/ordererOrganizations/example.com:/fabric/organizations/ordererOrganizations/example.com:ro
     depends_on:
       postgres:
         condition: service_healthy
