@@ -357,16 +357,13 @@ export default function CampaignDetail() {
                 ) : (
                   <>
                     <p className="text-xs text-gray-600 mb-2">
-                      This campaign was created before blockchain verification was enabled.
-                    </p>
-                    <p className="text-xs text-gray-500 italic">
-                      New campaigns will automatically receive a blockchain certificate ID for verification.
+                      This campaign is not recorded on the blockchain.
                     </p>
                     <button
                       onClick={() => navigate('/blockchain-search')}
                       className="mt-3 w-full py-2 text-sm font-medium text-gray-600 hover:text-gray-700 hover:bg-gray-100 transition-colors rounded-lg"
                     >
-                      Learn About Blockchain Verification →
+                      More about Blockchain Verification →
                     </button>
                   </>
                 )}
