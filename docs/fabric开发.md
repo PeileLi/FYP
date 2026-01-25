@@ -31,19 +31,26 @@ docker ps
 docker ps | grep -E "(peer|orderer)"
 ```
 
-### 一键启动（推荐）
+### 快速启动（推荐）
 ```bash
 # 进入项目目录
 cd /path/to/FYP  # Linux/WSL
 cd ~/projects/FYP  # Mac
 
-# 1. 启动 Fabric 网络和链码
-./scripts/start-fabric.sh
+# 1. 启动 Fabric 网络
+cd fabric/fabric-samples/test-network
+./network.sh up createChannel
 
-# 2. 启动应用服务
+# 2. 部署链码
+cd ../../../chaincode
+chmod +x deploy.sh
+./deploy.sh
+
+# 3. 启动应用服务
+cd ..
 docker compose up -d
 
-# 3. 验证
+# 4. 验证
 docker logs fyp-backend | grep "Fabric Gateway"
 ```
 
@@ -135,13 +142,15 @@ docker compose down
 
 ### 关闭所有服务（包括 Fabric）
 ```bash
-# 使用自动化脚本
-./scripts/stop-all.sh
-
-# 或手动执行
+# 1. 停止应用服务
 docker compose down
+
+# 2. 停止 Fabric 网络
 cd fabric/fabric-samples/test-network
 ./network.sh down
+
+# 3. 清理 Docker 网络（可选）
+docker network prune -f
 ```
 
 ---
@@ -157,26 +166,34 @@ docker ps | grep -E "(peer|orderer)"
 # 如果 Fabric 网络还在运行，只需重启应用
 docker compose restart
 
-# 如果 Fabric 网络已停止，使用自动化脚本
-./scripts/start-fabric.sh
+# 如果 Fabric 网络已停止，重新启动
+cd fabric/fabric-samples/test-network
+./network.sh up createChannel
+cd ../../../chaincode
+./deploy.sh
+cd ..
 docker compose up -d
 ```
 
 ### 场景 2: 完全重启（清除所有数据）
 
 ```bash
-# 使用自动化脚本
-./scripts/restart-all.sh
-
-# 或手动执行
+# 1. 停止应用服务
 docker compose down
+
+# 2. 停止 Fabric 网络并清理
 cd fabric/fabric-samples/test-network
 ./network.sh down
 docker network prune -f
 
+# 3. 重新启动 Fabric
 ./network.sh up createChannel
+
+# 4. 重新部署链码
 cd ../../../chaincode
 ./deploy.sh
+
+# 5. 启动应用服务
 cd ..
 docker compose up -d
 ```
@@ -235,7 +252,11 @@ cp .env.example .env
 #### 4. 启动
 
 ```bash
-./scripts/start-fabric.sh
+cd fabric/fabric-samples/test-network
+./network.sh up createChannel
+cd ../../../chaincode
+./deploy.sh
+cd ..
 docker compose up -d
 ```
 
@@ -324,8 +345,16 @@ cp .env.example .env
 open -a Docker
 sleep 10
 
-# 启动服务
-./scripts/start-fabric.sh
+# 启动 Fabric 网络
+cd ~/projects/FYP/fabric/fabric-samples/test-network
+./network.sh up createChannel
+
+# 部署链码
+cd ../../../chaincode
+./deploy.sh
+
+# 启动应用服务
+cd ..
 docker compose up -d
 ```
 
@@ -398,8 +427,15 @@ docker ps | grep peer
 # 2. 检查证书文件
 ls -la fabric/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/
 
-# 3. 重启服务
-./scripts/restart-all.sh
+# 3. 完全重启
+docker compose down
+cd fabric/fabric-samples/test-network
+./network.sh down
+./network.sh up createChannel
+cd ../../../chaincode
+./deploy.sh
+cd ..
+docker compose up -d
 ```
 
 ### 2. 网络冲突错误
@@ -499,13 +535,20 @@ curl http://localhost:8080/api/campaigns
 # 1. 进入项目目录
 cd /path/to/FYP  # 或 ~/projects/FYP
 
-# 2. 启动 Fabric（如果未运行）
-./scripts/start-fabric.sh
+# 2. 检查 Fabric 是否运行
+docker ps | grep -E "(peer|orderer)"
 
-# 3. 启动应用
+# 3. 如果 Fabric 未运行，启动它
+cd fabric/fabric-samples/test-network
+./network.sh up createChannel
+cd ../../../chaincode
+./deploy.sh
+cd ..
+
+# 4. 启动应用
 docker compose up -d
 
-# 4. 查看日志
+# 5. 查看日志
 docker compose logs -f backend
 ```
 
@@ -532,8 +575,10 @@ docker compose restart backend
 # 仅停止应用
 docker compose stop
 
-# 停止所有服务
-./scripts/stop-all.sh
+# 停止所有服务（包括 Fabric）
+docker compose down
+cd fabric/fabric-samples/test-network
+./network.sh down
 ```
 
 ---
@@ -553,7 +598,14 @@ docker logs peer0.org1.example.com
 
 # 重启服务
 docker compose restart
-./scripts/restart-all.sh
+docker compose down
+cd fabric/fabric-samples/test-network
+./network.sh down
+./network.sh up createChannel
+cd ../../../chaincode
+./deploy.sh
+cd ..
+docker compose up -d
 
 # 清理资源
 docker system prune -a
@@ -575,19 +627,18 @@ docker volume prune
 
 ```
 FYP/
-├── scripts/              # 自动化脚本
-│   ├── start-fabric.sh   # 启动 Fabric
-│   ├── stop-all.sh       # 停止所有服务
-│   └── restart-all.sh    # 重启所有服务
 ├── fabric/
 │   └── fabric-samples/
-│       └── test-network/ # Fabric 测试网络
-├── chaincode/            # 智能合约
-├── backend/              # Spring Boot 后端
-├── frontend/             # React 前端
-├── docker-compose.yml    # Docker 编排（使用相对路径）
-├── .env                  # 环境变量（从 .env.example 复制）
-└── .env.example          # 环境变量模板
+│       └── test-network/     # Fabric 测试网络
+│           └── network.sh    # Fabric 网络管理脚本
+├── chaincode/                # 智能合约
+│   ├── chaincode.go          # Go 智能合约代码
+│   └── deploy.sh             # 链码部署脚本
+├── backend/                  # Spring Boot 后端
+├── frontend/                 # React 前端
+├── docker-compose.yml        # Docker 编排（使用相对路径）
+├── .env                      # 环境变量（从 .env.example 复制）
+└── .env.example              # 环境变量模板
 ```
 
 ---
