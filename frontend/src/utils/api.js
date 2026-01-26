@@ -215,14 +215,16 @@ const apiRequest = async (endpoint, options = {}) => {
 // Auth API
 export const authAPI = {
     login: async (email, password) => {
-        return apiRequest('/auth/login', {
+        // Use publicApiRequest for login - don't treat 401 as session expired
+        return publicApiRequest('/auth/login', {
             method: 'POST',
             body: JSON.stringify({ email, password }),
         });
     },
 
     register: async (email, password) => {
-        return apiRequest('/auth/register', {
+        // Use publicApiRequest for register - no authentication required
+        return publicApiRequest('/auth/register', {
             method: 'POST',
             body: JSON.stringify({ email, password }),
         });

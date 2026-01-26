@@ -11,6 +11,7 @@ import DonationHistory from "@/pages/DonationHistory";
 import MyCampaigns from "@/pages/MyCampaigns";
 import BlockchainSearch from "@/pages/BlockchainSearch";
 import Layout from "@/layouts/Layout";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import "@/assets/App.css";
 
 function App() {
@@ -20,12 +21,47 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/create-campaign" element={<CreateCampaign />} />
+        <Route 
+          path="/create-campaign" 
+          element={
+            <ProtectedRoute>
+              <CreateCampaign />
+            </ProtectedRoute>
+          } 
+        />
         <Route path="/campaigns/:id" element={<CampaignDetail />} />
-        <Route path="/my-campaigns" element={<MyCampaigns />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/donation-history" element={<DonationHistory />} />
+        <Route 
+          path="/my-campaigns" 
+          element={
+            <ProtectedRoute>
+              <MyCampaigns />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/settings" 
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/donation-history" 
+          element={
+            <ProtectedRoute>
+              <DonationHistory />
+            </ProtectedRoute>
+          } 
+        />
         <Route path="/blockchain-search" element={<BlockchainSearch />} />
       </Routes>
     </Layout>
