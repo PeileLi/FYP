@@ -1,6 +1,13 @@
 // API base URL - uses relative path, nginx will proxy to backend
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
+// Request timeout (30 seconds)
+const REQUEST_TIMEOUT = 30000;
+
+// ============================================================================
+// Local Storage Helpers
+// ============================================================================
+
 // Get token from localStorage
 export const getToken = () => {
     return localStorage.getItem('token');
@@ -32,50 +39,123 @@ export const removeUser = () => {
     localStorage.removeItem('user');
 };
 
-// Public API request helper (no authentication required)
+// ============================================================================
+// Error Handling
+// ============================================================================
+
+/**
+ * Create a fetch request with timeout
+ */
+const fetchWithTimeout = (url, options, timeout = REQUEST_TIMEOUT) => {
+    return Promise.race([
+        fetch(url, options),
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Request timeout')), timeout)
+        )
+    ]);
+};
+
+/**
+ * Parse error response from server
+ */
+const parseErrorResponse = async (response) => {
+    try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            const error = await response.json();
+            return error.message || error.error || `HTTP ${response.status}`;
+        } else {
+            const text = await response.text();
+            return text || `HTTP ${response.status}`;
+        }
+    } catch (e) {
+        return `HTTP ${response.status}`;
+    }
+};
+
+/**
+ * Get user-friendly error message
+ */
+export const getUserFriendlyErrorMessage = (error) => {
+    const message = error?.message || 'An unexpected error occurred';
+    
+    // Network errors
+    if (message.includes('fetch') || message.includes('timeout')) {
+        return 'Unable to connect to server. Please check your internet connection.';
+    }
+    
+    // Authentication errors
+    if (message.includes('401') || message.includes('Unauthorized')) {
+        return 'Your session has expired. Please log in again.';
+    }
+    
+    if (message.includes('403') || message.includes('Forbidden')) {
+        return 'You don\'t have permission to perform this action.';
+    }
+    
+    // Not found
+    if (message.includes('404') || message.includes('not found')) {
+        return 'The requested resource was not found.';
+    }
+    
+    // Server errors
+    if (message.includes('500') || message.includes('502') || message.includes('503')) {
+        return 'Server error. Please try again later.';
+    }
+    
+    // Return original message for other errors
+    return message;
+};
+
+// ============================================================================
+// Core Request Functions
+// ============================================================================
+
+/**
+ * Public API request helper (no authentication required)
+ */
 const publicApiRequest = async (endpoint, options = {}) => {
+    const url = `${API_BASE_URL}${endpoint}`;
     const headers = {
         'Content-Type': 'application/json',
         ...options.headers,
     };
 
-    let response;
     try {
-        response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        const response = await fetchWithTimeout(url, {
             ...options,
             headers,
         });
-    } catch (error) {
-        // Network error or connection refused
-        if (error instanceof TypeError && error.message.includes('fetch')) {
-            throw new Error('Unable to connect to server. Please ensure the backend service is running on http://localhost:8080');
+
+        if (!response.ok) {
+            const errorMessage = await parseErrorResponse(response);
+            throw new Error(`${response.status} ${errorMessage}`);
         }
+
+        // Handle empty responses
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return response.json();
+        }
+        
+        return response.text();
+
+    } catch (error) {
+        // Network errors
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+            throw new Error('Network error: Unable to connect to server');
+        }
+        
         throw error;
     }
-
-    if (!response.ok) {
-        let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-            const error = await response.json();
-            errorMessage = error.message || errorMessage;
-        } catch (_) {
-            // If response is not JSON, try to get text
-            try {
-                const text = await response.text();
-                if (text) errorMessage = text;
-            } catch (__) {
-                // Use default error message
-            }
-        }
-        throw new Error(errorMessage);
-    }
-
-    return response.json();
 };
 
-// API request helper (with authentication)
+/**
+ * API request helper (with authentication)
+ */
 const apiRequest = async (endpoint, options = {}) => {
     const token = getToken();
+    const url = `${API_BASE_URL}${endpoint}`;
     const headers = {
         'Content-Type': 'application/json',
         ...options.headers,
@@ -85,39 +165,52 @@ const apiRequest = async (endpoint, options = {}) => {
         headers['Authorization'] = `Bearer ${token}`;
     }
 
-    let response;
     try {
-        response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        const response = await fetchWithTimeout(url, {
             ...options,
             headers,
         });
-    } catch (error) {
-        // Network error or connection refused
-        if (error instanceof TypeError && error.message.includes('fetch')) {
-            throw new Error('Unable to connect to server. Please ensure the backend service is running on http://localhost:8080');
+
+        if (!response.ok) {
+            const errorMessage = await parseErrorResponse(response);
+            
+            // Handle authentication errors
+            if (response.status === 401) {
+                // Token expired or invalid
+                console.warn('Token expired, clearing session');
+                removeToken();
+                removeUser();
+                
+                // Emit event for UI to handle
+                window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+                
+                throw new Error('401 Your session has expired. Please log in again.');
+            }
+            
+            throw new Error(`${response.status} ${errorMessage}`);
         }
+
+        // Handle empty responses
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return response.json();
+        }
+        
+        return response.text();
+
+    } catch (error) {
+        // Network errors
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+            throw new Error('Network error: Unable to connect to server');
+        }
+        
         throw error;
     }
-
-    if (!response.ok) {
-        let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-            const error = await response.json();
-            errorMessage = error.message || errorMessage;
-        } catch (_) {
-            // If response is not JSON, try to get text
-            try {
-                const text = await response.text();
-                if (text) errorMessage = text;
-            } catch (__) {
-                // Use default error message
-            }
-        }
-        throw new Error(errorMessage);
-    }
-
-    return response.json();
 };
+
+// ============================================================================
+// API Endpoints
+// ============================================================================
 
 // Auth API
 export const authAPI = {
@@ -143,12 +236,14 @@ export const userAPI = {
             method: 'GET',
         });
     },
+    
     updateProfile: async (displayName, avatarUrl) => {
         return apiRequest('/user/profile', {
             method: 'PUT',
             body: JSON.stringify({ displayName, avatarUrl }),
         });
     },
+    
     updateAvatar: async (avatarUrl) => {
         return apiRequest('/user/profile', {
             method: 'PUT',
@@ -160,11 +255,20 @@ export const userAPI = {
 // Stats API (public, no auth required)
 export const statsAPI = {
     getPublicStats: async () => {
-        const response = await fetch(`${API_BASE_URL}/stats/public`);
-        if (!response.ok) {
-            throw new Error('Failed to fetch stats');
+        try {
+            return await publicApiRequest('/stats/public', {
+                method: 'GET',
+            });
+        } catch (error) {
+            // Return default stats if API fails
+            console.warn('Failed to fetch stats, using defaults');
+            return {
+                totalRaised: 0,
+                donorCount: 0,
+                totalCampaigns: 0,
+                successfulProjects: 0
+            };
         }
-        return response.json();
     },
 };
 
@@ -176,6 +280,7 @@ export const campaignAPI = {
             body: JSON.stringify(campaignData),
         });
     },
+    
     getAll: async (params = {}) => {
         const query = new URLSearchParams(params).toString();
         const url = query ? `/campaigns?${query}` : '/campaigns';
@@ -183,21 +288,25 @@ export const campaignAPI = {
             method: 'GET',
         });
     },
+    
     getById: async (id) => {
         return publicApiRequest(`/campaigns/${id}`, {
             method: 'GET',
         });
     },
+    
     getActive: async () => {
         return publicApiRequest('/campaigns?status=active', {
             method: 'GET',
         });
     },
+    
     getMyCampaigns: async () => {
         return apiRequest('/campaigns/my-campaigns', {
             method: 'GET',
         });
     },
+    
     getByTxId: async (txId) => {
         return publicApiRequest(`/campaigns/by-txid?txId=${encodeURIComponent(txId)}`, {
             method: 'GET',
@@ -213,11 +322,13 @@ export const donationAPI = {
             body: JSON.stringify(donationData),
         });
     },
+    
     getMyHistory: async () => {
         return apiRequest('/donations/my-history', {
             method: 'GET',
         });
     },
+    
     getCampaignDonations: async (campaignId) => {
         return publicApiRequest(`/donations/campaign/${campaignId}`, {
             method: 'GET',
@@ -238,18 +349,30 @@ export const uploadAPI = {
             headers['Authorization'] = `Bearer ${token}`;
         }
 
-        const response = await fetch(`${API_BASE_URL}/upload/image`, {
-            method: 'POST',
-            headers,
-            body: formData, // Don't set Content-Type, browser will set it with boundary
-        });
+        try {
+            const response = await fetchWithTimeout(`${API_BASE_URL}/upload/image`, {
+                method: 'POST',
+                headers,
+                body: formData, // Don't set Content-Type, browser will set it with boundary
+            });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to upload image');
+            if (!response.ok) {
+                const errorMessage = await parseErrorResponse(response);
+                
+                if (response.status === 413) {
+                    throw new Error('File too large. Maximum size is 50MB');
+                }
+                
+                throw new Error(errorMessage || 'Failed to upload image');
+            }
+
+            return response.json();
+        } catch (error) {
+            if (error.message) {
+                throw error;
+            }
+            throw new Error('Failed to upload image. Please try again.');
         }
-
-        return response.json();
     },
 };
 
@@ -260,6 +383,7 @@ export const blockchainAPI = {
             method: 'GET',
         });
     },
+    
     searchByTxId: async (txId) => {
         return publicApiRequest(`/blockchain/search?txId=${encodeURIComponent(txId)}`, {
             method: 'GET',

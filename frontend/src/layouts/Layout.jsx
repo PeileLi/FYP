@@ -44,8 +44,15 @@ export default function Layout({ children }) {
         const fetchUserInfo = async () => {
             const token = getToken();
             if (token) {
+                // First, use cached user data immediately
+                const cachedUser = getUser();
+                if (cachedUser) {
+                    setUserState(cachedUser);
+                    setIsLoggedIn(true);
+                }
+
                 try {
-                    // Fetch latest user info from server
+                    // Then fetch latest user info from server in background
                     const userData = await userAPI.getProfile();
                     // Update localStorage with latest data
                     setUser({
@@ -60,13 +67,26 @@ export default function Layout({ children }) {
                         displayName: userData.displayName,
                         avatarUrl: userData.avatarUrl,
                     });
+                    setIsLoggedIn(true);
                 } catch (error) {
-                    // If token is invalid, clear it
+                    // Only clear token if we get a 401/403 (authentication error)
+                    // Don't clear on network errors or timeouts
                     console.error('Failed to fetch user info:', error);
-                    removeToken();
-                    removeUser();
-                    setIsLoggedIn(false);
-                    setUserState(null);
+                    
+                    if (error.message && (error.message.includes('401') || error.message.includes('403') || error.message.includes('Unauthorized'))) {
+                        // Token is actually invalid
+                        removeToken();
+                        removeUser();
+                        setIsLoggedIn(false);
+                        setUserState(null);
+                    } else {
+                        // Network error or server issue - keep user logged in with cached data
+                        console.warn('Network error fetching user profile, keeping cached session');
+                        if (cachedUser) {
+                            setUserState(cachedUser);
+                            setIsLoggedIn(true);
+                        }
+                    }
                 }
             } else {
                 setIsLoggedIn(false);
