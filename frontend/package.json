@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
+    "predeploy": "VITE_BASE_PATH=FYP npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "lucide-react": "^0.556.0",
