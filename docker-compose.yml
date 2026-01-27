@@ -26,6 +26,12 @@ services:
     container_name: fyp-backend
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/stats/public"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     environment:
       # Database configuration - defaults to local DB, override with .env file for Supabase
       # For local DB: jdbc:postgresql://postgres:5432/fyp_db
@@ -72,7 +78,8 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - fyp-network

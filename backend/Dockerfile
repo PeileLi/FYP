@@ -17,6 +17,10 @@ RUN mvn clean package -DskipTests
 # Use standard Debian-based image instead of Alpine for better gRPC compatibility
 FROM eclipse-temurin:17-jre
 
+# Install curl for Docker healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy the JAR file from builder stage
