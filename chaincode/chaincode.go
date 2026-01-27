@@ -29,11 +29,13 @@ type Campaign struct {
 // Donation represents a single donation record on the blockchain
 // 捐款记录
 type Donation struct {
-	DonationID string  `json:"donationId"` // Unique donation identifier
-	CampaignID string  `json:"campaignId"` // Associated campaign ID (关联项目编号)
-	Amount     float64 `json:"amount"`     // Donation amount (捐款金额)
-	Donor      string  `json:"donor"`      // Donor identifier (捐款人)
-	DonatedAt  string  `json:"donatedAt"`  // Donation timestamp (捐款时间)
+	DonationID  string  `json:"donationId"`  // Unique donation identifier
+	CampaignID  string  `json:"campaignId"`  // Associated campaign ID (关联项目编号)
+	Amount      float64 `json:"amount"`      // Donation amount (捐款金额)
+	Donor       string  `json:"donor"`       // Donor identifier (捐款人真实标识，保留在链上)
+	DisplayName string  `json:"displayName"` // Public display name (公开显示名称)
+	IsAnonymous bool    `json:"isAnonymous"` // Whether donation is anonymous (是否匿名)
+	DonatedAt   string  `json:"donatedAt"`   // Donation timestamp (捐款时间)
 }
 
 // SmartContract provides functions for managing campaigns and donations
@@ -157,7 +159,7 @@ func (s *SmartContract) CampaignExists(ctx contractapi.TransactionContextInterfa
 // CreateDonation records a new donation
 // 创建捐款记录
 func (s *SmartContract) CreateDonation(ctx contractapi.TransactionContextInterface,
-	donationID string, campaignID string, amount float64, donor string, donatedAt string) error {
+	donationID string, campaignID string, amount float64, donor string, displayName string, isAnonymous bool, donatedAt string) error {
 
 	// Check if donation already exists
 	exists, err := s.DonationExists(ctx, donationID)
@@ -183,11 +185,13 @@ func (s *SmartContract) CreateDonation(ctx contractapi.TransactionContextInterfa
 	}
 
 	donation := Donation{
-		DonationID: donationID,
-		CampaignID: campaignID,
-		Amount:     amount,
-		Donor:      donor,
-		DonatedAt:  donatedAt,
+		DonationID:  donationID,
+		CampaignID:  campaignID,
+		Amount:      amount,
+		Donor:       donor,
+		DisplayName: displayName,
+		IsAnonymous: isAnonymous,
+		DonatedAt:   donatedAt,
 	}
 
 	data, err := json.Marshal(donation)

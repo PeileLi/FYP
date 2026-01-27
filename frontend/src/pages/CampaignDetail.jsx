@@ -22,7 +22,8 @@ export default function CampaignDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [showDonateModal, setShowDonateModal] = useState(false);
   const [donateAmount, setDonateAmount] = useState('');
-  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [displayType, setDisplayType] = useState('default'); // 'default', 'custom', 'anonymous'
+  const [customDisplayName, setCustomDisplayName] = useState('');
   const [isDonating, setIsDonating] = useState(false);
   const [error, setError] = useState('');
   const user = getUser();
@@ -103,10 +104,18 @@ export default function CampaignDetail() {
         return;
       }
 
+      // Validate custom display name if custom type is selected
+      if (displayType === 'custom' && (!customDisplayName || customDisplayName.trim() === '')) {
+        setError('Please enter a display name');
+        setIsDonating(false);
+        return;
+      }
+
       await donationAPI.create({
         campaignId: parseInt(id),
         amount: amount,
-        isAnonymous: isAnonymous
+        displayType: displayType,
+        customDisplayName: customDisplayName.trim()
       });
 
       // Refresh campaign data
@@ -114,7 +123,8 @@ export default function CampaignDetail() {
 
       // Reset form and close modal
       setDonateAmount('');
-      setIsAnonymous(false);
+      setDisplayType('default');
+      setCustomDisplayName('');
       setShowDonateModal(false);
 
       alert('Thank you for your donation!');
@@ -271,7 +281,9 @@ export default function CampaignDetail() {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
-                          <p className="font-medium text-gray-900">{donation.donorName}</p>
+                          <p className="font-medium text-gray-900">
+                            {donation.displayName || donation.donorName || '匿名'}
+                          </p>
                           <span className="font-bold text-emerald-600">{formatAmount(donation.amount)}</span>
                         </div>
                         {donation.message && (
@@ -431,20 +443,80 @@ export default function CampaignDetail() {
               </div>
 
               <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isAnonymous}
-                    onChange={(e) => setIsAnonymous(e.target.checked)}
-                    className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 rounded focus:ring-emerald-500 focus:ring-2"
-                  />
-                  <span className="text-sm font-medium text-gray-700">
-                    Donate anonymously
-                  </span>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Display Name
                 </label>
-                <p className="text-xs text-gray-500 mt-1 ml-6">
-                  Your name will not be displayed in the donor list
-                </p>
+                <div className="space-y-2">
+                  {/* Default - use user's display name */}
+                  <label className="flex items-center gap-2 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="displayType"
+                      value="default"
+                      checked={displayType === 'default'}
+                      onChange={(e) => setDisplayType(e.target.value)}
+                      className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 focus:ring-emerald-500 focus:ring-2"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-gray-900">
+                        Use my name
+                      </span>
+                      <p className="text-xs text-gray-500">
+                        Display as "{user?.displayName || 'Your Name'}"
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Custom - user input display name */}
+                  <label className="flex items-start gap-2 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="displayType"
+                      value="custom"
+                      checked={displayType === 'custom'}
+                      onChange={(e) => setDisplayType(e.target.value)}
+                      className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 focus:ring-emerald-500 focus:ring-2 mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-gray-900">
+                        Custom display name
+                      </span>
+                      <p className="text-xs text-gray-500 mb-2">
+                        Choose a custom name to display
+                      </p>
+                      {displayType === 'custom' && (
+                        <input
+                          type="text"
+                          value={customDisplayName}
+                          onChange={(e) => setCustomDisplayName(e.target.value)}
+                          placeholder="Enter display name"
+                          maxLength="50"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      )}
+                    </div>
+                  </label>
+
+                  {/* Anonymous */}
+                  <label className="flex items-center gap-2 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="displayType"
+                      value="anonymous"
+                      checked={displayType === 'anonymous'}
+                      onChange={(e) => setDisplayType(e.target.value)}
+                      className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 focus:ring-emerald-500 focus:ring-2"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-gray-900">
+                        Donate anonymously
+                      </span>
+                      <p className="text-xs text-gray-500">
+                        Your name will not be displayed
+                      </p>
+                    </div>
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -454,7 +526,8 @@ export default function CampaignDetail() {
                   setShowDonateModal(false);
                   setError('');
                   setDonateAmount('');
-                  setIsAnonymous(false);
+                  setDisplayType('default');
+                  setCustomDisplayName('');
                 }}
                 className="flex-1 py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
                 disabled={isDonating}

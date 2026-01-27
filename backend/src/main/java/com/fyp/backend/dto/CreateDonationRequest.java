@@ -15,4 +15,8 @@ public class CreateDonationRequest {
     private Long campaignId;
     private BigDecimal amount;
     private String message; // Optional donation message
+    
+    // Display options: "default" (use user's display name), "custom" (use custom name), "anonymous"
+    private String displayType; // default, custom, anonymous
+    private String customDisplayName; // Used when displayType is "custom"
 }
