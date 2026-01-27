@@ -25,6 +25,44 @@ CHANNEL_NAME="${4:-mychannel}"
 # Fabric test-network directory
 TEST_NETWORK_DIR="${PROJECT_ROOT}/fabric/fabric-samples/test-network"
 
+# Version file to track deployment history
+VERSION_FILE="${SCRIPT_DIR}/.chaincode_version"
+
+# Function to read current version info
+read_version_info() {
+    if [ -f "${VERSION_FILE}" ]; then
+        source "${VERSION_FILE}"
+        echo "${CURRENT_VERSION:-1.0}:${CURRENT_SEQUENCE:-1}"
+    else
+        echo "1.0:1"
+    fi
+}
+
+# Function to save version info
+save_version_info() {
+    local version=$1
+    local sequence=$2
+    cat > "${VERSION_FILE}" <<EOF
+# Chaincode version tracking file
+# This file is automatically managed by deploy.sh
+CURRENT_VERSION="${version}"
+CURRENT_SEQUENCE=${sequence}
+LAST_DEPLOY_TIME="$(date '+%Y-%m-%d %H:%M:%S')"
+EOF
+    echo -e "${GREEN}✅ Version info saved: ${version} (sequence: ${sequence})${NC}"
+}
+
+# Function to increment version
+increment_version() {
+    local current_version=$1
+    local major=$(echo "${current_version}" | cut -d. -f1)
+    local minor=$(echo "${current_version}" | cut -d. -f2)
+    
+    # Increment minor version
+    minor=$((minor + 1))
+    echo "${major}.${minor}"
+}
+
 echo ""
 echo -e "${BLUE}=================================================="
 echo "  Chaincode Deployment Script"
@@ -81,42 +119,54 @@ fi
 
 cd "${TEST_NETWORK_DIR}"
 
+# Read current version info
+VERSION_INFO=$(read_version_info)
+CURRENT_VERSION=$(echo "${VERSION_INFO}" | cut -d: -f1)
+CURRENT_SEQUENCE=$(echo "${VERSION_INFO}" | cut -d: -f2)
+
+echo -e "${BLUE}Current version info:${NC}"
+echo "  Version: ${CURRENT_VERSION}"
+echo "  Sequence: ${CURRENT_SEQUENCE}"
+echo ""
+
 # Check if chaincode is already running
 if docker ps --format "{{.Names}}" | grep -q "dev-peer.*-${CHAINCODE_NAME}"; then
     echo -e "${YELLOW}⚠️  Chaincode containers already exist${NC}"
-    echo ""
-    read -p "Do you want to upgrade the chaincode? (y/n) " -n 1 -r
+    echo "  Existing chaincode will be upgraded automatically"
     echo ""
     
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        # Upgrade mode: increment version and sequence
-        echo -e "${BLUE}Upgrading chaincode...${NC}"
-        
-        # Stop old chaincode containers
-        echo "Stopping old chaincode containers..."
-        docker ps -a --format "{{.Names}}" | grep "dev-peer.*-${CHAINCODE_NAME}" | xargs -r docker rm -f 2>/dev/null || true
-        
-        # Remove old chaincode images
-        echo "Removing old chaincode images..."
-        docker images --format "{{.Repository}}:{{.Tag}}" | grep "dev-peer.*-${CHAINCODE_NAME}" | xargs -r docker rmi -f 2>/dev/null || true
-        
-        # Use incremented version
-        CHAINCODE_VERSION="1.$(date +%s)"
-        CHAINCODE_SEQUENCE=$(($(docker ps -a --format "{{.Names}}" | grep -c "dev-peer.*-${CHAINCODE_NAME}") + 2))
-        
-        echo -e "${GREEN}✅ Old chaincode cleaned up${NC}"
-        echo "  New Version: ${CHAINCODE_VERSION}"
-        echo "  New Sequence: ${CHAINCODE_SEQUENCE}"
-        echo ""
-    else
-        echo -e "${YELLOW}Deployment cancelled${NC}"
-        exit 0
-    fi
+    # Upgrade mode: increment version and sequence automatically
+    echo -e "${BLUE}Upgrading chaincode...${NC}"
+    
+    # Stop old chaincode containers
+    echo "Stopping old chaincode containers..."
+    docker ps -a --format "{{.Names}}" | grep "dev-peer.*-${CHAINCODE_NAME}" | xargs -r docker rm -f 2>/dev/null || true
+    
+    # Remove old chaincode images
+    echo "Removing old chaincode images..."
+    docker images --format "{{.Repository}}:{{.Tag}}" | grep "dev-peer.*-${CHAINCODE_NAME}" | xargs -r docker rmi -f 2>/dev/null || true
+    
+    # Increment version and sequence
+    CHAINCODE_VERSION=$(increment_version "${CURRENT_VERSION}")
+    CHAINCODE_SEQUENCE=$((CURRENT_SEQUENCE + 1))
+    
+    echo -e "${GREEN}✅ Old chaincode cleaned up${NC}"
+    echo "  New Version: ${CHAINCODE_VERSION}"
+    echo "  New Sequence: ${CHAINCODE_SEQUENCE}"
+    echo ""
 else
-    # First deployment
-    CHAINCODE_VERSION="1.0"
-    CHAINCODE_SEQUENCE="1"
-    echo -e "${BLUE}First-time deployment${NC}"
+    # Check if this is truly first deployment
+    if [ -f "${VERSION_FILE}" ]; then
+        # Version file exists, so increment for new deployment
+        CHAINCODE_VERSION=$(increment_version "${CURRENT_VERSION}")
+        CHAINCODE_SEQUENCE=$((CURRENT_SEQUENCE + 1))
+        echo -e "${BLUE}Redeploying chaincode with new version${NC}"
+    else
+        # First deployment ever
+        CHAINCODE_VERSION="1.0"
+        CHAINCODE_SEQUENCE="1"
+        echo -e "${BLUE}First-time deployment${NC}"
+    fi
     echo "  Version: ${CHAINCODE_VERSION}"
     echo "  Sequence: ${CHAINCODE_SEQUENCE}"
     echo ""
@@ -149,6 +199,9 @@ if ./network.sh deployCC \
     -ccl "${CHAINCODE_LANGUAGE}" \
     -ccv "${CHAINCODE_VERSION}" \
     -ccs "${CHAINCODE_SEQUENCE}" 2>&1 | tee /tmp/chaincode-deploy.log; then
+    
+    # Save version info on successful deployment
+    save_version_info "${CHAINCODE_VERSION}" "${CHAINCODE_SEQUENCE}"
     
     echo ""
     echo -e "${GREEN}=================================================="
