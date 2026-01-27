@@ -17,6 +17,9 @@ vendor/
 bin/
 *.exe
 
+# Chaincode deployment tracking
+.chaincode_version
+
 # System files
 .DS_Store
 Thumbs.db

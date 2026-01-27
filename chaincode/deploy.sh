@@ -28,6 +28,12 @@ TEST_NETWORK_DIR="${PROJECT_ROOT}/fabric/fabric-samples/test-network"
 # Version file to track deployment history
 VERSION_FILE="${SCRIPT_DIR}/.chaincode_version"
 
+# Log file to store deployment output
+DEPLOY_LOG="${PROJECT_ROOT}/logs/chaincode-deploy.log"
+
+# Create logs directory if it doesn't exist
+mkdir -p "${PROJECT_ROOT}/logs"
+
 # Function to read current version info
 read_version_info() {
     if [ -f "${VERSION_FILE}" ]; then
@@ -176,10 +182,12 @@ fi
 rm -f ${CHAINCODE_NAME}.tar.gz
 
 # Calculate relative path (compatible with Linux and macOS)
-if command -v realpath >/dev/null 2>&1; then
+# Test if realpath supports --relative-to option (GNU version)
+if realpath --relative-to=. . >/dev/null 2>&1; then
+    # GNU realpath with --relative-to support (Linux)
     RELATIVE_PATH=$(realpath --relative-to="${TEST_NETWORK_DIR}" "${CHAINCODE_PATH}")
 else
-    # macOS fallback using Python
+    # macOS or systems without GNU realpath - use Python fallback
     RELATIVE_PATH=$(python3 -c "import os.path; print(os.path.relpath('${CHAINCODE_PATH}', '${TEST_NETWORK_DIR}'))")
 fi
 
@@ -198,7 +206,7 @@ if ./network.sh deployCC \
     -ccp "${RELATIVE_PATH}" \
     -ccl "${CHAINCODE_LANGUAGE}" \
     -ccv "${CHAINCODE_VERSION}" \
-    -ccs "${CHAINCODE_SEQUENCE}" 2>&1 | tee /tmp/chaincode-deploy.log; then
+    -ccs "${CHAINCODE_SEQUENCE}" 2>&1 | tee "${DEPLOY_LOG}"; then
     
     # Save version info on successful deployment
     save_version_info "${CHAINCODE_VERSION}" "${CHAINCODE_SEQUENCE}"
@@ -256,7 +264,7 @@ else
     echo -e "==================================================${NC}"
     echo ""
     echo "Check the error messages above."
-    echo "Deployment log saved to: /tmp/chaincode-deploy.log"
+    echo "Deployment log saved to: ${DEPLOY_LOG}"
     echo ""
     echo -e "${YELLOW}Common Solutions:${NC}"
     echo ""

@@ -22,7 +22,7 @@ export default function CampaignDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [showDonateModal, setShowDonateModal] = useState(false);
   const [donateAmount, setDonateAmount] = useState('');
-  const [donateMessage, setDonateMessage] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [isDonating, setIsDonating] = useState(false);
   const [error, setError] = useState('');
   const user = getUser();
@@ -106,7 +106,7 @@ export default function CampaignDetail() {
       await donationAPI.create({
         campaignId: parseInt(id),
         amount: amount,
-        message: donateMessage
+        isAnonymous: isAnonymous
       });
 
       // Refresh campaign data
@@ -114,7 +114,7 @@ export default function CampaignDetail() {
 
       // Reset form and close modal
       setDonateAmount('');
-      setDonateMessage('');
+      setIsAnonymous(false);
       setShowDonateModal(false);
 
       alert('Thank you for your donation!');
@@ -421,6 +421,7 @@ export default function CampaignDetail() {
                     type="number"
                     value={donateAmount}
                     onChange={(e) => setDonateAmount(e.target.value)}
+                    onWheel={(e) => e.target.blur()}
                     min="1"
                     step="0.01"
                     placeholder="0.00"
@@ -430,16 +431,20 @@ export default function CampaignDetail() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Message (Optional)
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isAnonymous}
+                    onChange={(e) => setIsAnonymous(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 rounded focus:ring-emerald-500 focus:ring-2"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    Donate anonymously
+                  </span>
                 </label>
-                <textarea
-                  value={donateMessage}
-                  onChange={(e) => setDonateMessage(e.target.value)}
-                  rows="3"
-                  placeholder="Leave a message of support..."
-                  className="block w-full px-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:border-transparent transition-all resize-none"
-                />
+                <p className="text-xs text-gray-500 mt-1 ml-6">
+                  Your name will not be displayed in the donor list
+                </p>
               </div>
             </div>
 
@@ -449,7 +454,7 @@ export default function CampaignDetail() {
                   setShowDonateModal(false);
                   setError('');
                   setDonateAmount('');
-                  setDonateMessage('');
+                  setIsAnonymous(false);
                 }}
                 className="flex-1 py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
                 disabled={isDonating}
