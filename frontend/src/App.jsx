@@ -5,6 +5,7 @@ import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import CreateCampaign from "@/pages/CreateCampaign";
 import CampaignDetail from "@/pages/CampaignDetail";
+import BrowseCampaigns from "@/pages/BrowseCampaigns";
 import Settings from "@/pages/Settings";
 import Profile from "@/pages/Profile";
 import DonationHistory from "@/pages/DonationHistory";
@@ -21,6 +22,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/browse-campaigns" element={<BrowseCampaigns />} />
         <Route 
           path="/create-campaign" 
           element={

@@ -274,6 +274,19 @@ export default function Home() {
                                 <h3 className="text-lg font-medium text-gray-900">No campaigns found</h3>
                             </div>
                         )}
+
+                        {/* View All Button */}
+                        {displayedCampaigns.length > 0 && (
+                            <div className="mt-12 text-center">
+                                <button
+                                    onClick={() => navigate('/browse-campaigns')}
+                                    className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-full text-lg shadow-lg shadow-emerald-200 transition-all hover:scale-105 flex items-center justify-center gap-2 mx-auto"
+                                >
+                                    View All Campaigns
+                                    <ArrowRight size={20} />
+                                </button>
+                            </div>
+                        )}
                     </>
                 )}
             </main>
