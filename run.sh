@@ -273,12 +273,6 @@ echo -e "${GREEN}✓${NC} Docker installed"
 install_docker_compose_if_missing
 echo -e "${GREEN}✓${NC} Docker Compose installed"
 
-if [ ! -d "${FABRIC_DIR}" ]; then
-    echo -e "${RED}❌ Fabric test-network not found: ${FABRIC_DIR}${NC}"
-    exit 1
-fi
-echo -e "${GREEN}✓${NC} Fabric test-network found"
-
 if [ ! -f "${CHAINCODE_DIR}/chaincode.go" ]; then
     echo -e "${RED}❌ Chaincode not found: ${CHAINCODE_DIR}${NC}"
     exit 1
@@ -390,6 +384,8 @@ if [ "$FABRIC_NEEDS_DEPLOY" = true ]; then
     
     if [ ! -d "${FABRIC_DIR}" ]; then
         echo -e "${RED}❌ Fabric test-network not found: ${FABRIC_DIR}${NC}"
+        echo "Submodule initialization may have failed."
+        echo "Try manually: git submodule update --init --recursive"
         exit 1
     fi
     
