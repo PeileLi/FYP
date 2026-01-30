@@ -21,6 +21,7 @@ export default function CampaignDetail() {
   const [donations, setDonations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showDonateModal, setShowDonateModal] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [donateAmount, setDonateAmount] = useState('');
   const [displayType, setDisplayType] = useState('default'); // 'default', 'custom', 'anonymous'
   const [customDisplayName, setCustomDisplayName] = useState('');
@@ -87,6 +88,31 @@ export default function CampaignDetail() {
     }
   };
 
+  const getRemainingAmount = () => {
+    if (!campaign) return 0;
+    return Math.max(campaign.goalAmount - campaign.currentAmount, 0);
+  };
+
+  const handleDonateClick = () => {
+    if (!user) {
+      setShowLoginPrompt(true);
+    } else {
+      setShowDonateModal(true);
+    }
+  };
+
+  const handleAmountChange = (value) => {
+    const amount = parseFloat(value);
+    const remaining = getRemainingAmount();
+    
+    // If the input amount exceeds remaining, set it to remaining
+    if (!isNaN(amount) && amount > remaining) {
+      setDonateAmount(remaining.toString());
+    } else {
+      setDonateAmount(value);
+    }
+  };
+
   const handleDonate = async () => {
     if (!user) {
       navigate('/login');
@@ -98,8 +124,16 @@ export default function CampaignDetail() {
 
     try {
       const amount = parseFloat(donateAmount);
+      const remaining = getRemainingAmount();
+      
       if (isNaN(amount) || amount <= 0) {
         setError('Please enter a valid amount');
+        setIsDonating(false);
+        return;
+      }
+
+      if (amount > remaining) {
+        setError(`Amount cannot exceed remaining goal of €${remaining.toFixed(2)}`);
         setIsDonating(false);
         return;
       }
@@ -384,7 +418,7 @@ export default function CampaignDetail() {
               {/* Donate Button */}
               {campaign.status === 'ACTIVE' && (
                 <button
-                  onClick={() => setShowDonateModal(true)}
+                  onClick={handleDonateClick}
                   className="w-full py-4 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-200 mb-4"
                 >
                   Donate Now
@@ -425,20 +459,46 @@ export default function CampaignDetail() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Amount (€)
                 </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Euro className="h-5 w-5 text-gray-400" />
+                <div className="mb-3">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Euro className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="number"
+                      value={donateAmount}
+                      onChange={(e) => handleAmountChange(e.target.value)}
+                      onWheel={(e) => e.target.blur()}
+                      min="1"
+                      max={getRemainingAmount()}
+                      step="0.01"
+                      placeholder="0.00"
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:border-transparent transition-all"
+                    />
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Remaining goal: €{getRemainingAmount().toFixed(2)}
+                  </p>
+                </div>
+                
+                {/* Slider */}
+                <div className="px-1">
                   <input
-                    type="number"
-                    value={donateAmount}
-                    onChange={(e) => setDonateAmount(e.target.value)}
-                    onWheel={(e) => e.target.blur()}
+                    type="range"
                     min="1"
-                    step="0.01"
-                    placeholder="0.00"
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:border-transparent transition-all"
+                    max={getRemainingAmount()}
+                    step="1"
+                    value={donateAmount || 0}
+                    onChange={(e) => setDonateAmount(e.target.value)}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600 slider"
+                    style={{
+                      background: `linear-gradient(to right, rgb(16 185 129) 0%, rgb(16 185 129) ${(donateAmount / getRemainingAmount()) * 100}%, rgb(229 231 235) ${(donateAmount / getRemainingAmount()) * 100}%, rgb(229 231 235) 100%)`
+                    }}
                   />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>€1</span>
+                    <span>€{getRemainingAmount().toFixed(0)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -540,6 +600,38 @@ export default function CampaignDetail() {
                 className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isDonating ? 'Processing...' : 'Donate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Login Prompt Modal */}
+      {showLoginPrompt && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-8">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Heart className="text-emerald-600" size={32} />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Login Required</h2>
+              <p className="text-gray-600">
+                You need to be logged in to make a donation. Please login or create an account to continue.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => navigate('/login')}
+                className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 transition-colors"
+              >
+                Go to Login
+              </button>
+              <button
+                onClick={() => setShowLoginPrompt(false)}
+                className="w-full py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+              >
+                Cancel
               </button>
             </div>
           </div>
