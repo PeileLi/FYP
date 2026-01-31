@@ -25,20 +25,20 @@ type Campaign struct {
 	CampaignID string `json:"campaignId"` // Unique campaign identifier (捐款编号)
 	Initiator  string `json:"initiator"`  // Campaign creator (发起人)
 	CreatedAt  string `json:"createdAt"`  // Creation timestamp (发起时间)
-	
+
 	// Auditable Mutable fields - can be modified with approval (可审核修改字段)
 	Title       string  `json:"title"`       // Campaign title (活动标题)
 	Description string  `json:"description"` // Campaign description (项目描述)
 	Category    string  `json:"category"`    // Campaign category (项目分类)
 	GoalAmount  float64 `json:"goalAmount"`  // Target amount to raise (目标金额)
 	Auditor     string  `json:"auditor"`     // Third-party auditor/organization (审核机构)
-	
+
 	// Versioning and Hash (版本控制和哈希)
 	Version      int    `json:"version"`      // Data version, increment on each approved modification (数据版本)
 	DataHash     string `json:"dataHash"`     // SHA-256 hash of current version (当前版本的hash)
 	LastUpdated  string `json:"lastUpdated"`  // Last modification timestamp (最后修改时间)
 	LastModifier string `json:"lastModifier"` // Who made the last modification (最后修改者)
-	
+
 	// Dynamic Operational fields (动态运营字段)
 	Status        string  `json:"status"`        // Campaign status: IN_PROGRESS/COMPLETED/SUSPENDED (状态)
 	TotalAmount   float64 `json:"totalAmount"`   // Total amount raised (总筹款金额)
@@ -95,12 +95,12 @@ func donationKey(donationID string) string {
 // calculateCampaignHash computes SHA-256 hash of campaign fields for current version
 // Hash includes: Absolute immutable fields + Current auditable fields + Version
 // Hash包含：绝对不可变字段 + 当前可审核字段 + 版本号
-// 
+//
 // When auditable fields are modified with approval:
 // - Version is incremented
 // - Hash is recalculated for the new version
 // - Old version is stored in CampaignHistory
-// 
+//
 // Dynamic operational fields (TotalAmount, DonationCount, Status) are NOT included:
 // - They change during normal operations
 // - They can be verified by querying donation records
@@ -115,7 +115,7 @@ func calculateCampaignHash(c *Campaign) string {
 		"|" + strconv.FormatFloat(c.GoalAmount, 'f', 2, 64) +
 		"|" + c.Auditor +
 		"|" + strconv.Itoa(c.Version)
-	
+
 	// Compute SHA-256 hash
 	hash := sha256.Sum256([]byte(data))
 	return hex.EncodeToString(hash[:])
@@ -163,19 +163,19 @@ func (s *SmartContract) CreateCampaign(ctx contractapi.TransactionContextInterfa
 		CampaignID: campaignID,
 		Initiator:  initiator,
 		CreatedAt:  createdAt,
-		
+
 		// Auditable mutable fields (initial values)
 		Title:       title,
 		Description: description,
 		Category:    category,
 		GoalAmount:  goalAmount,
 		Auditor:     auditor,
-		
+
 		// Versioning fields (initial values)
 		Version:      1,
 		LastUpdated:  createdAt,
 		LastModifier: initiator,
-		
+
 		// Dynamic operational fields (initial values)
 		Status:        StatusInProgress,
 		TotalAmount:   0.0,
@@ -276,7 +276,7 @@ func (s *SmartContract) UpdateCampaign(ctx contractapi.TransactionContextInterfa
 	campaign.Category = newCategory
 	campaign.GoalAmount = newGoalAmount
 	campaign.Auditor = newAuditor
-	
+
 	// Increment version
 	campaign.Version++
 	campaign.LastUpdated = modifiedAt

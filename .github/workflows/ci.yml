@@ -42,9 +42,11 @@ jobs:
       - name: Run go fmt check
         working-directory: ./chaincode
         run: |
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          UNFORMATTED=$(gofmt -s -l . | grep -v '^vendor/' || true)
+          if [ -n "$UNFORMATTED" ]; then
             echo "Code is not formatted. Run 'go fmt ./...'"
-            gofmt -s -d .
+            echo "$UNFORMATTED"
+            echo "$UNFORMATTED" | xargs gofmt -s -d
             exit 1
           fi
 
