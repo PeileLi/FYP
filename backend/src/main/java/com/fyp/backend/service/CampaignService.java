@@ -22,6 +22,8 @@ public class CampaignService {
     private final CampaignRepository campaignRepository;
     private final UserRepository userRepository;
     private final FabricGatewayService fabricGatewayService;
+    private final BlockchainVerificationService verificationService;
+    private final DataAuditService dataAuditService;
 
     @Transactional
     public CampaignResponse createCampaign(CreateCampaignRequest request, String userEmail) {
@@ -45,9 +47,12 @@ public class CampaignService {
         try {
             if (fabricGatewayService.isEnabled()) {
                 String campaignID = String.valueOf(savedCampaign.getId());
+                String title = savedCampaign.getTitle();
+                String description = savedCampaign.getDescription();
+                String category = savedCampaign.getCategory();
                 String initiator = user.getEmail();
-                String description = savedCampaign.getCategory() + ": " + savedCampaign.getDescription();
-                String txId = fabricGatewayService.createCampaign(campaignID, initiator, description);
+                double goalAmount = savedCampaign.getGoalAmount().doubleValue();
+                String txId = fabricGatewayService.createCampaign(campaignID, title, description, category, initiator, goalAmount);
                 
                 // Save transaction ID to database
                 if (txId != null && !txId.isEmpty()) {
@@ -200,6 +205,35 @@ public class CampaignService {
     }
 
     private CampaignResponse mapToResponse(Campaign campaign) {
+        // Verify data integrity with blockchain and get blockchain data
+        boolean isVerified = false;
+        String verificationStatus = "NOT_VERIFIED";
+        java.math.BigDecimal blockchainAmount = null;
+        Integer blockchainDonationCount = null;
+        
+        if (campaign.getBlockchainTxId() != null && fabricGatewayService.isEnabled()) {
+            try {
+                BlockchainVerificationService.CompleteVerificationResult result = 
+                    verificationService.verifyComplete(campaign);
+                
+                isVerified = result.isVerified();
+                verificationStatus = result.getStatus();
+                blockchainAmount = result.getBlockchainAmount();
+                blockchainDonationCount = result.getBlockchainDonationCount();
+            } catch (Exception e) {
+                verificationStatus = "VERIFICATION_FAILED";
+            }
+        } else if (campaign.getBlockchainTxId() == null) {
+            verificationStatus = "NOT_RECORDED";
+        }
+        
+        // Check audit history for past tampering
+        boolean hasTamperingHistory = dataAuditService.hasTamperingHistory(campaign.getId());
+        int tamperingCount = (int) dataAuditService.getCampaignAuditHistory(campaign.getId())
+            .stream()
+            .filter(log -> "TAMPERED".equals(log.getVerificationStatus()))
+            .count();
+        
         return CampaignResponse.builder()
                 .id(campaign.getId())
                 .title(campaign.getTitle())
@@ -215,6 +249,12 @@ public class CampaignService {
                 .updatedAt(campaign.getUpdatedAt())
                 .completedAt(campaign.getCompletedAt())
                 .blockchainTxId(campaign.getBlockchainTxId())
+                .dataVerified(isVerified)
+                .verificationStatus(verificationStatus)
+                .blockchainAmount(blockchainAmount)
+                .blockchainDonationCount(blockchainDonationCount)
+                .hasTamperingHistory(hasTamperingHistory)
+                .tamperingIncidentCount(tamperingCount)
                 .build();
     }
 }

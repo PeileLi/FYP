@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { campaignAPI } from '@/utils/api';
 import {
     ShieldCheck,
+    ShieldAlert,
     Clock,
     Target,
     Search,
@@ -68,13 +69,44 @@ const CampaignCard = ({ data, onClick }) => {
             </div>
 
             <div className="p-5 flex flex-col flex-grow">
-                <div className="flex items-center gap-2 mb-2 text-gray-500 text-xs font-medium">
-                    <ShieldCheck size={14} className="text-emerald-500" />
-                    <span>Organizer: {data.organizerName}</span>
+                <div className="flex items-center gap-2 mb-2 text-xs font-medium">
+                    {data.verificationStatus === 'VERIFIED' ? (
+                        <>
+                            <ShieldCheck size={14} className="text-emerald-500" />
+                            <span className="text-gray-500">Organizer: {data.organizerName}</span>
+                        </>
+                    ) : data.verificationStatus === 'TAMPERED' ? (
+                        <>
+                            <ShieldAlert size={14} className="text-red-500" />
+                            <span className="text-red-600 font-semibold">⚠️ Data Tampered</span>
+                        </>
+                    ) : (
+                        <>
+                            <ShieldCheck size={14} className="text-gray-400" />
+                            <span className="text-gray-500">Organizer: {data.organizerName}</span>
+                        </>
+                    )}
                 </div>
 
                 <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1 group-hover:text-emerald-600 transition-colors">{data.title}</h3>
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2 flex-grow">{data.description}</p>
+
+                {/* Show tampering warning */}
+                {data.verificationStatus === 'TAMPERED' && data.blockchainAmount !== null && (
+                    <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-xs text-red-700 font-semibold mb-1">⚠️ Amount Mismatch</p>
+                        <div className="text-xs space-y-0.5">
+                            <div className="flex justify-between">
+                                <span className="text-red-600">DB:</span>
+                                <span className="font-semibold">{formatAmount(data.currentAmount)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-green-600">Blockchain:</span>
+                                <span className="font-semibold">{formatAmount(data.blockchainAmount)}</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="mt-auto">
                     <div className="flex justify-between text-sm mb-1 font-medium">

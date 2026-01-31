@@ -198,7 +198,7 @@ public class FabricGatewayService {
      * @return Transaction ID (composite key: campaignID_timestamp) for blockchain
      *         verification
      */
-    public String createCampaign(String campaignID, String initiator, String description) {
+    public String createCampaign(String campaignID, String title, String description, String category, String initiator, double goalAmount) {
         if (!fabricConfig.isEnabled()) {
             log.debug("Fabric is disabled, skipping blockchain operation");
             return null;
@@ -209,7 +209,7 @@ public class FabricGatewayService {
             String auditor = ""; // Empty auditor to trigger AUTO_APPROVED
 
             contract.submitTransaction("CreateCampaign",
-                    campaignID, initiator, createdAt, description, auditor);
+                    campaignID, title, description, category, initiator, createdAt, String.valueOf(goalAmount), auditor);
 
             // Generate a blockchain certificate ID using campaign ID and timestamp
             // Format: CAMPAIGN_{campaignID}_{timestamp_hash}

@@ -31,15 +31,15 @@ public class CampaignController {
     public ResponseEntity<List<CampaignResponse>> getAllCampaigns(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String category) {
-        
+
         if (category != null && !category.isEmpty()) {
             return ResponseEntity.ok(campaignService.getCampaignsByCategory(category));
         }
-        
+
         if ("active".equalsIgnoreCase(status)) {
             return ResponseEntity.ok(campaignService.getAllActiveCampaigns());
         }
-        
+
         return ResponseEntity.ok(campaignService.getAllCampaigns());
     }
 

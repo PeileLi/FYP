@@ -45,12 +45,20 @@ public class BlockchainService {
 
             BlockchainCertificateResponse.BlockchainCertificateResponseBuilder builder = BlockchainCertificateResponse
                     .builder()
+                    // Immutable fields
                     .campaignId(campaignNode.get("campaignId").asText())
+                    .title(campaignNode.has("title") ? campaignNode.get("title").asText() : "N/A")
+                    .category(campaignNode.has("category") ? campaignNode.get("category").asText() : "N/A")
+                    .description(campaignNode.get("description").asText())
                     .initiator(campaignNode.get("initiator").asText())
                     .createdAt(campaignNode.get("createdAt").asText())
+                    .goalAmount(campaignNode.has("goalAmount") ? campaignNode.get("goalAmount").asDouble() : null)
+                    .auditor(campaignNode.get("auditor").asText())
+                    .dataHash(campaignNode.has("dataHash") ? campaignNode.get("dataHash").asText() : null)
+                    // Dynamic fields
                     .status(campaignNode.get("status").asText())
-                    .description(campaignNode.get("description").asText())
-                    .auditor(campaignNode.get("auditor").asText());
+                    .totalAmount(campaignNode.has("totalAmount") ? campaignNode.get("totalAmount").asDouble() : 0.0)
+                    .donationCount(campaignNode.has("donationCount") ? campaignNode.get("donationCount").asInt() : 0);
 
             if (dbCampaign.isPresent()) {
                 Campaign campaign = dbCampaign.get();
@@ -88,44 +96,54 @@ public class BlockchainService {
     public BlockchainCertificateResponse searchByTxId(String txId) {
         try {
             log.info("Searching blockchain for campaign with TxId: {}", txId);
-            
+
             // Decode campaign ID from blockchain certificate ID
             String campaignId = decodeCampaignIdFromTxId(txId);
             log.info("Decoded campaign ID from TxId: {}", campaignId);
-            
-            // Query blockchain data directly (this is a blockchain search, not database search)
+
+            // Query blockchain data directly (this is a blockchain search, not database
+            // search)
             String blockchainData = fabricGatewayService.readCampaign(campaignId);
-            
+
             if (blockchainData == null || blockchainData.isEmpty()) {
                 log.warn("Campaign {} not found on blockchain", campaignId);
                 return BlockchainCertificateResponse.builder()
                         .blockchainTxId(txId)
                         .campaignId(campaignId)
                         .verified(false)
-                        .verificationMessage("Campaign not found on blockchain. Please ensure Fabric is running and the campaign exists.")
+                        .verificationMessage(
+                                "Campaign not found on blockchain. Please ensure Fabric is running and the campaign exists.")
                         .build();
             }
-            
+
             // Parse blockchain data
             JsonNode campaignNode = objectMapper.readTree(blockchainData);
-            
+
             log.info("Campaign found on blockchain");
-            
+
             // Check if campaign also exists in database (for comparison/verification)
             Optional<Campaign> dbCampaignOpt = campaignRepository.findAll().stream()
                     .filter(c -> txId.equals(c.getBlockchainTxId()))
                     .findFirst();
-            
+
             BlockchainCertificateResponse.BlockchainCertificateResponseBuilder builder = BlockchainCertificateResponse
                     .builder()
+                    // Immutable fields
                     .campaignId(campaignNode.get("campaignId").asText())
+                    .title(campaignNode.has("title") ? campaignNode.get("title").asText() : "N/A")
+                    .category(campaignNode.has("category") ? campaignNode.get("category").asText() : "N/A")
+                    .description(campaignNode.get("description").asText())
                     .initiator(campaignNode.get("initiator").asText())
                     .createdAt(campaignNode.get("createdAt").asText())
-                    .status(campaignNode.get("status").asText())
-                    .description(campaignNode.get("description").asText())
+                    .goalAmount(campaignNode.has("goalAmount") ? campaignNode.get("goalAmount").asDouble() : null)
                     .auditor(campaignNode.get("auditor").asText())
-                    .blockchainTxId(txId);
-            
+                    .dataHash(campaignNode.has("dataHash") ? campaignNode.get("dataHash").asText() : null)
+                    .blockchainTxId(txId)
+                    // Dynamic fields
+                    .status(campaignNode.get("status").asText())
+                    .totalAmount(campaignNode.has("totalAmount") ? campaignNode.get("totalAmount").asDouble() : 0.0)
+                    .donationCount(campaignNode.has("donationCount") ? campaignNode.get("donationCount").asInt() : 0);
+
             // If also exists in database, add database info for comparison
             if (dbCampaignOpt.isPresent()) {
                 Campaign dbCampaign = dbCampaignOpt.get();
@@ -140,7 +158,7 @@ public class BlockchainService {
                 builder.verified(true)
                         .verificationMessage("Campaign found on blockchain");
             }
-            
+
             return builder.build();
 
         } catch (Exception e) {
@@ -164,22 +182,22 @@ public class BlockchainService {
                 throw new IllegalArgumentException("Invalid blockchain certificate ID format");
             }
             String hexString = txId.substring(3);
-            
+
             // Convert hex to bytes
             byte[] bytes = new byte[hexString.length() / 2];
             for (int i = 0; i < bytes.length; i++) {
                 bytes[i] = (byte) Integer.parseInt(hexString.substring(i * 2, i * 2 + 2), 16);
             }
-            
+
             // Convert bytes to string
             String decoded = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
-            
+
             // Extract campaign ID (before first underscore)
             String[] parts = decoded.split("_", 2);
             if (parts.length < 1) {
                 throw new IllegalArgumentException("Failed to extract campaign ID from decoded string");
             }
-            
+
             return parts[0];
         } catch (Exception e) {
             log.error("Failed to decode campaign ID from txId: {}", e.getMessage());

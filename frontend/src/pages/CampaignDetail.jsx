@@ -37,7 +37,7 @@ export default function CampaignDetail() {
     try {
       setIsLoading(true);
       setError('');
-      
+
       // Check if id looks like a blockchain transaction ID (starts with BC_)
       if (id && id.startsWith('BC_')) {
         console.log('Detected blockchain certificate ID, querying database:', id);
@@ -46,19 +46,19 @@ export default function CampaignDetail() {
         try {
           const campaignData = await campaignAPI.getByTxId(id);
           console.log('Campaign data received:', campaignData);
-          
+
           if (!campaignData || !campaignData.id) {
             throw new Error('Campaign not found in database with this blockchain certificate ID');
           }
-          
+
           setCampaign(campaignData);
-          
+
           // Update URL to use database ID instead of blockchain TxId for better UX
           if (campaignData.id && campaignData.id.toString() !== id) {
             console.log('Updating URL from', id, 'to', campaignData.id);
             navigate(`/campaigns/${campaignData.id}`, { replace: true });
           }
-          
+
           // Get donations
           try {
             const donationsData = await donationAPI.getCampaignDonations(campaignData.id);
@@ -104,7 +104,7 @@ export default function CampaignDetail() {
   const handleAmountChange = (value) => {
     const amount = parseFloat(value);
     const remaining = getRemainingAmount();
-    
+
     // If the input amount exceeds remaining, set it to remaining
     if (!isNaN(amount) && amount > remaining) {
       setDonateAmount(remaining.toString());
@@ -125,7 +125,7 @@ export default function CampaignDetail() {
     try {
       const amount = parseFloat(donateAmount);
       const remaining = getRemainingAmount();
-      
+
       if (isNaN(amount) || amount <= 0) {
         setError('Please enter a valid amount');
         setIsDonating(false);
@@ -204,7 +204,7 @@ export default function CampaignDetail() {
 
   if (error && !campaign) {
     const isBlockchainId = id && id.startsWith('BC_');
-    
+
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center max-w-md">
@@ -213,7 +213,7 @@ export default function CampaignDetail() {
             Campaign Not Found
           </h2>
           <p className="text-gray-500 mb-4">{error}</p>
-          
+
           {isBlockchainId && (
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl text-left">
               <p className="text-sm text-blue-800 mb-2">
@@ -230,7 +230,7 @@ export default function CampaignDetail() {
               </p>
             </div>
           )}
-          
+
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => navigate('/')}
@@ -337,9 +337,62 @@ export default function CampaignDetail() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sticky top-4">
               {/* Amount Info */}
               <div className="mb-6">
-                <p className="text-3xl font-bold text-gray-900 mb-2">
-                  {formatAmount(campaign.currentAmount)}
-                </p>
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-3xl font-bold text-gray-900">
+                    {formatAmount(campaign.currentAmount)}
+                  </p>
+                  {campaign.verificationStatus === 'VERIFIED' && (
+                    <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold" title="Data verified with blockchain">
+                      <CheckCircle size={14} />
+                      <span>Verified</span>
+                    </div>
+                  )}
+                  {campaign.verificationStatus === 'TAMPERED' && (
+                    <div className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold" title="Warning: Data tampering detected">
+                      <AlertCircle size={14} />
+                      <span>Tampered</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Show blockchain amount if tampering detected */}
+                {campaign.verificationStatus === 'TAMPERED' && campaign.blockchainAmount !== null && (
+                  <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl">
+                    <p className="text-sm text-red-800 font-semibold mb-1">
+                      ⚠️ Data Mismatch Detected
+                    </p>
+                    <div className="text-sm space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-red-700">Database shows:</span>
+                        <span className="font-semibold text-red-900">{formatAmount(campaign.currentAmount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-green-700">Blockchain record:</span>
+                        <span className="font-semibold text-green-900">{formatAmount(campaign.blockchainAmount)}</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-red-600 mt-2">
+                      The blockchain record is the authoritative source. This campaign's data may have been tampered with.
+                    </p>
+                  </div>
+                )}
+
+                {/* Show tampering history warning even if current data matches */}
+                {campaign.verificationStatus === 'VERIFIED' && campaign.hasTamperingHistory && (
+                  <div className="mb-3 p-3 bg-orange-50 border border-orange-200 rounded-xl">
+                    <p className="text-sm text-orange-800 font-semibold mb-1">
+                      ⚠️ Tampering History Detected
+                    </p>
+                    <p className="text-xs text-orange-700">
+                      This campaign has been tampered with {campaign.tamperingIncidentCount} time(s) in the past.
+                      Current data now matches blockchain, but previous unauthorized modifications were detected and logged.
+                    </p>
+                    <p className="text-xs text-orange-600 mt-1 italic">
+                      Even if data is corrected, the audit trail is permanent.
+                    </p>
+                  </div>
+                )}
+
                 <p className="text-gray-600 mb-4">
                   raised of {formatAmount(campaign.goalAmount)} goal
                 </p>
@@ -480,7 +533,7 @@ export default function CampaignDetail() {
                     Remaining goal: €{getRemainingAmount().toFixed(2)}
                   </p>
                 </div>
-                
+
                 {/* Slider */}
                 <div className="px-1">
                   <input
