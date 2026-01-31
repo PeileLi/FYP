@@ -78,8 +78,6 @@ type SmartContract struct {
 	contractapi.Contract
 }
 
-// ==================== Key Generation ====================
-
 // campaignKey generates the world state key for a campaign
 func campaignKey(campaignID string) string {
 	return "CAMPAIGN_" + campaignID
@@ -90,22 +88,8 @@ func donationKey(donationID string) string {
 	return "DONATION_" + donationID
 }
 
-// ==================== Hash Functions ====================
-
-// calculateCampaignHash computes SHA-256 hash of campaign fields for current version
-// Hash includes: Absolute immutable fields + Current auditable fields + Version
-// Hash包含：绝对不可变字段 + 当前可审核字段 + 版本号
-//
-// When auditable fields are modified with approval:
-// - Version is incremented
-// - Hash is recalculated for the new version
-// - Old version is stored in CampaignHistory
-//
-// Dynamic operational fields (TotalAmount, DonationCount, Status) are NOT included:
-// - They change during normal operations
-// - They can be verified by querying donation records
+// calculateCampaignHash computes SHA-256 of immutable + auditable fields + version. Dynamic fields (TotalAmount, DonationCount, Status) are excluded.
 func calculateCampaignHash(c *Campaign) string {
-	// Include absolute immutable + current auditable + version
 	data := c.CampaignID +
 		"|" + c.Initiator +
 		"|" + c.CreatedAt +
@@ -126,9 +110,7 @@ func historyKey(campaignID string, version int) string {
 	return "HISTORY_" + campaignID + "_V" + strconv.Itoa(version)
 }
 
-// ==================== Campaign Functions ====================
-
-// CreateCampaign creates a new donation campaign (auditor is optional for now)
+// CreateCampaign creates a new donation campaign
 // 创建捐款项目 - 审核机制暂时可选
 func (s *SmartContract) CreateCampaign(ctx contractapi.TransactionContextInterface,
 	campaignID string, title string, description string, category string, initiator string, createdAt string, goalAmount float64, auditor string) error {
@@ -386,8 +368,6 @@ func (s *SmartContract) CampaignExists(ctx contractapi.TransactionContextInterfa
 	return data != nil, nil
 }
 
-// ==================== Donation Functions ====================
-
 // CreateDonation records a new donation
 // 创建捐款记录
 func (s *SmartContract) CreateDonation(ctx contractapi.TransactionContextInterface,
@@ -486,8 +466,6 @@ func (s *SmartContract) DonationExists(ctx contractapi.TransactionContextInterfa
 
 	return data != nil, nil
 }
-
-// ==================== Main ====================
 
 func main() {
 	chaincode, err := contractapi.NewChaincode(new(SmartContract))
