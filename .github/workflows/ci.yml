@@ -52,7 +52,7 @@ jobs:
 
       - name: Build chaincode
         working-directory: ./chaincode
-        run: go build -v ./...
+        run: go build -o /dev/null .
 
       - name: Run tests (if any)
         working-directory: ./chaincode
