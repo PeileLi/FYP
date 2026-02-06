@@ -16,7 +16,9 @@ public class DonationResponse {
     private Long id;
     private Long campaignId;
     private String campaignTitle;
-    private String donorName;
+    private String donorName; // Real donor name (only visible to the donor themselves)
+    private String displayName; // Public display name
+    private Boolean isAnonymous; // Whether donation is anonymous
     private BigDecimal amount;
     private String message;
     private LocalDateTime date;

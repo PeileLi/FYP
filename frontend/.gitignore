@@ -8,8 +8,8 @@
 # testing
 /coverage
 
-# production
-/build
+# production (Vite default outDir)
+/dist
 
 # misc
 .DS_Store

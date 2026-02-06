@@ -173,7 +173,7 @@ export default function Layout({ children }) {
 
                         {/* Desktop Navigation */}
                         <div className="hidden md:flex items-center gap-8">
-                            <Link to="/" className="text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors">Browse Projects</Link>
+                            <Link to="/browse-campaigns" className="text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors">Browse Projects</Link>
                             <a href="#" className="text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors">How It Works</a>
                             <a href="#" className="text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors">About Us</a>
                             <Link to="/blockchain-search" className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors flex items-center gap-1">
@@ -297,7 +297,7 @@ export default function Layout({ children }) {
                 {isMobileMenuOpen && (
                     <div className="md:hidden bg-white border-b border-gray-100 animate-in slide-in-from-top-5">
                         <div className="px-4 pt-2 pb-6 space-y-2">
-                            <Link to="/" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600" onClick={() => setIsMobileMenuOpen(false)}>Browse Projects</Link>
+                            <Link to="/browse-campaigns" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600" onClick={() => setIsMobileMenuOpen(false)}>Browse Projects</Link>
                             <Link to="/blockchain-search" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
                                 <Shield size={18} />
                                 Blockchain Verify

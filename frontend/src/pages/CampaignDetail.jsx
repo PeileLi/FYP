@@ -21,8 +21,10 @@ export default function CampaignDetail() {
   const [donations, setDonations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showDonateModal, setShowDonateModal] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [donateAmount, setDonateAmount] = useState('');
-  const [donateMessage, setDonateMessage] = useState('');
+  const [displayType, setDisplayType] = useState('default'); // 'default', 'custom', 'anonymous'
+  const [customDisplayName, setCustomDisplayName] = useState('');
   const [isDonating, setIsDonating] = useState(false);
   const [error, setError] = useState('');
   const user = getUser();
@@ -35,7 +37,7 @@ export default function CampaignDetail() {
     try {
       setIsLoading(true);
       setError('');
-      
+
       // Check if id looks like a blockchain transaction ID (starts with BC_)
       if (id && id.startsWith('BC_')) {
         console.log('Detected blockchain certificate ID, querying database:', id);
@@ -44,19 +46,19 @@ export default function CampaignDetail() {
         try {
           const campaignData = await campaignAPI.getByTxId(id);
           console.log('Campaign data received:', campaignData);
-          
+
           if (!campaignData || !campaignData.id) {
             throw new Error('Campaign not found in database with this blockchain certificate ID');
           }
-          
+
           setCampaign(campaignData);
-          
+
           // Update URL to use database ID instead of blockchain TxId for better UX
           if (campaignData.id && campaignData.id.toString() !== id) {
             console.log('Updating URL from', id, 'to', campaignData.id);
             navigate(`/campaigns/${campaignData.id}`, { replace: true });
           }
-          
+
           // Get donations
           try {
             const donationsData = await donationAPI.getCampaignDonations(campaignData.id);
@@ -86,6 +88,31 @@ export default function CampaignDetail() {
     }
   };
 
+  const getRemainingAmount = () => {
+    if (!campaign) return 0;
+    return Math.max(campaign.goalAmount - campaign.currentAmount, 0);
+  };
+
+  const handleDonateClick = () => {
+    if (!user) {
+      setShowLoginPrompt(true);
+    } else {
+      setShowDonateModal(true);
+    }
+  };
+
+  const handleAmountChange = (value) => {
+    const amount = parseFloat(value);
+    const remaining = getRemainingAmount();
+
+    // If the input amount exceeds remaining, set it to remaining
+    if (!isNaN(amount) && amount > remaining) {
+      setDonateAmount(remaining.toString());
+    } else {
+      setDonateAmount(value);
+    }
+  };
+
   const handleDonate = async () => {
     if (!user) {
       navigate('/login');
@@ -97,8 +124,23 @@ export default function CampaignDetail() {
 
     try {
       const amount = parseFloat(donateAmount);
+      const remaining = getRemainingAmount();
+
       if (isNaN(amount) || amount <= 0) {
         setError('Please enter a valid amount');
+        setIsDonating(false);
+        return;
+      }
+
+      if (amount > remaining) {
+        setError(`Amount cannot exceed remaining goal of €${remaining.toFixed(2)}`);
+        setIsDonating(false);
+        return;
+      }
+
+      // Validate custom display name if custom type is selected
+      if (displayType === 'custom' && (!customDisplayName || customDisplayName.trim() === '')) {
+        setError('Please enter a display name');
         setIsDonating(false);
         return;
       }
@@ -106,7 +148,8 @@ export default function CampaignDetail() {
       await donationAPI.create({
         campaignId: parseInt(id),
         amount: amount,
-        message: donateMessage
+        displayType: displayType,
+        customDisplayName: customDisplayName.trim()
       });
 
       // Refresh campaign data
@@ -114,7 +157,8 @@ export default function CampaignDetail() {
 
       // Reset form and close modal
       setDonateAmount('');
-      setDonateMessage('');
+      setDisplayType('default');
+      setCustomDisplayName('');
       setShowDonateModal(false);
 
       alert('Thank you for your donation!');
@@ -160,7 +204,7 @@ export default function CampaignDetail() {
 
   if (error && !campaign) {
     const isBlockchainId = id && id.startsWith('BC_');
-    
+
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center max-w-md">
@@ -169,7 +213,7 @@ export default function CampaignDetail() {
             Campaign Not Found
           </h2>
           <p className="text-gray-500 mb-4">{error}</p>
-          
+
           {isBlockchainId && (
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl text-left">
               <p className="text-sm text-blue-800 mb-2">
@@ -186,7 +230,7 @@ export default function CampaignDetail() {
               </p>
             </div>
           )}
-          
+
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => navigate('/')}
@@ -271,7 +315,9 @@ export default function CampaignDetail() {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
-                          <p className="font-medium text-gray-900">{donation.donorName}</p>
+                          <p className="font-medium text-gray-900">
+                            {donation.displayName || donation.donorName || '匿名'}
+                          </p>
                           <span className="font-bold text-emerald-600">{formatAmount(donation.amount)}</span>
                         </div>
                         {donation.message && (
@@ -291,9 +337,62 @@ export default function CampaignDetail() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sticky top-4">
               {/* Amount Info */}
               <div className="mb-6">
-                <p className="text-3xl font-bold text-gray-900 mb-2">
-                  {formatAmount(campaign.currentAmount)}
-                </p>
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-3xl font-bold text-gray-900">
+                    {formatAmount(campaign.currentAmount)}
+                  </p>
+                  {campaign.verificationStatus === 'VERIFIED' && (
+                    <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold" title="Data verified with blockchain">
+                      <CheckCircle size={14} />
+                      <span>Verified</span>
+                    </div>
+                  )}
+                  {campaign.verificationStatus === 'TAMPERED' && (
+                    <div className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold" title="Warning: Data tampering detected">
+                      <AlertCircle size={14} />
+                      <span>Tampered</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Show blockchain amount if tampering detected */}
+                {campaign.verificationStatus === 'TAMPERED' && campaign.blockchainAmount !== null && (
+                  <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl">
+                    <p className="text-sm text-red-800 font-semibold mb-1">
+                      ⚠️ Data Mismatch Detected
+                    </p>
+                    <div className="text-sm space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-red-700">Database shows:</span>
+                        <span className="font-semibold text-red-900">{formatAmount(campaign.currentAmount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-green-700">Blockchain record:</span>
+                        <span className="font-semibold text-green-900">{formatAmount(campaign.blockchainAmount)}</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-red-600 mt-2">
+                      The blockchain record is the authoritative source. This campaign's data may have been tampered with.
+                    </p>
+                  </div>
+                )}
+
+                {/* Show tampering history warning even if current data matches */}
+                {campaign.verificationStatus === 'VERIFIED' && campaign.hasTamperingHistory && (
+                  <div className="mb-3 p-3 bg-orange-50 border border-orange-200 rounded-xl">
+                    <p className="text-sm text-orange-800 font-semibold mb-1">
+                      ⚠️ Tampering History Detected
+                    </p>
+                    <p className="text-xs text-orange-700">
+                      This campaign has been tampered with {campaign.tamperingIncidentCount} time(s) in the past.
+                      Current data now matches blockchain, but previous unauthorized modifications were detected and logged.
+                    </p>
+                    <p className="text-xs text-orange-600 mt-1 italic">
+                      Even if data is corrected, the audit trail is permanent.
+                    </p>
+                  </div>
+                )}
+
                 <p className="text-gray-600 mb-4">
                   raised of {formatAmount(campaign.goalAmount)} goal
                 </p>
@@ -372,7 +471,7 @@ export default function CampaignDetail() {
               {/* Donate Button */}
               {campaign.status === 'ACTIVE' && (
                 <button
-                  onClick={() => setShowDonateModal(true)}
+                  onClick={handleDonateClick}
                   className="w-full py-4 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-200 mb-4"
                 >
                   Donate Now
@@ -413,33 +512,124 @@ export default function CampaignDetail() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Amount (€)
                 </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Euro className="h-5 w-5 text-gray-400" />
+                <div className="mb-3">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Euro className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="number"
+                      value={donateAmount}
+                      onChange={(e) => handleAmountChange(e.target.value)}
+                      onWheel={(e) => e.target.blur()}
+                      min="1"
+                      max={getRemainingAmount()}
+                      step="0.01"
+                      placeholder="0.00"
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:border-transparent transition-all"
+                    />
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Remaining goal: €{getRemainingAmount().toFixed(2)}
+                  </p>
+                </div>
+
+                {/* Slider */}
+                <div className="px-1">
                   <input
-                    type="number"
-                    value={donateAmount}
-                    onChange={(e) => setDonateAmount(e.target.value)}
+                    type="range"
                     min="1"
-                    step="0.01"
-                    placeholder="0.00"
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:border-transparent transition-all"
+                    max={getRemainingAmount()}
+                    step="1"
+                    value={donateAmount || 0}
+                    onChange={(e) => setDonateAmount(e.target.value)}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600 slider"
+                    style={{
+                      background: `linear-gradient(to right, rgb(16 185 129) 0%, rgb(16 185 129) ${(donateAmount / getRemainingAmount()) * 100}%, rgb(229 231 235) ${(donateAmount / getRemainingAmount()) * 100}%, rgb(229 231 235) 100%)`
+                    }}
                   />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>€1</span>
+                    <span>€{getRemainingAmount().toFixed(0)}</span>
+                  </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Message (Optional)
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Display Name
                 </label>
-                <textarea
-                  value={donateMessage}
-                  onChange={(e) => setDonateMessage(e.target.value)}
-                  rows="3"
-                  placeholder="Leave a message of support..."
-                  className="block w-full px-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:border-transparent transition-all resize-none"
-                />
+                <div className="space-y-2">
+                  {/* Default - use user's display name */}
+                  <label className="flex items-center gap-2 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="displayType"
+                      value="default"
+                      checked={displayType === 'default'}
+                      onChange={(e) => setDisplayType(e.target.value)}
+                      className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 focus:ring-emerald-500 focus:ring-2"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-gray-900">
+                        Use my name
+                      </span>
+                      <p className="text-xs text-gray-500">
+                        Display as "{user?.displayName || 'Your Name'}"
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Custom - user input display name */}
+                  <label className="flex items-start gap-2 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="displayType"
+                      value="custom"
+                      checked={displayType === 'custom'}
+                      onChange={(e) => setDisplayType(e.target.value)}
+                      className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 focus:ring-emerald-500 focus:ring-2 mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-gray-900">
+                        Custom display name
+                      </span>
+                      <p className="text-xs text-gray-500 mb-2">
+                        Choose a custom name to display
+                      </p>
+                      {displayType === 'custom' && (
+                        <input
+                          type="text"
+                          value={customDisplayName}
+                          onChange={(e) => setCustomDisplayName(e.target.value)}
+                          placeholder="Enter display name"
+                          maxLength="50"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      )}
+                    </div>
+                  </label>
+
+                  {/* Anonymous */}
+                  <label className="flex items-center gap-2 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="displayType"
+                      value="anonymous"
+                      checked={displayType === 'anonymous'}
+                      onChange={(e) => setDisplayType(e.target.value)}
+                      className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 focus:ring-emerald-500 focus:ring-2"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-gray-900">
+                        Donate anonymously
+                      </span>
+                      <p className="text-xs text-gray-500">
+                        Your name will not be displayed
+                      </p>
+                    </div>
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -449,7 +639,8 @@ export default function CampaignDetail() {
                   setShowDonateModal(false);
                   setError('');
                   setDonateAmount('');
-                  setDonateMessage('');
+                  setDisplayType('default');
+                  setCustomDisplayName('');
                 }}
                 className="flex-1 py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
                 disabled={isDonating}
@@ -462,6 +653,38 @@ export default function CampaignDetail() {
                 className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isDonating ? 'Processing...' : 'Donate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Login Prompt Modal */}
+      {showLoginPrompt && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-8">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Heart className="text-emerald-600" size={32} />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Login Required</h2>
+              <p className="text-gray-600">
+                You need to be logged in to make a donation. Please login or create an account to continue.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => navigate('/login')}
+                className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 transition-colors"
+              >
+                Go to Login
+              </button>
+              <button
+                onClick={() => setShowLoginPrompt(false)}
+                className="w-full py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+              >
+                Cancel
               </button>
             </div>
           </div>

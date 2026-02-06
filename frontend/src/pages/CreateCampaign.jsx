@@ -238,6 +238,7 @@ export default function CreateCampaign() {
                                         name="goalAmount"
                                         value={formData.goalAmount}
                                         onChange={handleChange}
+                                        onWheel={(e) => e.target.blur()}
                                         required
                                         min="1"
                                         step="0.01"

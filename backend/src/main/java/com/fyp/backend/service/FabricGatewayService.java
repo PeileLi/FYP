@@ -198,7 +198,7 @@ public class FabricGatewayService {
      * @return Transaction ID (composite key: campaignID_timestamp) for blockchain
      *         verification
      */
-    public String createCampaign(String campaignID, String initiator, String description) {
+    public String createCampaign(String campaignID, String title, String description, String category, String initiator, double goalAmount) {
         if (!fabricConfig.isEnabled()) {
             log.debug("Fabric is disabled, skipping blockchain operation");
             return null;
@@ -209,7 +209,7 @@ public class FabricGatewayService {
             String auditor = ""; // Empty auditor to trigger AUTO_APPROVED
 
             contract.submitTransaction("CreateCampaign",
-                    campaignID, initiator, createdAt, description, auditor);
+                    campaignID, title, description, category, initiator, createdAt, String.valueOf(goalAmount), auditor);
 
             // Generate a blockchain certificate ID using campaign ID and timestamp
             // Format: CAMPAIGN_{campaignID}_{timestamp_hash}
@@ -281,7 +281,7 @@ public class FabricGatewayService {
      * Create a new donation record on blockchain
      * 在区块链上创建新的捐款记录
      */
-    public void createDonation(String donationID, String campaignID, double amount, String donor) {
+    public void createDonation(String donationID, String campaignID, double amount, String donor, String displayName, boolean isAnonymous) {
         if (!fabricConfig.isEnabled()) {
             return;
         }
@@ -290,9 +290,16 @@ public class FabricGatewayService {
             String donatedAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 
             contract.submitTransaction("CreateDonation",
-                    donationID, campaignID, String.valueOf(amount), donor, donatedAt);
+                    donationID, 
+                    campaignID, 
+                    String.valueOf(amount), 
+                    donor, 
+                    displayName,
+                    String.valueOf(isAnonymous),
+                    donatedAt);
 
-            log.info("Donation created on blockchain: {} for campaign {}", donationID, campaignID);
+            log.info("Donation created on blockchain: {} for campaign {} (Display: {}, Anonymous: {})", 
+                    donationID, campaignID, displayName, isAnonymous);
         } catch (Exception e) {
             log.error("Failed to create donation on blockchain: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to create donation on blockchain: " + e.getMessage(), e);

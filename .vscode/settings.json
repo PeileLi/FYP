@@ -1,6 +1,7 @@
 {
   "go.formatTool": "gofmt",
   "editor.formatOnSave": true,
+  "files.insertFinalNewline": true,
   "[go]": {
     "editor.formatOnSave": true
   },

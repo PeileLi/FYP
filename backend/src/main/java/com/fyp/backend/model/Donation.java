@@ -34,6 +34,13 @@ public class Donation {
     @Column(columnDefinition = "TEXT")
     private String message; // Optional donation message
 
+    @Column
+    private String displayName; // Public display name (user input or default)
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean isAnonymous = false; // Whether donation is anonymous
+
     @Column(nullable = false)
     private LocalDateTime donationDate;
 

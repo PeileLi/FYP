@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Search,
@@ -13,8 +13,15 @@ import {
     Calendar,
     User,
     FileText,
-    AlertCircle
+    AlertCircle,
+    Target,
+    TrendingUp,
+    Hash,
+    Tag,
+    DollarSign,
+    Users
 } from 'lucide-react';
+import CryptoJS from 'crypto-js';
 import { blockchainAPI } from '../utils/api';
 
 export default function BlockchainSearch() {
@@ -152,11 +159,41 @@ export default function BlockchainSearch() {
 
                             {result.verified && (
                                 <>
-                                    {/* Blockchain Data */}
+                                    {/* Basic Information */}
                                     <div className="mb-6">
                                         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                            <LinkIcon className="mr-2 text-blue-600" size={20} />
-                                            Blockchain Certificate
+                                            <FileText className="mr-2 text-blue-600" size={20} />
+                                            Campaign Information
+                                        </h3>
+                                        <div className="space-y-3">
+                                            {result.title && result.title !== 'N/A' && (
+                                                <InfoRow
+                                                    icon={<FileText size={18} />}
+                                                    label="Title"
+                                                    value={result.title}
+                                                />
+                                            )}
+                                            {result.category && result.category !== 'N/A' && (
+                                                <InfoRow
+                                                    icon={<Tag size={18} />}
+                                                    label="Category"
+                                                    value={result.category}
+                                                    badge
+                                                />
+                                            )}
+                                            <InfoRow
+                                                icon={<FileText size={18} />}
+                                                label="Description"
+                                                value={result.description}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Immutable Commitment Fields */}
+                                    <div className="mb-6">
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                            <Shield className="mr-2 text-emerald-600" size={20} />
+                                            Immutable Commitment
                                         </h3>
                                         <div className="space-y-3">
                                             <InfoRow
@@ -175,26 +212,73 @@ export default function BlockchainSearch() {
                                                 label="Created At"
                                                 value={new Date(result.createdAt).toLocaleString()}
                                             />
+                                            {result.goalAmount !== null && result.goalAmount !== undefined && (
+                                                <InfoRow
+                                                    icon={<Target size={18} />}
+                                                    label="Goal Amount"
+                                                    value={`€${result.goalAmount.toFixed(2)}`}
+                                                />
+                                            )}
+                                            <InfoRow
+                                                icon={<CheckCircle size={18} />}
+                                                label="Auditor"
+                                                value={result.auditor}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Dynamic Operational Fields */}
+                                    <div className="mb-6">
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                            <TrendingUp className="mr-2 text-blue-600" size={20} />
+                                            Current Status
+                                        </h3>
+                                        <div className="space-y-3">
                                             <InfoRow
                                                 icon={<Shield size={18} />}
                                                 label="Status"
                                                 value={result.status}
                                                 badge
                                             />
-                                            <InfoRow
-                                                icon={<FileText size={18} />}
-                                                label="Description"
-                                                value={result.description}
-                                            />
-                                            <InfoRow
-                                                icon={<CheckCircle size={18} />}
-                                                label="Auditor"
-                                                value={result.auditor}
-                                            />
+                                            {result.totalAmount !== null && result.totalAmount !== undefined && (
+                                                <InfoRow
+                                                    icon={<DollarSign size={18} />}
+                                                    label="Total Raised"
+                                                    value={`€${result.totalAmount.toFixed(2)}`}
+                                                />
+                                            )}
+                                            {result.donationCount !== null && result.donationCount !== undefined && (
+                                                <InfoRow
+                                                    icon={<Users size={18} />}
+                                                    label="Donation Count"
+                                                    value={result.donationCount.toString()}
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Hash Verification Box */}
+                                    {result.dataHash && (
+                                        <div className="mb-6">
+                                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                <Hash className="mr-2 text-purple-600" size={20} />
+                                                Hash Verification
+                                            </h3>
+                                            <HashVerificationBox result={result} />
+                                        </div>
+                                    )}
+
+                                    {/* Technical / Blockchain Fields */}
+                                    <div className="mb-6">
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                            <LinkIcon className="mr-2 text-blue-600" size={20} />
+                                            Blockchain Certificate
+                                        </h3>
+                                        <div className="space-y-3">
                                             {result.blockchainTxId && (
                                                 <InfoRow
                                                     icon={<LinkIcon size={18} />}
-                                                    label="Blockchain Certificate ID"
+                                                    label="Certificate ID"
                                                     value={result.blockchainTxId}
                                                     copyable
                                                     mono
@@ -225,6 +309,134 @@ export default function BlockchainSearch() {
     );
 }
 
+// Hash Verification Box component
+function HashVerificationBox({ result }) {
+    const [copiedBlockchain, setCopiedBlockchain] = useState(false);
+    const [copiedCalculated, setCopiedCalculated] = useState(false);
+
+    // Calculate hash from current data (database data)
+    const calculatedHash = useMemo(() => {
+        const hashComponents = [
+            result.campaignId,
+            result.initiator,
+            result.createdAt,
+            result.title,
+            result.description,
+            result.category,
+            result.goalAmount?.toFixed(2),
+            result.auditor,
+            '1' // Version
+        ].filter(c => c); // Filter out undefined values
+        
+        const hashInput = hashComponents.join('|');
+        return CryptoJS.SHA256(hashInput).toString();
+    }, [result.campaignId, result.initiator, result.createdAt, result.title, result.description, result.category, result.goalAmount, result.auditor]);
+
+    // Compare hashes
+    const blockchainHash = result.dataHash.toLowerCase();
+    const isMatch = blockchainHash === calculatedHash.toLowerCase();
+
+    const handleCopyBlockchain = () => {
+        navigator.clipboard.writeText(result.dataHash);
+        setCopiedBlockchain(true);
+        setTimeout(() => setCopiedBlockchain(false), 2000);
+    };
+
+    const handleCopyCalculated = () => {
+        navigator.clipboard.writeText(calculatedHash);
+        setCopiedCalculated(true);
+        setTimeout(() => setCopiedCalculated(false), 2000);
+    };
+
+    return (
+        <div className={`border rounded-xl overflow-hidden ${
+            isMatch 
+                ? 'border-green-200 bg-gradient-to-br from-green-50 to-emerald-50'
+                : 'border-red-200 bg-gradient-to-br from-red-50 to-orange-50'
+        }`}>
+            {/* Verification Status */}
+            <div className={`p-4 border-b ${isMatch ? 'border-green-200 bg-green-100/50' : 'border-red-200 bg-red-100/50'}`}>
+                <div className="flex items-center gap-3">
+                    {isMatch ? (
+                        <>
+                            <CheckCircle className="text-green-600" size={24} />
+                            <div>
+                                <p className="font-bold text-green-900">✅ Hash Verification Passed</p>
+                                <p className="text-sm text-green-700">Data integrity confirmed - no tampering detected</p>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <AlertCircle className="text-red-600" size={24} />
+                            <div>
+                                <p className="font-bold text-red-900">⚠️ Hash Mismatch Detected</p>
+                                <p className="text-sm text-red-700">Database data differs from blockchain record</p>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            {/* Hash Comparison */}
+            <div className="p-4 space-y-4">
+                {/* Blockchain Hash (Original) */}
+                <div>
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <Shield className="text-blue-600" size={18} />
+                            <span className="font-semibold text-gray-900 text-sm">
+                                Blockchain Hash (Original)
+                            </span>
+                        </div>
+                        <button
+                            onClick={handleCopyBlockchain}
+                            className="p-1.5 hover:bg-white rounded-lg transition-colors"
+                            title="Copy blockchain hash"
+                        >
+                            {copiedBlockchain ? (
+                                <CheckCircle size={16} className="text-green-600" />
+                            ) : (
+                                <Copy size={16} className="text-gray-500" />
+                            )}
+                        </button>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 font-mono text-xs break-all border border-blue-200">
+                        {result.dataHash}
+                    </div>
+                </div>
+
+                {/* Calculated Hash (Current Database) */}
+                <div>
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <Database className={isMatch ? 'text-green-600' : 'text-red-600'} size={18} />
+                            <span className="font-semibold text-gray-900 text-sm">
+                                Calculated Hash (Current)
+                            </span>
+                        </div>
+                        <button
+                            onClick={handleCopyCalculated}
+                            className="p-1.5 hover:bg-white rounded-lg transition-colors"
+                            title="Copy calculated hash"
+                        >
+                            {copiedCalculated ? (
+                                <CheckCircle size={16} className="text-green-600" />
+                            ) : (
+                                <Copy size={16} className="text-gray-500" />
+                            )}
+                        </button>
+                    </div>
+                    <div className={`bg-white rounded-lg p-3 font-mono text-xs break-all border ${
+                        isMatch ? 'border-green-200' : 'border-red-200'
+                    }`}>
+                        {calculatedHash}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // Helper component for displaying information rows
 function InfoRow({ icon, label, value, copyable, badge, mono }) {
     const [copied, setCopied] = useState(false);
@@ -235,24 +447,34 @@ function InfoRow({ icon, label, value, copyable, badge, mono }) {
         setTimeout(() => setCopied(false), 2000);
     };
 
+    // Badge color logic
+    const getBadgeColor = (val) => {
+        if (val === 'IN_PROGRESS' || val === 'ACTIVE') {
+            return 'bg-green-100 text-green-700';
+        } else if (val === 'COMPLETED') {
+            return 'bg-blue-100 text-blue-700';
+        } else if (val === 'SUSPENDED' || val === 'CLOSED') {
+            return 'bg-red-100 text-red-700';
+        } else if (['Medical Aid', 'Education', 'Emergency Relief', 'Community', 'Environment', 'Animal Welfare'].includes(val)) {
+            return 'bg-purple-100 text-purple-700';
+        } else {
+            return 'bg-gray-100 text-gray-700';
+        }
+    };
+
     return (
-        <div className="flex items-start justify-between p-3 bg-gray-50 rounded-lg">
+        <div className="flex items-start justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
             <div className="flex items-start gap-3 flex-1">
                 <div className="text-gray-400 mt-0.5">{icon}</div>
                 <div className="flex-1">
                     <p className="text-sm font-medium text-gray-600">{label}</p>
                     {badge ? (
-                        <span className={`inline-block mt-1 px-3 py-1 rounded-full text-xs font-semibold ${value === 'IN_PROGRESS' || value === 'ACTIVE'
-                            ? 'bg-green-100 text-green-700'
-                            : value === 'COMPLETED'
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-gray-100 text-gray-700'
-                            }`}>
+                        <span className={`inline-block mt-1 px-3 py-1 rounded-full text-xs font-semibold ${getBadgeColor(value)}`}>
                             {value}
                         </span>
                     ) : (
                         <p className={`mt-1 text-gray-900 ${mono ? 'font-mono text-sm break-all' : ''}`}>
-                            {value}
+                            {value || 'N/A'}
                         </p>
                     )}
                 </div>
@@ -260,7 +482,7 @@ function InfoRow({ icon, label, value, copyable, badge, mono }) {
             {copyable && (
                 <button
                     onClick={handleCopy}
-                    className="ml-2 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="ml-2 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-all"
                     title="Copy to clipboard"
                 >
                     {copied ? (

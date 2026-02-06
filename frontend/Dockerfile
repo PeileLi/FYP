@@ -21,8 +21,8 @@ FROM nginx:alpine
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy built files from builder stage (Vite outputs to 'build')
-COPY --from=builder /app/build /usr/share/nginx/html
+# Copy built files from builder stage (Vite default outDir is 'dist')
+COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Expose port 80
 EXPOSE 80
