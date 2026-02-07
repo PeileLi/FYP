@@ -4,11 +4,11 @@ A transparent and traceable donation platform powered by **Hyperledger Fabric** 
 
 ## 🛠 Tech Stack
 
-- **Blockchain**: Hyperledger Fabric 2.5.x
+- **Blockchain**: Hyperledger Fabric 2.5.14
 - **Smart Contract**: Go
-- **Backend**: Spring Boot 3.x + Java 17
-- **Frontend**: React 18 + Vite
-- **Database**: PostgreSQL 15
+- **Backend**: Spring Boot + Java 17
+- **Frontend**: React + Vite
+- **Database**: Supabase-PostgreSQL
 - **Container**: Docker & Docker Compose
 - **Identity**: Fabric CA
 
