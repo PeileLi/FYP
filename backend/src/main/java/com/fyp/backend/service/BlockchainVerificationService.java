@@ -21,7 +21,6 @@ import java.security.MessageDigest;
 public class BlockchainVerificationService {
     
     private final FabricGatewayService fabricGatewayService;
-    private final com.fyp.backend.repository.DonationRepository donationRepository;
     private final DataAuditService dataAuditService;
     
     /**
@@ -223,7 +222,6 @@ public class BlockchainVerificationService {
                 String blockchainTitle = root.get("title").asText();
                 String blockchainDescription = root.get("description").asText();
                 String blockchainCategory = root.get("category").asText();
-                String blockchainInitiator = root.get("initiator").asText();
                 String blockchainCreatedAt = root.get("createdAt").asText();
                 double blockchainGoalAmount = root.get("goalAmount").asDouble();
                 String blockchainAuditor = root.get("auditor").asText();
@@ -259,12 +257,12 @@ public class BlockchainVerificationService {
                     return false;
                 }
                 
-                log.info("✅ Hash verification passed for campaign {}", campaign.getId());
+                log.info("Hash verification passed for campaign {}", campaign.getId());
                 return true;
                 
             } else {
                 // OLD CHAINCODE: Fallback to simple amount comparison
-                log.warn("⚠️ Old chaincode detected (no dataHash), using simple amount comparison for campaign {}", campaign.getId());
+                log.warn("Old chaincode detected (no dataHash), using simple amount comparison for campaign {}", campaign.getId());
                 
                 // Check if totalAmount field exists
                 JsonNode totalAmountNode = root.get("totalAmount");
@@ -280,11 +278,11 @@ public class BlockchainVerificationService {
                 boolean amountMatches = dbAmount.compareTo(blockchainAmountBD) == 0;
                 
                 if (!amountMatches) {
-                    log.error("⚠️ AMOUNT MISMATCH - DB: {}, Blockchain: {}", dbAmount, blockchainAmount);
+                    log.error("AMOUNT MISMATCH - DB: {}, Blockchain: {}", dbAmount, blockchainAmount);
                     return false;
                 }
                 
-                log.info("✅ Simple amount verification passed for campaign {} (old chaincode)", campaign.getId());
+                log.info("Simple amount verification passed for campaign {} (old chaincode)", campaign.getId());
                 return true;
             }
             

@@ -91,11 +91,9 @@ public class CampaignService {
     }
 
     /**
-     * Get campaign by blockchain transaction ID
-     * Only queries from database, does not restore from blockchain
-     * Blockchain is used only for evidence storage, not for data recovery
-     * 通过区块链证书ID获取项目，仅从数据库查询，不从区块链恢复
-     * 区块链仅作为证据储存，不用于数据恢复
+     * Get campaign by blockchain transaction ID (database lookup only).
+     * Blockchain is for evidence/verification only; data is not restored from chain.
+     * 通过区块链交易ID查询项目（仅查库）。区块链仅作存证与校验，不用于数据恢复。
      */
     @Transactional(readOnly = true)
     public CampaignResponse getCampaignByBlockchainTxId(String txId) {
