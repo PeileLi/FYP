@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Folders, 
-  Plus, 
-  Euro, 
-  TrendingUp, 
+import {
+  Folders,
+  Plus,
+  Euro,
+  TrendingUp,
   Eye,
   Edit,
   Trash2,
@@ -160,11 +160,10 @@ export default function MyCampaigns() {
               <button
                 key={status}
                 onClick={() => setFilter(status)}
-                className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                  filter === status
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${filter === status
                     ? 'bg-emerald-600 text-white'
                     : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-                }`}
+                  }`}
               >
                 {status.charAt(0).toUpperCase() + status.slice(1)}
               </button>
@@ -185,7 +184,7 @@ export default function MyCampaigns() {
             <Folders className="mx-auto text-gray-300 mb-4" size={64} />
             <h3 className="text-xl font-bold text-gray-900 mb-2">No campaigns found</h3>
             <p className="text-gray-500 mb-6">
-              {filter === 'all' 
+              {filter === 'all'
                 ? "You haven't created any campaigns yet. Start making a difference today!"
                 : `No ${filter} campaigns found.`}
             </p>
@@ -201,7 +200,7 @@ export default function MyCampaigns() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCampaigns.map((campaign) => {
               const progress = getProgress(campaign.currentAmount, campaign.goalAmount);
-              
+
               return (
                 <div
                   key={campaign.id}
@@ -214,7 +213,7 @@ export default function MyCampaigns() {
                       alt={campaign.title}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        e.target.src = 'https://via.placeholder.com/400x300?text=Campaign';
+                        e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23e5e7eb' width='400' height='300'/%3E%3Ctext fill='%239ca3af' font-family='sans-serif' font-size='16' x='200' y='150' text-anchor='middle' dy='.35em'%3ECampaign%3C/text%3E%3C/svg%3E";
                       }}
                     />
                     <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(campaign.status)}`}>

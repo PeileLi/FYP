@@ -7,6 +7,7 @@ import com.fyp.backend.model.User;
 import com.fyp.backend.repository.CampaignRepository;
 import com.fyp.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CampaignService {
 
     private final CampaignRepository campaignRepository;
@@ -46,24 +48,28 @@ public class CampaignService {
         // Save to blockchain if enabled
         try {
             if (fabricGatewayService.isEnabled()) {
-                String campaignID = String.valueOf(savedCampaign.getId());
+                // Generate a unique blockchain campaign ID independent of DB auto-increment
+                // Format: C_{dbId}_{timestamp} - ensures uniqueness even after DB reset
+                String blockchainCampaignId = "C_" + savedCampaign.getId() + "_" + System.currentTimeMillis();
+                
                 String title = savedCampaign.getTitle();
                 String description = savedCampaign.getDescription();
                 String category = savedCampaign.getCategory();
                 String initiator = user.getEmail();
                 double goalAmount = savedCampaign.getGoalAmount().doubleValue();
-                String txId = fabricGatewayService.createCampaign(campaignID, title, description, category, initiator, goalAmount);
+                String txId = fabricGatewayService.createCampaign(blockchainCampaignId, title, description, category, initiator, goalAmount);
                 
-                // Save transaction ID to database
+                // Save both the blockchain campaign ID and the certificate TX ID
+                savedCampaign.setBlockchainCampaignId(blockchainCampaignId);
                 if (txId != null && !txId.isEmpty()) {
                     savedCampaign.setBlockchainTxId(txId);
-                    savedCampaign = campaignRepository.save(savedCampaign);
                 }
+                savedCampaign = campaignRepository.save(savedCampaign);
             }
         } catch (Exception e) {
             // Log error but don't fail the transaction
-            // Campaign is already saved in DB
-            throw new RuntimeException("Failed to save campaign to blockchain: " + e.getMessage());
+            // Campaign is already saved in DB; blockchain is for evidence only
+            log.error("Failed to save campaign to blockchain (campaign still saved in DB): {}", e.getMessage());
         }
         
         return mapToResponse(savedCampaign);
@@ -133,17 +139,14 @@ public class CampaignService {
                 campaign.setCompletedAt(java.time.LocalDateTime.now());
             }
             
-            // Update status on blockchain
+            // Update status on blockchain using the stored blockchain campaign ID
             try {
-                if (fabricGatewayService.isEnabled()) {
-                    fabricGatewayService.updateCampaignStatus(
-                        String.valueOf(campaignId), 
-                        "COMPLETED"
-                    );
+                String bcId = resolveBlockchainCampaignId(campaign);
+                if (fabricGatewayService.isEnabled() && bcId != null) {
+                    fabricGatewayService.updateCampaignStatus(bcId, "COMPLETED");
                 }
             } catch (Exception e) {
-                // Log error but don't fail the transaction
-                System.err.println("Failed to update campaign status on blockchain: " + e.getMessage());
+                log.error("Failed to update campaign status on blockchain: {}", e.getMessage());
             }
         }
 
@@ -187,19 +190,32 @@ public class CampaignService {
         
         // Update status on blockchain (SUSPENDED for closed campaigns)
         try {
-            if (fabricGatewayService.isEnabled()) {
-                fabricGatewayService.updateCampaignStatus(
-                    String.valueOf(campaignId), 
-                    "SUSPENDED"
-                );
+            String bcId = resolveBlockchainCampaignId(campaign);
+            if (fabricGatewayService.isEnabled() && bcId != null) {
+                fabricGatewayService.updateCampaignStatus(bcId, "SUSPENDED");
             }
         } catch (Exception e) {
-            // Log error but don't fail the transaction
-            System.err.println("Failed to update campaign status on blockchain: " + e.getMessage());
+            log.error("Failed to update campaign status on blockchain: {}", e.getMessage());
         }
         
         Campaign savedCampaign = campaignRepository.save(campaign);
         return mapToResponse(savedCampaign);
+    }
+
+    /**
+     * Resolve the blockchain campaign ID for a given campaign.
+     * Uses the dedicated blockchainCampaignId field if available,
+     * falls back to database ID for backward compatibility with old campaigns.
+     */
+    public static String resolveBlockchainCampaignId(Campaign campaign) {
+        if (campaign.getBlockchainCampaignId() != null && !campaign.getBlockchainCampaignId().isEmpty()) {
+            return campaign.getBlockchainCampaignId();
+        }
+        // Fallback for old campaigns that used DB ID as blockchain ID
+        if (campaign.getBlockchainTxId() != null) {
+            return String.valueOf(campaign.getId());
+        }
+        return null; // Campaign not recorded on blockchain
     }
 
     private CampaignResponse mapToResponse(Campaign campaign) {

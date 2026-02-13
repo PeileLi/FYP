@@ -12,7 +12,7 @@ import {
   Copy,
   CheckCircle
 } from 'lucide-react';
-import { campaignAPI, donationAPI, blockchainAPI, getUser } from '../utils/api';
+import { campaignAPI, donationAPI, userAPI, blockchainAPI, getUser, getToken } from '../utils/api';
 
 export default function CampaignDetail() {
   const { id } = useParams();
@@ -26,6 +26,7 @@ export default function CampaignDetail() {
   const [displayType, setDisplayType] = useState('default'); // 'default', 'custom', 'anonymous'
   const [customDisplayName, setCustomDisplayName] = useState('');
   const [isDonating, setIsDonating] = useState(false);
+  const [donationSuccess, setDonationSuccess] = useState(false);
   const [error, setError] = useState('');
   const user = getUser();
 
@@ -118,6 +119,10 @@ export default function CampaignDetail() {
       navigate('/login');
       return;
     }
+    if (!getToken()) {
+      setError('Session missing. Please log in again.');
+      return;
+    }
 
     setError('');
     setIsDonating(true);
@@ -145,23 +150,41 @@ export default function CampaignDetail() {
         return;
       }
 
+      const campaignId = campaign?.id ?? parseInt(id, 10);
+      if (!campaignId || isNaN(campaignId)) {
+        setError('Unable to determine campaign. Please refresh and try again.');
+        setIsDonating(false);
+        return;
+      }
+
+      // Validate session before donation so we don't hit 401 on create and get logged out
+      try {
+        await userAPI.getProfile();
+      } catch (profileErr) {
+        setError(profileErr.message || 'Your session has expired. Please log in again.');
+        setIsDonating(false);
+        return;
+      }
+
       await donationAPI.create({
-        campaignId: parseInt(id),
-        amount: amount,
-        displayType: displayType,
+        campaignId,
+        amount,
+        displayType,
         customDisplayName: customDisplayName.trim()
       });
 
       // Refresh campaign data
       await fetchCampaignData();
 
-      // Reset form and close modal
-      setDonateAmount('');
-      setDisplayType('default');
-      setCustomDisplayName('');
-      setShowDonateModal(false);
-
-      alert('Thank you for your donation!');
+      // Show success state
+      setDonationSuccess(true);
+      setTimeout(() => {
+        setDonateAmount('');
+        setDisplayType('default');
+        setCustomDisplayName('');
+        setDonationSuccess(false);
+        setShowDonateModal(false);
+      }, 1500);
     } catch (err) {
       setError(err.message || 'Failed to process donation');
     } finally {
@@ -265,7 +288,7 @@ export default function CampaignDetail() {
                 alt={campaign.title}
                 className="w-full h-96 object-cover"
                 onError={(e) => {
-                  e.target.src = 'https://via.placeholder.com/800x400?text=Campaign+Image';
+                  e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='400' viewBox='0 0 800 400'%3E%3Crect fill='%23e5e7eb' width='800' height='400'/%3E%3Ctext fill='%239ca3af' font-family='sans-serif' font-size='24' x='400' y='200' text-anchor='middle' dy='.35em'%3ECampaign Image%3C/text%3E%3C/svg%3E";
                 }}
               />
             </div>
@@ -356,7 +379,7 @@ export default function CampaignDetail() {
                 </div>
 
                 {/* Show blockchain amount if tampering detected */}
-                {campaign.verificationStatus === 'TAMPERED' && campaign.blockchainAmount !== null && (
+                {campaign.verificationStatus === 'TAMPERED' && campaign.blockchainAmount != null && (
                   <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl">
                     <p className="text-sm text-red-800 font-semibold mb-1">
                       ⚠️ Data Mismatch Detected
@@ -498,163 +521,178 @@ export default function CampaignDetail() {
       {showDonateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Make a Donation</h2>
-
-            {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mb-4">
-                <AlertCircle size={18} />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Amount (€)
-                </label>
-                <div className="mb-3">
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Euro className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="number"
-                      value={donateAmount}
-                      onChange={(e) => handleAmountChange(e.target.value)}
-                      onWheel={(e) => e.target.blur()}
-                      min="1"
-                      max={getRemainingAmount()}
-                      step="0.01"
-                      placeholder="0.00"
-                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:border-transparent transition-all"
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Remaining goal: €{getRemainingAmount().toFixed(2)}
-                  </p>
+            {donationSuccess ? (
+              <div className="text-center py-6">
+                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="text-emerald-600" size={40} />
                 </div>
-
-                {/* Slider */}
-                <div className="px-1">
-                  <input
-                    type="range"
-                    min="1"
-                    max={getRemainingAmount()}
-                    step="1"
-                    value={donateAmount || 0}
-                    onChange={(e) => setDonateAmount(e.target.value)}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600 slider"
-                    style={{
-                      background: `linear-gradient(to right, rgb(16 185 129) 0%, rgb(16 185 129) ${(donateAmount / getRemainingAmount()) * 100}%, rgb(229 231 235) ${(donateAmount / getRemainingAmount()) * 100}%, rgb(229 231 235) 100%)`
-                    }}
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>€1</span>
-                    <span>€{getRemainingAmount().toFixed(0)}</span>
-                  </div>
-                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Thank you!</h2>
+                <p className="text-gray-600">Your donation has been recorded successfully.</p>
               </div>
+            ) : (
+              <>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Make a Donation</h2>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Display Name
-                </label>
-                <div className="space-y-2">
-                  {/* Default - use user's display name */}
-                  <label className="flex items-center gap-2 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-                    <input
-                      type="radio"
-                      name="displayType"
-                      value="default"
-                      checked={displayType === 'default'}
-                      onChange={(e) => setDisplayType(e.target.value)}
-                      className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 focus:ring-emerald-500 focus:ring-2"
-                    />
-                    <div className="flex-1">
-                      <span className="text-sm font-medium text-gray-900">
-                        Use my name
-                      </span>
-                      <p className="text-xs text-gray-500">
-                        Display as "{user?.displayName || 'Your Name'}"
-                      </p>
-                    </div>
-                  </label>
+                {error && (
+                  <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mb-4">
+                    <AlertCircle size={18} />
+                    <span>{error}</span>
+                  </div>
+                )}
 
-                  {/* Custom - user input display name */}
-                  <label className="flex items-start gap-2 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-                    <input
-                      type="radio"
-                      name="displayType"
-                      value="custom"
-                      checked={displayType === 'custom'}
-                      onChange={(e) => setDisplayType(e.target.value)}
-                      className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 focus:ring-emerald-500 focus:ring-2 mt-0.5"
-                    />
-                    <div className="flex-1">
-                      <span className="text-sm font-medium text-gray-900">
-                        Custom display name
-                      </span>
-                      <p className="text-xs text-gray-500 mb-2">
-                        Choose a custom name to display
-                      </p>
-                      {displayType === 'custom' && (
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Amount (€)
+                    </label>
+                    <div className="mb-3">
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Euro className="h-5 w-5 text-gray-400" />
+                        </div>
                         <input
-                          type="text"
-                          value={customDisplayName}
-                          onChange={(e) => setCustomDisplayName(e.target.value)}
-                          placeholder="Enter display name"
-                          maxLength="50"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                          type="number"
+                          value={donateAmount}
+                          onChange={(e) => handleAmountChange(e.target.value)}
+                          onWheel={(e) => e.target.blur()}
+                          min="1"
+                          max={getRemainingAmount()}
+                          step="0.01"
+                          placeholder="0.00"
+                          className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:border-transparent transition-all"
                         />
-                      )}
-                    </div>
-                  </label>
-
-                  {/* Anonymous */}
-                  <label className="flex items-center gap-2 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-                    <input
-                      type="radio"
-                      name="displayType"
-                      value="anonymous"
-                      checked={displayType === 'anonymous'}
-                      onChange={(e) => setDisplayType(e.target.value)}
-                      className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 focus:ring-emerald-500 focus:ring-2"
-                    />
-                    <div className="flex-1">
-                      <span className="text-sm font-medium text-gray-900">
-                        Donate anonymously
-                      </span>
-                      <p className="text-xs text-gray-500">
-                        Your name will not be displayed
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Remaining goal: €{getRemainingAmount().toFixed(2)}
                       </p>
                     </div>
-                  </label>
-                </div>
-              </div>
-            </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowDonateModal(false);
-                  setError('');
-                  setDonateAmount('');
-                  setDisplayType('default');
-                  setCustomDisplayName('');
-                }}
-                className="flex-1 py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
-                disabled={isDonating}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDonate}
-                disabled={isDonating}
-                className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isDonating ? 'Processing...' : 'Donate'}
-              </button>
-            </div>
+                    {/* Slider */}
+                    <div className="px-1">
+                      <input
+                        type="range"
+                        min="1"
+                        max={Math.max(getRemainingAmount(), 1)}
+                        step="1"
+                        value={donateAmount || 0}
+                        onChange={(e) => {
+                          const val = Math.min(parseFloat(e.target.value) || 0, getRemainingAmount());
+                          setDonateAmount(val);
+                        }}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600 slider"
+                        style={{
+                          background: `linear-gradient(to right, rgb(16 185 129) 0%, rgb(16 185 129) ${((parseFloat(donateAmount) || 0) / Math.max(getRemainingAmount(), 1)) * 100}%, rgb(229 231 235) ${((parseFloat(donateAmount) || 0) / Math.max(getRemainingAmount(), 1)) * 100}%, rgb(229 231 235) 100%)`
+                        }}
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>€1</span>
+                        <span>€{Math.max(getRemainingAmount(), 1).toFixed(0)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Display Name
+                    </label>
+                    <div className="space-y-2">
+                      {/* Default - use user's display name */}
+                      <label className="flex items-center gap-2 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                        <input
+                          type="radio"
+                          name="displayType"
+                          value="default"
+                          checked={displayType === 'default'}
+                          onChange={(e) => setDisplayType(e.target.value)}
+                          className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 focus:ring-emerald-500 focus:ring-2"
+                        />
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-gray-900">
+                            Use my name
+                          </span>
+                          <p className="text-xs text-gray-500">
+                            Display as "{user?.displayName || 'Your Name'}"
+                          </p>
+                        </div>
+                      </label>
+
+                      {/* Custom - user input display name */}
+                      <label className="flex items-start gap-2 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                        <input
+                          type="radio"
+                          name="displayType"
+                          value="custom"
+                          checked={displayType === 'custom'}
+                          onChange={(e) => setDisplayType(e.target.value)}
+                          className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 focus:ring-emerald-500 focus:ring-2 mt-0.5"
+                        />
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-gray-900">
+                            Custom display name
+                          </span>
+                          <p className="text-xs text-gray-500 mb-2">
+                            Choose a custom name to display
+                          </p>
+                          {displayType === 'custom' && (
+                            <input
+                              type="text"
+                              value={customDisplayName}
+                              onChange={(e) => setCustomDisplayName(e.target.value)}
+                              placeholder="Enter display name"
+                              maxLength="50"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                            />
+                          )}
+                        </div>
+                      </label>
+
+                      {/* Anonymous */}
+                      <label className="flex items-center gap-2 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                        <input
+                          type="radio"
+                          name="displayType"
+                          value="anonymous"
+                          checked={displayType === 'anonymous'}
+                          onChange={(e) => setDisplayType(e.target.value)}
+                          className="w-4 h-4 text-emerald-600 bg-gray-100 border-gray-300 focus:ring-emerald-500 focus:ring-2"
+                        />
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-gray-900">
+                            Donate anonymously
+                          </span>
+                          <p className="text-xs text-gray-500">
+                            Your name will not be displayed
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowDonateModal(false);
+                      setError('');
+                      setDonateAmount('');
+                      setDisplayType('default');
+                      setCustomDisplayName('');
+                    }}
+                    className="flex-1 py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+                    disabled={isDonating}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDonate}
+                    disabled={isDonating}
+                    className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isDonating ? 'Processing...' : 'Donate'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

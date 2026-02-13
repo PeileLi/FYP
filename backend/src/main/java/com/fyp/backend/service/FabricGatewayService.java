@@ -199,8 +199,8 @@ public class FabricGatewayService {
      *         verification
      */
     public String createCampaign(String campaignID, String title, String description, String category, String initiator, double goalAmount) {
-        if (!fabricConfig.isEnabled()) {
-            log.debug("Fabric is disabled, skipping blockchain operation");
+        if (!isEnabled()) {
+            log.debug("Fabric is disabled or not initialized, skipping blockchain operation");
             return null;
         }
 
@@ -212,9 +212,9 @@ public class FabricGatewayService {
                     campaignID, title, description, category, initiator, createdAt, String.valueOf(goalAmount), auditor);
 
             // Generate a blockchain certificate ID using campaign ID and timestamp
-            // Format: CAMPAIGN_{campaignID}_{timestamp_hash}
+            // Use "::" separator so that campaignID (which may contain "_") can be decoded correctly
             String timestamp = String.valueOf(System.currentTimeMillis());
-            String compositeKey = campaignID + "_" + timestamp;
+            String compositeKey = campaignID + "::" + timestamp;
             String txId = "BC_" + bytesToHex(compositeKey.getBytes());
 
             log.info("Campaign created on blockchain: {} with Certificate ID: {}", campaignID, txId);
@@ -244,7 +244,7 @@ public class FabricGatewayService {
      * 从区块链读取项目信息
      */
     public String readCampaign(String campaignID) {
-        if (!fabricConfig.isEnabled()) {
+        if (!isEnabled()) {
             return null;
         }
 
@@ -262,7 +262,7 @@ public class FabricGatewayService {
      * 更新区块链上的项目状态
      */
     public void updateCampaignStatus(String campaignID, String newStatus) {
-        if (!fabricConfig.isEnabled()) {
+        if (!isEnabled()) {
             return;
         }
 
@@ -282,7 +282,7 @@ public class FabricGatewayService {
      * 在区块链上创建新的捐款记录
      */
     public void createDonation(String donationID, String campaignID, double amount, String donor, String displayName, boolean isAnonymous) {
-        if (!fabricConfig.isEnabled()) {
+        if (!isEnabled()) {
             return;
         }
 
@@ -311,7 +311,7 @@ public class FabricGatewayService {
      * 从区块链读取捐款记录
      */
     public String readDonation(String donationID) {
-        if (!fabricConfig.isEnabled()) {
+        if (!isEnabled()) {
             return null;
         }
 

@@ -22,12 +22,32 @@ public class BlockchainService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Verify campaign data between blockchain and database
+     * Verify campaign data between blockchain and database.
+     * Accepts a database campaign ID, resolves the blockchain campaign ID from the stored mapping.
      */
     public BlockchainCertificateResponse verifyCampaign(String campaignId) {
         try {
-            // Query blockchain data
-            String blockchainData = fabricGatewayService.readCampaign(campaignId);
+            // Look up campaign in database first to get its blockchain campaign ID
+            Optional<Campaign> dbCampaign = campaignRepository.findById(Long.parseLong(campaignId));
+            
+            // Resolve the actual blockchain campaign ID
+            String bcCampaignId;
+            if (dbCampaign.isPresent()) {
+                bcCampaignId = CampaignService.resolveBlockchainCampaignId(dbCampaign.get());
+                if (bcCampaignId == null) {
+                    return BlockchainCertificateResponse.builder()
+                            .campaignId(campaignId)
+                            .verified(false)
+                            .verificationMessage("Campaign not recorded on blockchain")
+                            .build();
+                }
+            } else {
+                // Fallback: try using the DB ID directly (for old campaigns)
+                bcCampaignId = campaignId;
+            }
+            
+            // Query blockchain data using the blockchain-specific campaign ID
+            String blockchainData = fabricGatewayService.readCampaign(bcCampaignId);
 
             if (blockchainData == null || blockchainData.isEmpty()) {
                 return BlockchainCertificateResponse.builder()
@@ -39,9 +59,6 @@ public class BlockchainService {
 
             // Parse blockchain data
             JsonNode campaignNode = objectMapper.readTree(blockchainData);
-
-            // Query database data
-            Optional<Campaign> dbCampaign = campaignRepository.findById(Long.parseLong(campaignId));
 
             BlockchainCertificateResponse.BlockchainCertificateResponseBuilder builder = BlockchainCertificateResponse
                     .builder()
@@ -172,8 +189,10 @@ public class BlockchainService {
     }
 
     /**
-     * Decode blockchain certificate ID to extract campaign ID
-     * Decodes BC_hex(campaignID_timestamp) format
+     * Decode blockchain certificate ID to extract the blockchain campaign ID.
+     * Supports two formats:
+     *   New: BC_hex(blockchainCampaignId::timestamp) - separator is "::"
+     *   Old: BC_hex(dbId_timestamp) - separator is "_"
      */
     private String decodeCampaignIdFromTxId(String txId) {
         try {
@@ -192,13 +211,18 @@ public class BlockchainService {
             // Convert bytes to string
             String decoded = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
 
-            // Extract campaign ID (before first underscore)
+            // New format uses "::" as separator between campaign ID and timestamp
+            if (decoded.contains("::")) {
+                String[] parts = decoded.split("::", 2);
+                return parts[0]; // e.g., "C_7_1770969349959"
+            }
+
+            // Old format uses "_" as separator (campaign ID was a simple number)
             String[] parts = decoded.split("_", 2);
             if (parts.length < 1) {
                 throw new IllegalArgumentException("Failed to extract campaign ID from decoded string");
             }
-
-            return parts[0];
+            return parts[0]; // e.g., "7"
         } catch (Exception e) {
             log.error("Failed to decode campaign ID from txId: {}", e.getMessage());
             throw new RuntimeException("Failed to decode blockchain certificate ID: " + e.getMessage(), e);

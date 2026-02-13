@@ -52,11 +52,16 @@ public class BlockchainVerificationService {
         }
         
         try {
-            String campaignId = String.valueOf(campaign.getId());
-            String blockchainData = fabricGatewayService.readCampaign(campaignId);
+            // Use dedicated blockchain campaign ID (independent of DB auto-increment)
+            String bcCampaignId = CampaignService.resolveBlockchainCampaignId(campaign);
+            if (bcCampaignId == null) {
+                return new CompleteVerificationResult(false, "VERIFICATION_FAILED", null, null);
+            }
+            
+            String blockchainData = fabricGatewayService.readCampaign(bcCampaignId);
             
             if (blockchainData == null || blockchainData.isEmpty()) {
-                log.error("No blockchain data found for campaign {}", campaignId);
+                log.error("No blockchain data found for campaign {} (bcId={})", campaign.getId(), bcCampaignId);
                 return new CompleteVerificationResult(false, "VERIFICATION_FAILED", null, null);
             }
             
@@ -65,7 +70,7 @@ public class BlockchainVerificationService {
             JsonNode root = mapper.readTree(blockchainData);
             
             // Extract blockchain data
-            BigDecimal blockchainAmount = new BigDecimal(root.get("totalAmount").asDouble());
+            BigDecimal blockchainAmount = BigDecimal.valueOf(root.get("totalAmount").asDouble());
             int blockchainCount = root.get("donationCount").asInt();
             
             // Verify hash (immutable fields)
@@ -76,7 +81,7 @@ public class BlockchainVerificationService {
             boolean amountMatches = dbAmount.compareTo(blockchainAmount) == 0;
             
             if (!hashValid || !amountMatches) {
-                log.error("⚠️ TAMPERING DETECTED for campaign {}", campaignId);
+                log.error("⚠️ TAMPERING DETECTED for campaign {} (bcId={})", campaign.getId(), bcCampaignId);
                 if (!hashValid) {
                     log.error("  Hash mismatch - immutable fields tampered");
                     // Record hash tampering in audit log
@@ -90,11 +95,12 @@ public class BlockchainVerificationService {
                 if (!amountMatches) {
                     log.error("  Amount mismatch - DB: {}, Blockchain: {}", dbAmount, blockchainAmount);
                     // Record amount tampering in audit log
+                    // Signature: recordTampering(campaign, fieldName, dbValue, blockchainValue)
                     dataAuditService.recordTampering(
                         campaign, 
                         "currentAmount",
-                        blockchainAmount.toString(),  // Blockchain value (truth)
-                        dbAmount.toString()           // Database value (tampered)
+                        dbAmount.toString(),           // DB value (tampered)
+                        blockchainAmount.toString()    // Blockchain value (truth)
                     );
                 }
                 return new CompleteVerificationResult(false, "TAMPERED", blockchainAmount, blockchainCount);
@@ -127,22 +133,25 @@ public class BlockchainVerificationService {
         }
         
         try {
-            String campaignId = String.valueOf(campaign.getId());
-            
-            // Query campaign data from blockchain
-            String blockchainData = fabricGatewayService.readCampaign(campaignId);
-            
-            if (blockchainData == null || blockchainData.isEmpty()) {
-                log.error("No blockchain data found for campaign {}", campaignId);
+            // Use dedicated blockchain campaign ID (independent of DB auto-increment)
+            String bcCampaignId = CampaignService.resolveBlockchainCampaignId(campaign);
+            if (bcCampaignId == null) {
+                log.warn("No blockchain campaign ID for campaign {}", campaign.getId());
                 return false;
             }
             
-            // Parse blockchain data and compare
-            // This is a simplified example - you need to parse the actual JSON response
+            // Query campaign data from blockchain
+            String blockchainData = fabricGatewayService.readCampaign(bcCampaignId);
+            
+            if (blockchainData == null || blockchainData.isEmpty()) {
+                log.error("No blockchain data found for campaign {} (bcId={})", campaign.getId(), bcCampaignId);
+                return false;
+            }
+            
             boolean isValid = verifyDataMatch(campaign, blockchainData);
             
             if (!isValid) {
-                log.error("⚠️ DATA TAMPERING DETECTED for campaign {}", campaignId);
+                log.error("⚠️ DATA TAMPERING DETECTED for campaign {} (bcId={})", campaign.getId(), bcCampaignId);
                 log.error("Database data does not match blockchain record");
             }
             
@@ -157,13 +166,18 @@ public class BlockchainVerificationService {
     /**
      * Verify campaign amount matches blockchain record
      */
-    public VerificationResult verifyCampaignAmount(Long campaignId, BigDecimal dbAmount) {
+    public VerificationResult verifyCampaignAmount(Campaign campaign, BigDecimal dbAmount) {
         if (!fabricGatewayService.isEnabled()) {
             return new VerificationResult(true, "Blockchain disabled", null);
         }
         
         try {
-            String blockchainData = fabricGatewayService.readCampaign(String.valueOf(campaignId));
+            // Resolve the blockchain campaign ID (independent of DB auto-increment)
+            String bcCampaignId = CampaignService.resolveBlockchainCampaignId(campaign);
+            if (bcCampaignId == null) {
+                return new VerificationResult(false, "No blockchain campaign ID", null);
+            }
+            String blockchainData = fabricGatewayService.readCampaign(bcCampaignId);
             
             if (blockchainData == null) {
                 return new VerificationResult(false, "No blockchain record", null);
@@ -216,8 +230,8 @@ public class BlockchainVerificationService {
             // Check if blockchain has new hash field (updated chaincode)
             JsonNode dataHashNode = root.get("dataHash");
             
-            if (dataHashNode != null && !dataHashNode.isNull()) {
-                // NEW CHAINCODE: Use hash-based verification
+            if (dataHashNode != null && !dataHashNode.isNull() && root.has("version")) {
+                // FULL CHAINCODE: Use hash-based verification (chaincode has version field)
                 String blockchainHash = dataHashNode.asText();
                 String blockchainTitle = root.get("title").asText();
                 String blockchainDescription = root.get("description").asText();
@@ -226,16 +240,22 @@ public class BlockchainVerificationService {
                 double blockchainGoalAmount = root.get("goalAmount").asDouble();
                 String blockchainAuditor = root.get("auditor").asText();
                 
+                // Use the blockchain's own campaignId for hash calculation (matches chaincode)
+                String bcCampaignId = root.get("campaignId").asText();
+                int blockchainVersion = root.get("version").asInt();
+                
                 // Calculate hash from database values (ONLY immutable fields)
+                // MUST match Go chaincode order: ID|Initiator|CreatedAt|Title|Desc|Category|Amount|Auditor|Version
                 String dbHash = calculateCampaignHash(
-                    String.valueOf(campaign.getId()),
+                    bcCampaignId,
+                    campaign.getOrganizer().getEmail(),
+                    blockchainCreatedAt,
                     campaign.getTitle(),
                     campaign.getDescription(),
                     campaign.getCategory(),
-                    campaign.getOrganizer().getEmail(),
-                    blockchainCreatedAt,  // Use blockchain's timestamp format
                     campaign.getGoalAmount(),
-                    blockchainAuditor  // Use blockchain's auditor value
+                    blockchainAuditor,
+                    blockchainVersion
                 );
                 
                 // Compare hashes
@@ -260,6 +280,35 @@ public class BlockchainVerificationService {
                 log.info("Hash verification passed for campaign {}", campaign.getId());
                 return true;
                 
+            } else if (dataHashNode != null && !dataHashNode.isNull()) {
+                // PARTIAL CHAINCODE: Has dataHash but no version field (deployed chaincode older than source)
+                // Cannot reliably recompute hash; fall through to field-by-field + amount comparison
+                log.warn("Deployed chaincode has dataHash but no version field for campaign {}. " +
+                         "Using field-by-field comparison instead.", campaign.getId());
+                
+                // Compare individual immutable fields between DB and blockchain
+                String bcTitle = root.has("title") ? root.get("title").asText() : "";
+                String bcDesc = root.has("description") ? root.get("description").asText() : "";
+                String bcCategory = root.has("category") ? root.get("category").asText() : "";
+                double bcGoalAmount = root.has("goalAmount") ? root.get("goalAmount").asDouble() : 0;
+                
+                boolean fieldsMatch = campaign.getTitle().equals(bcTitle) &&
+                    campaign.getDescription().equals(bcDesc) &&
+                    campaign.getCategory().equals(bcCategory) &&
+                    campaign.getGoalAmount().doubleValue() == bcGoalAmount;
+                
+                if (!fieldsMatch) {
+                    log.error("⚠️ FIELD MISMATCH DETECTED for campaign {}", campaign.getId());
+                    log.error("  Title: DB='{}' BC='{}'", campaign.getTitle(), bcTitle);
+                    log.error("  Description: DB='{}' BC='{}'", campaign.getDescription(), bcDesc);
+                    log.error("  Category: DB='{}' BC='{}'", campaign.getCategory(), bcCategory);
+                    log.error("  GoalAmount: DB={} BC={}", campaign.getGoalAmount(), bcGoalAmount);
+                    return false;
+                }
+                
+                log.info("Field comparison verification passed for campaign {} (partial chaincode)", campaign.getId());
+                return true;
+                
             } else {
                 // OLD CHAINCODE: Fallback to simple amount comparison
                 log.warn("Old chaincode detected (no dataHash), using simple amount comparison for campaign {}", campaign.getId());
@@ -273,7 +322,7 @@ public class BlockchainVerificationService {
                 
                 double blockchainAmount = totalAmountNode.asDouble();
                 BigDecimal dbAmount = campaign.getCurrentAmount();
-                BigDecimal blockchainAmountBD = new BigDecimal(blockchainAmount);
+                BigDecimal blockchainAmountBD = BigDecimal.valueOf(blockchainAmount);
                 
                 boolean amountMatches = dbAmount.compareTo(blockchainAmountBD) == 0;
                 
@@ -293,28 +342,27 @@ public class BlockchainVerificationService {
     }
     
     /**
-     * Calculate SHA-256 hash of IMMUTABLE campaign fields only
-     * Must match the hash calculation in chaincode.go
-     * Hash format: CampaignID|Title|Description|Category|Initiator|CreatedAt|GoalAmount|Auditor
-     * 
-     * Note: Dynamic fields (TotalAmount, DonationCount, Status) are NOT included
-     * because they change during normal operations.
+     * Calculate SHA-256 hash of campaign fields.
+     * Must match the hash calculation in chaincode.go exactly.
+     * Go hash order: CampaignID|Initiator|CreatedAt|Title|Description|Category|GoalAmount|Auditor|Version
      */
-    private String calculateCampaignHash(String campaignId, String title, String description, String category,
-                                        String initiator, String createdAt, BigDecimal goalAmount, String auditor) {
+    private String calculateCampaignHash(String campaignId, String initiator, String createdAt,
+                                        String title, String description, String category,
+                                        BigDecimal goalAmount, String auditor, int version) {
         try {
-            // Format goal amount with 2 decimal places (same as Go's 'f', 2, 64)
+            // Format goal amount with 2 decimal places (same as Go's strconv.FormatFloat(f, 'f', 2, 64))
             String formattedGoalAmount = String.format("%.2f", goalAmount.doubleValue());
             
-            // Concatenate ONLY immutable fields in same order as Go code
+            // Concatenate in EXACT same order as Go chaincode calculateCampaignHash()
             String data = campaignId + "|" + 
+                         initiator + "|" + 
+                         createdAt + "|" + 
                          title + "|" + 
                          description + "|" + 
                          category + "|" + 
-                         initiator + "|" + 
-                         createdAt + "|" + 
                          formattedGoalAmount + "|" + 
-                         auditor;
+                         auditor + "|" + 
+                         version;
             
             // Calculate SHA-256 hash
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -332,7 +380,7 @@ public class BlockchainVerificationService {
             
         } catch (Exception e) {
             log.error("Failed to calculate hash: {}", e.getMessage());
-            return null;
+            return "";  // Return empty string instead of null to avoid NPE in caller
         }
     }
     
@@ -341,7 +389,7 @@ public class BlockchainVerificationService {
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(blockchainData);
             double amount = root.get("totalAmount").asDouble();
-            return new BigDecimal(amount);
+            return BigDecimal.valueOf(amount);
         } catch (Exception e) {
             log.error("Failed to parse amount from blockchain: {}", e.getMessage());
             return null;

@@ -10,7 +10,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
+    restart: "no"
     networks:
       - fyp-network
     healthcheck:
@@ -65,7 +65,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
+    restart: "no"
     networks:
       - fyp-network
       - fabric_test
@@ -80,7 +80,7 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    restart: unless-stopped
+    restart: "no"
     networks:
       - fyp-network
 

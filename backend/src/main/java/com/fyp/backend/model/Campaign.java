@@ -55,9 +55,14 @@ public class Campaign {
     @Column(nullable = true)
     private LocalDateTime completedAt;
 
-    // Blockchain transaction ID for tracking on-chain data
+    // Blockchain transaction ID for tracking on-chain data (certificate ID like BC_xxx)
     @Column(nullable = true)
     private String blockchainTxId;
+
+    // The actual campaign ID used on the blockchain ledger (independent of database auto-increment ID)
+    // This ensures DB ID changes (reset, migration) don't break the blockchain link
+    @Column(nullable = true)
+    private String blockchainCampaignId;
 
     @PrePersist
     protected void onCreate() {

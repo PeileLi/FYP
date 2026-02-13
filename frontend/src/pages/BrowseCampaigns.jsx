@@ -50,7 +50,7 @@ const CampaignCard = ({ data, onClick }) => {
     };
 
     return (
-        <div 
+        <div
             onClick={onClick}
             className="bg-white rounded-xl shadow-sm hover:shadow-xl hover:shadow-emerald-900/5 transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col h-full group cursor-pointer"
         >
@@ -60,7 +60,7 @@ const CampaignCard = ({ data, onClick }) => {
                     alt={data.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     onError={(e) => {
-                        e.target.src = 'https://via.placeholder.com/400x300?text=Campaign+Image';
+                        e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23e5e7eb' width='400' height='300'/%3E%3Ctext fill='%239ca3af' font-family='sans-serif' font-size='16' x='200' y='150' text-anchor='middle' dy='.35em'%3ECampaign Image%3C/text%3E%3C/svg%3E";
                     }}
                 />
                 <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-md px-2 py-1 rounded text-xs font-bold text-emerald-700 uppercase tracking-wide shadow-sm">
@@ -92,7 +92,7 @@ const CampaignCard = ({ data, onClick }) => {
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2 flex-grow">{data.description}</p>
 
                 {/* Show tampering warning */}
-                {data.verificationStatus === 'TAMPERED' && data.blockchainAmount !== null && (
+                {data.verificationStatus === 'TAMPERED' && data.blockchainAmount != null && (
                     <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
                         <p className="text-xs text-red-700 font-semibold mb-1">⚠️ Amount Mismatch</p>
                         <div className="text-xs space-y-0.5">
@@ -172,10 +172,10 @@ export default function BrowseCampaigns() {
         // Filter by search term
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase();
-            filtered = filtered.filter(campaign => 
-                campaign.title.toLowerCase().includes(term) ||
-                campaign.description.toLowerCase().includes(term) ||
-                campaign.organizerName.toLowerCase().includes(term)
+            filtered = filtered.filter(campaign =>
+                (campaign.title || '').toLowerCase().includes(term) ||
+                (campaign.description || '').toLowerCase().includes(term) ||
+                (campaign.organizerName || '').toLowerCase().includes(term)
             );
         }
 
@@ -235,11 +235,10 @@ export default function BrowseCampaigns() {
                                 <button
                                     key={category.id}
                                     onClick={() => setSelectedCategory(category.id)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                        selectedCategory === category.id
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCategory === category.id
                                             ? 'bg-emerald-600 text-white shadow-md'
                                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
+                                        }`}
                                 >
                                     {category.name}
                                 </button>
@@ -278,7 +277,7 @@ export default function BrowseCampaigns() {
                         <Search size={48} className="mx-auto text-gray-300 mb-4" />
                         <h3 className="text-lg font-medium text-gray-900 mb-2">No campaigns found</h3>
                         <p className="text-gray-500 mb-6">
-                            {hasActiveFilters 
+                            {hasActiveFilters
                                 ? 'Try adjusting your search or filters'
                                 : 'No campaigns are currently available'}
                         </p>
@@ -294,8 +293,8 @@ export default function BrowseCampaigns() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {filteredCampaigns.map(campaign => (
-                            <CampaignCard 
-                                key={campaign.id} 
+                            <CampaignCard
+                                key={campaign.id}
                                 data={campaign}
                                 onClick={() => navigate(`/campaigns/${campaign.id}`)}
                             />

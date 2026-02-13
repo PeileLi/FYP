@@ -26,7 +26,14 @@ export const removeToken = () => {
 // Get user info from localStorage
 export const getUser = () => {
     const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
+    if (!userStr) return null;
+    try {
+        return JSON.parse(userStr);
+    } catch (e) {
+        console.warn('Corrupt user data in localStorage, clearing');
+        localStorage.removeItem('user');
+        return null;
+    }
 };
 
 // Set user info to localStorage
@@ -78,31 +85,31 @@ const parseErrorResponse = async (response) => {
  */
 export const getUserFriendlyErrorMessage = (error) => {
     const message = error?.message || 'An unexpected error occurred';
-    
+
     // Network errors
     if (message.includes('fetch') || message.includes('timeout')) {
         return 'Unable to connect to server. Please check your internet connection.';
     }
-    
+
     // Authentication errors
     if (message.includes('401') || message.includes('Unauthorized')) {
         return 'Your session has expired. Please log in again.';
     }
-    
+
     if (message.includes('403') || message.includes('Forbidden')) {
         return 'You don\'t have permission to perform this action.';
     }
-    
+
     // Not found
     if (message.includes('404') || message.includes('not found')) {
         return 'The requested resource was not found.';
     }
-    
+
     // Server errors
     if (message.includes('500') || message.includes('502') || message.includes('503')) {
         return 'Server error. Please try again later.';
     }
-    
+
     // Return original message for other errors
     return message;
 };
@@ -137,7 +144,7 @@ const publicApiRequest = async (endpoint, options = {}) => {
         if (contentType && contentType.includes('application/json')) {
             return response.json();
         }
-        
+
         return response.text();
 
     } catch (error) {
@@ -145,7 +152,7 @@ const publicApiRequest = async (endpoint, options = {}) => {
         if (error instanceof TypeError && error.message.includes('fetch')) {
             throw new Error('Network error: Unable to connect to server');
         }
-        
+
         throw error;
     }
 };
@@ -173,20 +180,18 @@ const apiRequest = async (endpoint, options = {}) => {
 
         if (!response.ok) {
             const errorMessage = await parseErrorResponse(response);
-            
-            // Handle authentication errors
-            if (response.status === 401) {
-                // Token expired or invalid
-                console.warn('Token expired, clearing session');
-                removeToken();
-                removeUser();
-                
-                // Emit event for UI to handle
-                window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-                
-                throw new Error('401 Your session has expired. Please log in again.');
+
+            // 401 or 403: only clear session when we actually sent a token (avoid clear when proxy stripped header)
+            if (response.status === 401 || response.status === 403) {
+                if (token) {
+                    console.warn('[apiRequest] Auth failed (%s) for %s, clearing session', response.status, url);
+                    removeToken();
+                    removeUser();
+                    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+                }
+                throw new Error('Your session has expired. Please log in again.');
             }
-            
+
             throw new Error(`${response.status} ${errorMessage}`);
         }
 
@@ -195,7 +200,7 @@ const apiRequest = async (endpoint, options = {}) => {
         if (contentType && contentType.includes('application/json')) {
             return response.json();
         }
-        
+
         return response.text();
 
     } catch (error) {
@@ -203,7 +208,7 @@ const apiRequest = async (endpoint, options = {}) => {
         if (error instanceof TypeError && error.message.includes('fetch')) {
             throw new Error('Network error: Unable to connect to server');
         }
-        
+
         throw error;
     }
 };
@@ -238,14 +243,14 @@ export const userAPI = {
             method: 'GET',
         });
     },
-    
+
     updateProfile: async (displayName, avatarUrl) => {
         return apiRequest('/user/profile', {
             method: 'PUT',
             body: JSON.stringify({ displayName, avatarUrl }),
         });
     },
-    
+
     updateAvatar: async (avatarUrl) => {
         return apiRequest('/user/profile', {
             method: 'PUT',
@@ -282,7 +287,7 @@ export const campaignAPI = {
             body: JSON.stringify(campaignData),
         });
     },
-    
+
     getAll: async (params = {}) => {
         const query = new URLSearchParams(params).toString();
         const url = query ? `/campaigns?${query}` : '/campaigns';
@@ -290,25 +295,25 @@ export const campaignAPI = {
             method: 'GET',
         });
     },
-    
+
     getById: async (id) => {
         return publicApiRequest(`/campaigns/${id}`, {
             method: 'GET',
         });
     },
-    
+
     getActive: async () => {
         return publicApiRequest('/campaigns?status=active', {
             method: 'GET',
         });
     },
-    
+
     getMyCampaigns: async () => {
         return apiRequest('/campaigns/my-campaigns', {
             method: 'GET',
         });
     },
-    
+
     getByTxId: async (txId) => {
         return publicApiRequest(`/campaigns/by-txid?txId=${encodeURIComponent(txId)}`, {
             method: 'GET',
@@ -324,13 +329,13 @@ export const donationAPI = {
             body: JSON.stringify(donationData),
         });
     },
-    
+
     getMyHistory: async () => {
         return apiRequest('/donations/my-history', {
             method: 'GET',
         });
     },
-    
+
     getCampaignDonations: async (campaignId) => {
         return publicApiRequest(`/donations/campaign/${campaignId}`, {
             method: 'GET',
@@ -360,11 +365,11 @@ export const uploadAPI = {
 
             if (!response.ok) {
                 const errorMessage = await parseErrorResponse(response);
-                
+
                 if (response.status === 413) {
                     throw new Error('File too large. Maximum size is 50MB');
                 }
-                
+
                 throw new Error(errorMessage || 'Failed to upload image');
             }
 
@@ -385,7 +390,7 @@ export const blockchainAPI = {
             method: 'GET',
         });
     },
-    
+
     searchByTxId: async (txId) => {
         return publicApiRequest(`/blockchain/search?txId=${encodeURIComponent(txId)}`, {
             method: 'GET',

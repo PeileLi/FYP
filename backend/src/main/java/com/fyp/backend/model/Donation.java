@@ -47,6 +47,9 @@ public class Donation {
     @Column(nullable = false)
     private String status; // COMPLETED, PENDING, FAILED
 
+    @Column(name = "transaction_hash")
+    private String transactionHash; // Blockchain transaction hash
+
     @PrePersist
     protected void onCreate() {
         donationDate = LocalDateTime.now();

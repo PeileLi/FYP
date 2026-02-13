@@ -23,46 +23,46 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/browse-campaigns" element={<BrowseCampaigns />} />
-        <Route 
-          path="/create-campaign" 
+        <Route
+          path="/create-campaign"
           element={
             <ProtectedRoute>
               <CreateCampaign />
             </ProtectedRoute>
-          } 
+          }
         />
         <Route path="/campaigns/:id" element={<CampaignDetail />} />
-        <Route 
-          path="/my-campaigns" 
+        <Route
+          path="/my-campaigns"
           element={
             <ProtectedRoute>
               <MyCampaigns />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/settings" 
+        <Route
+          path="/settings"
           element={
             <ProtectedRoute>
               <Settings />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/profile" 
+        <Route
+          path="/profile"
           element={
             <ProtectedRoute>
               <Profile />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/donation-history" 
+        <Route
+          path="/donation-history"
           element={
             <ProtectedRoute>
               <DonationHistory />
             </ProtectedRoute>
-          } 
+          }
         />
         <Route path="/blockchain-search" element={<BlockchainSearch />} />
       </Routes>

@@ -69,23 +69,14 @@ export default function Layout({ children }) {
                     });
                     setIsLoggedIn(true);
                 } catch (error) {
-                    // Only clear token if we get a 401/403 (authentication error)
-                    // Don't clear on network errors or timeouts
+                    // Do not clear token here: 401 is already handled in api.js (clear + auth:unauthorized).
+                    // Clearing on message containing "403" or "Unauthorized" can wrongly log out the user
+                    // when backend returns 500/503 with such text in the body.
                     console.error('Failed to fetch user info:', error);
-                    
-                    if (error.message && (error.message.includes('401') || error.message.includes('403') || error.message.includes('Unauthorized'))) {
-                        // Token is actually invalid
-                        removeToken();
-                        removeUser();
-                        setIsLoggedIn(false);
-                        setUserState(null);
-                    } else {
-                        // Network error or server issue - keep user logged in with cached data
-                        console.warn('Network error fetching user profile, keeping cached session');
-                        if (cachedUser) {
-                            setUserState(cachedUser);
-                            setIsLoggedIn(true);
-                        }
+                    console.warn('Keeping cached session on profile fetch failure');
+                    if (cachedUser) {
+                        setUserState(cachedUser);
+                        setIsLoggedIn(true);
                     }
                 }
             } else {
@@ -109,6 +100,16 @@ export default function Layout({ children }) {
             setUserState(null);
         }
     }, [location]);
+
+    // When backend returns 401, session is cleared in api.js; update UI to show logged out (no redirect)
+    useEffect(() => {
+        const handleUnauthorized = () => {
+            setIsLoggedIn(false);
+            setUserState(null);
+        };
+        window.addEventListener('auth:unauthorized', handleUnauthorized);
+        return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    }, []);
 
     // Listen for user profile updates
     useEffect(() => {

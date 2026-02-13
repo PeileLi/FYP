@@ -59,7 +59,7 @@ public class DonationService {
                 break;
             case "anonymous":
                 // Anonymous donation
-                displayName = "匿名";
+                displayName = "Anonymous";
                 isAnonymous = true;
                 break;
             case "default":
@@ -69,7 +69,10 @@ public class DonationService {
                 break;
         }
 
-        // Create donation
+        // Create donation with a temporary transaction hash
+        // Will be updated after blockchain recording
+        String tempTxHash = "TX_" + System.currentTimeMillis();
+        
         Donation donation = Donation.builder()
                 .user(user)
                 .campaign(campaign)
@@ -78,29 +81,42 @@ public class DonationService {
                 .displayName(displayName)
                 .isAnonymous(isAnonymous)
                 .status("COMPLETED")
+                .transactionHash(tempTxHash)
                 .build();
 
         Donation savedDonation = donationRepository.save(donation);
 
         // Create donation record on blockchain
         try {
-            String donationId = "DON" + savedDonation.getId();
-            String campaignId = "CAMP" + campaign.getId();
-            String donorIdentifier = user.getEmail(); // Real identifier stored on blockchain
+            // Resolve the blockchain campaign ID (independent of DB auto-increment ID)
+            String blockchainCampaignId = CampaignService.resolveBlockchainCampaignId(campaign);
             
-            fabricGatewayService.createDonation(
-                donationId,
-                campaignId,
-                request.getAmount().doubleValue(),
-                donorIdentifier,
-                displayName,
-                isAnonymous
-            );
-            
-            log.info("Donation {} recorded on blockchain", donationId);
+            if (fabricGatewayService.isEnabled() && blockchainCampaignId != null) {
+                String donationId = "DON_" + savedDonation.getId() + "_" + System.currentTimeMillis();
+                String donorIdentifier = user.getEmail();
+                
+                fabricGatewayService.createDonation(
+                    donationId,
+                    blockchainCampaignId,
+                    request.getAmount().doubleValue(),
+                    donorIdentifier,
+                    displayName,
+                    isAnonymous
+                );
+                
+                // Update transaction hash with the blockchain donation ID
+                savedDonation.setTransactionHash(donationId);
+                donationRepository.save(savedDonation);
+                
+                log.info("Donation {} recorded on blockchain for campaign {} (bcId={})",
+                        donationId, campaign.getId(), blockchainCampaignId);
+            } else {
+                log.info("Blockchain skipped for donation {} (enabled={}, bcCampaignId={})",
+                        savedDonation.getId(), fabricGatewayService.isEnabled(), blockchainCampaignId);
+            }
         } catch (Exception e) {
             log.error("Failed to record donation on blockchain: {}", e.getMessage());
-            // Continue even if blockchain fails
+            // Keep the temporary transaction hash - donation is still valid in database
         }
 
         // Update campaign amount
@@ -109,6 +125,7 @@ public class DonationService {
         return mapToDonationResponse(savedDonation);
     }
 
+    @Transactional(readOnly = true)
     public List<DonationResponse> getUserDonations(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -133,11 +150,16 @@ public class DonationService {
     }
 
     private DonationResponse mapToDonationResponse(Donation donation) {
+        // Hide real donor name for anonymous donations to protect privacy
+        String donorName = Boolean.TRUE.equals(donation.getIsAnonymous()) 
+                ? "Anonymous" 
+                : donation.getUser().getDisplayName();
+        
         return DonationResponse.builder()
                 .id(donation.getId())
                 .campaignId(donation.getCampaign().getId())
                 .campaignTitle(donation.getCampaign().getTitle())
-                .donorName(donation.getUser().getDisplayName())
+                .donorName(donorName)
                 .displayName(donation.getDisplayName())
                 .isAnonymous(donation.getIsAnonymous())
                 .amount(donation.getAmount())
