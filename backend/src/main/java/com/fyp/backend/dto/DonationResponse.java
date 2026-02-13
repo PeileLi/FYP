@@ -23,5 +23,6 @@ public class DonationResponse {
     private String message;
     private LocalDateTime date;
     private String status;
+    private String transactionHash; // Blockchain transaction ID
 }
 

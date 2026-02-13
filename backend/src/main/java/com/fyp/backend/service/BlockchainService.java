@@ -189,6 +189,45 @@ public class BlockchainService {
     }
 
     /**
+     * Search donation record on blockchain by donation ID (e.g., DON_34_1770971306715)
+     */
+    public java.util.Map<String, Object> searchDonation(String donationId) {
+        try {
+            String blockchainData = fabricGatewayService.readDonation(donationId);
+
+            if (blockchainData == null || blockchainData.isEmpty()) {
+                return java.util.Map.of(
+                    "found", false,
+                    "donationId", donationId,
+                    "message", "Donation not found on blockchain"
+                );
+            }
+
+            JsonNode donationNode = objectMapper.readTree(blockchainData);
+
+            java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+            result.put("found", true);
+            result.put("donationId", donationNode.has("donationId") ? donationNode.get("donationId").asText() : donationId);
+            result.put("campaignId", donationNode.has("campaignId") ? donationNode.get("campaignId").asText() : null);
+            result.put("amount", donationNode.has("amount") ? donationNode.get("amount").asDouble() : null);
+            result.put("donor", donationNode.has("donor") ? donationNode.get("donor").asText() : null);
+            result.put("displayName", donationNode.has("displayName") ? donationNode.get("displayName").asText() : null);
+            result.put("isAnonymous", donationNode.has("isAnonymous") ? donationNode.get("isAnonymous").asBoolean() : null);
+            result.put("donatedAt", donationNode.has("donatedAt") ? donationNode.get("donatedAt").asText() : null);
+            result.put("message", "Donation found on blockchain");
+            return result;
+
+        } catch (Exception e) {
+            log.error("Error searching donation on blockchain: {}", e.getMessage(), e);
+            return java.util.Map.of(
+                "found", false,
+                "donationId", donationId,
+                "message", "Error querying blockchain: " + e.getMessage()
+            );
+        }
+    }
+
+    /**
      * Decode blockchain certificate ID to extract the blockchain campaign ID.
      * Supports two formats:
      *   New: BC_hex(blockchainCampaignId::timestamp) - separator is "::"

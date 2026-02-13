@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import {
   Folders,
   Plus,
-  Euro,
   TrendingUp,
   Eye,
-  Edit,
-  Trash2,
-  AlertCircle
+  AlertCircle,
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
+  Copy,
+  Check
 } from 'lucide-react';
 import { campaignAPI } from '../utils/api';
 
@@ -49,6 +51,8 @@ export default function MyCampaigns() {
     return Math.min((current / goal) * 100, 100);
   };
 
+  const [copiedId, setCopiedId] = useState(null);
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'ACTIVE':
@@ -60,6 +64,32 @@ export default function MyCampaigns() {
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+  };
+
+  const getVerificationBadge = (status) => {
+    switch (status) {
+      case 'VERIFIED':
+        return { icon: ShieldCheck, color: 'text-green-600 bg-green-50 border-green-200', label: 'Verified' };
+      case 'TAMPERED':
+        return { icon: ShieldAlert, color: 'text-red-600 bg-red-50 border-red-200', label: 'Tampered' };
+      case 'NOT_RECORDED':
+        return { icon: Shield, color: 'text-gray-400 bg-gray-50 border-gray-200', label: 'Not Recorded' };
+      default:
+        return { icon: Shield, color: 'text-yellow-600 bg-yellow-50 border-yellow-200', label: status || 'Unknown' };
+    }
+  };
+
+  const copyToClipboard = (text, id) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }).catch(() => {});
+  };
+
+  const truncateTxId = (txId) => {
+    if (!txId) return null;
+    if (txId.length <= 20) return txId;
+    return txId.slice(0, 10) + '...' + txId.slice(-8);
   };
 
   const filteredCampaigns = campaigns.filter(campaign => {
@@ -222,17 +252,17 @@ export default function MyCampaigns() {
                   </div>
 
                   {/* Content */}
-                  <div className="p-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1">
+                  <div className="p-5">
+                    <h3 className="text-lg font-bold text-gray-900 mb-1 line-clamp-1">
                       {campaign.title}
                     </h3>
-                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                    <p className="text-sm text-gray-500 mb-3 line-clamp-2">
                       {campaign.description}
                     </p>
 
                     {/* Progress */}
-                    <div className="mb-4">
-                      <div className="flex justify-between text-sm font-medium mb-2">
+                    <div className="mb-3">
+                      <div className="flex justify-between text-sm font-medium mb-1.5">
                         <span className="text-emerald-600">{formatAmount(campaign.currentAmount)}</span>
                         <span className="text-gray-400">of {formatAmount(campaign.goalAmount)}</span>
                       </div>
@@ -245,14 +275,63 @@ export default function MyCampaigns() {
                       <p className="text-xs text-gray-500 mt-1">{progress.toFixed(1)}% funded</p>
                     </div>
 
+                    {/* Blockchain Info */}
+                    <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                      {/* Verification Status */}
+                      {(() => {
+                        const badge = getVerificationBadge(campaign.verificationStatus);
+                        const Icon = badge.icon;
+                        return (
+                          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border ${badge.color} mb-2`}>
+                            <Icon size={13} />
+                            {badge.label}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Blockchain TxId */}
+                      {campaign.blockchainTxId ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 shrink-0">TxID:</span>
+                          <code className="text-xs text-gray-600 font-mono truncate flex-1" title={campaign.blockchainTxId}>
+                            {truncateTxId(campaign.blockchainTxId)}
+                          </code>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyToClipboard(campaign.blockchainTxId, campaign.id);
+                            }}
+                            className="p-1 hover:bg-gray-200 rounded transition-colors shrink-0"
+                            title="Copy full TxID"
+                          >
+                            {copiedId === campaign.id ? (
+                              <Check size={13} className="text-green-500" />
+                            ) : (
+                              <Copy size={13} className="text-gray-400" />
+                            )}
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-400 italic">No blockchain record</p>
+                      )}
+
+                      {/* Blockchain Amount & Donation Count */}
+                      {campaign.blockchainAmount != null && (
+                        <div className="flex gap-4 mt-2 text-xs text-gray-500">
+                          <span>On-chain: <strong className="text-gray-700">{formatAmount(campaign.blockchainAmount)}</strong></span>
+                          <span>Donations: <strong className="text-gray-700">{campaign.blockchainDonationCount || 0}</strong></span>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Actions */}
                     <div className="flex gap-2">
                       <button
                         onClick={() => navigate(`/campaigns/${campaign.id}`)}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg font-medium hover:bg-emerald-100 transition-colors"
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg font-medium hover:bg-emerald-100 transition-colors text-sm"
                       >
                         <Eye size={16} />
-                        View
+                        View Details
                       </button>
                     </div>
                   </div>

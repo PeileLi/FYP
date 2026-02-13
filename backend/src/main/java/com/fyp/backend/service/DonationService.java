@@ -166,6 +166,7 @@ public class DonationService {
                 .message(donation.getMessage())
                 .date(donation.getDonationDate())
                 .status(donation.getStatus())
+                .transactionHash(donation.getTransactionHash())
                 .build();
     }
 }

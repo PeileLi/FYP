@@ -396,4 +396,10 @@ export const blockchainAPI = {
             method: 'GET',
         });
     },
+
+    searchDonation: async (donationId) => {
+        return publicApiRequest(`/blockchain/donation/${encodeURIComponent(donationId)}`, {
+            method: 'GET',
+        });
+    },
 };

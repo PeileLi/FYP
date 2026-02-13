@@ -42,4 +42,16 @@ public class BlockchainController {
                     .body(Map.of("message", "Search failed: " + e.getMessage()));
         }
     }
+
+    @GetMapping("/donation/{donationId}")
+    public ResponseEntity<?> searchDonation(@PathVariable String donationId) {
+        try {
+            Map<String, Object> response = blockchainService.searchDonation(donationId);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Failed to search donation {}: {}", donationId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Search failed: " + e.getMessage()));
+        }
+    }
 }

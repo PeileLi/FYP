@@ -19,7 +19,8 @@ import {
     Hash,
     Tag,
     DollarSign,
-    Users
+    Users,
+    Heart
 } from 'lucide-react';
 import CryptoJS from 'crypto-js';
 import { blockchainAPI } from '../utils/api';
@@ -31,15 +32,30 @@ export default function BlockchainSearch() {
     const [error, setError] = useState('');
     const [result, setResult] = useState(null);
 
+    const [searchType, setSearchType] = useState(null); // 'campaign' or 'donation'
+    const [donationResult, setDonationResult] = useState(null);
+
     const handleSearch = async (e) => {
         e.preventDefault();
         setError('');
         setResult(null);
+        setDonationResult(null);
+        setSearchType(null);
         setIsLoading(true);
 
         try {
-            const response = await blockchainAPI.searchByTxId(searchValue);
-            setResult(response);
+            const value = searchValue.trim();
+            if (value.startsWith('DON_')) {
+                // Search for donation
+                setSearchType('donation');
+                const response = await blockchainAPI.searchDonation(value);
+                setDonationResult(response);
+            } else {
+                // Search for campaign (BC_ prefix or raw)
+                setSearchType('campaign');
+                const response = await blockchainAPI.searchByTxId(value);
+                setResult(response);
+            }
         } catch (err) {
             setError(err.message || 'Failed to search blockchain data');
         } finally {
@@ -94,7 +110,7 @@ export default function BlockchainSearch() {
                                         onChange={(e) => setSearchValue(e.target.value)}
                                         required
                                         className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all"
-                                        placeholder="Enter blockchain certificate ID (e.g., BC_...)"
+                                        placeholder="Enter certificate ID (BC_...) or donation ID (DON_...)"
                                     />
                                 </div>
                             </div>
@@ -299,6 +315,86 @@ export default function BlockchainSearch() {
                                             </button>
                                         </div>
                                     )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Donation Result Card */}
+                {donationResult && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="p-8">
+                            {/* Status */}
+                            <div className={`flex items-center gap-3 p-4 rounded-xl mb-6 ${donationResult.found
+                                ? 'bg-green-50 border border-green-200'
+                                : 'bg-red-50 border border-red-200'
+                                }`}>
+                                {donationResult.found ? (
+                                    <>
+                                        <CheckCircle className="text-green-600" size={24} />
+                                        <div>
+                                            <p className="font-semibold text-green-900">Donation Found on Blockchain</p>
+                                            <p className="text-sm text-green-700">{donationResult.message}</p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <XCircle className="text-red-600" size={24} />
+                                        <div>
+                                            <p className="font-semibold text-red-900">Donation Not Found</p>
+                                            <p className="text-sm text-red-700">{donationResult.message}</p>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {donationResult.found && (
+                                <>
+                                    {/* Donation Info */}
+                                    <div className="mb-6">
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                            <Heart className="mr-2 text-emerald-600" size={20} />
+                                            Donation Information
+                                        </h3>
+                                        <div className="space-y-3">
+                                            <InfoRow
+                                                icon={<Database size={18} />}
+                                                label="Donation ID"
+                                                value={donationResult.donationId}
+                                                copyable
+                                                mono
+                                            />
+                                            <InfoRow
+                                                icon={<LinkIcon size={18} />}
+                                                label="Campaign ID"
+                                                value={donationResult.campaignId}
+                                                copyable
+                                                mono
+                                            />
+                                            <InfoRow
+                                                icon={<DollarSign size={18} />}
+                                                label="Amount"
+                                                value={donationResult.amount != null ? `€${donationResult.amount.toFixed(2)}` : 'N/A'}
+                                            />
+                                            <InfoRow
+                                                icon={<User size={18} />}
+                                                label="Display Name"
+                                                value={donationResult.isAnonymous ? 'Anonymous' : (donationResult.displayName || 'N/A')}
+                                            />
+                                            <InfoRow
+                                                icon={<Calendar size={18} />}
+                                                label="Donated At"
+                                                value={donationResult.donatedAt ? new Date(donationResult.donatedAt).toLocaleString() : 'N/A'}
+                                            />
+                                            <InfoRow
+                                                icon={<Shield size={18} />}
+                                                label="Anonymous"
+                                                value={donationResult.isAnonymous ? 'Yes' : 'No'}
+                                                badge
+                                            />
+                                        </div>
+                                    </div>
                                 </>
                             )}
                         </div>

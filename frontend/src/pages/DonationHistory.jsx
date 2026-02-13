@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Calendar, ArrowUpRight, Loader } from 'lucide-react';
+import { Heart, Calendar, Loader, X, Award, Copy, Check, Shield } from 'lucide-react';
 import { donationAPI } from '@/utils/api';
 
 export default function DonationHistory() {
@@ -8,6 +8,8 @@ export default function DonationHistory() {
     const [donations, setDonations] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [selectedDonation, setSelectedDonation] = useState(null);
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         const fetchDonations = async () => {
@@ -33,6 +35,121 @@ export default function DonationHistory() {
             hour: '2-digit',
             minute: '2-digit'
         });
+    };
+
+    const formatShortDate = (dateString) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    };
+
+    const copyToClipboard = (text) => {
+        navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }).catch(() => {});
+    };
+
+    // Donation Certificate Modal
+    const CertificateModal = ({ donation, onClose }) => {
+        if (!donation) return null;
+
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+                {/* Backdrop */}
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+
+                {/* Certificate */}
+                <div
+                    className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {/* Close button */}
+                    <button
+                        onClick={onClose}
+                        className="absolute top-4 right-4 z-10 p-1.5 bg-white/80 hover:bg-white rounded-full shadow transition-colors"
+                    >
+                        <X size={18} className="text-gray-500" />
+                    </button>
+
+                    {/* Certificate Header */}
+                    <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 px-8 pt-8 pb-6 text-center text-white">
+                        <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-white/30">
+                            <Award size={32} className="text-white" />
+                        </div>
+                        <h2 className="text-xl font-bold mb-1">Donation Certificate</h2>
+                        <p className="text-emerald-100 text-sm">Thank you for your generous contribution</p>
+                    </div>
+
+                    {/* Certificate Body */}
+                    <div className="px-8 py-6">
+                        {/* Donation Details */}
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-start">
+                                <span className="text-sm text-gray-500">Campaign</span>
+                                <span className="text-sm font-semibold text-gray-900 text-right max-w-[60%]">{donation.campaignTitle}</span>
+                            </div>
+                            <div className="border-t border-dashed border-gray-200" />
+
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-500">Amount</span>
+                                <span className="text-2xl font-bold text-emerald-600">€{donation.amount.toLocaleString()}</span>
+                            </div>
+                            <div className="border-t border-dashed border-gray-200" />
+
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-500">Donor</span>
+                                <span className="text-sm font-medium text-gray-900">{donation.displayName || donation.donorName}</span>
+                            </div>
+                            <div className="border-t border-dashed border-gray-200" />
+
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-500">Date</span>
+                                <span className="text-sm text-gray-700">{formatShortDate(donation.date)}</span>
+                            </div>
+                            <div className="border-t border-dashed border-gray-200" />
+
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-gray-500">Status</span>
+                                <span className="text-xs font-semibold uppercase tracking-wide bg-green-100 text-green-700 px-2.5 py-1 rounded-full">
+                                    {donation.status}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Blockchain Footer */}
+                    <div className="bg-gray-50 border-t border-gray-100 px-8 py-5">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Shield size={14} className="text-emerald-600" />
+                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Blockchain Record</span>
+                        </div>
+                        {donation.transactionHash ? (
+                            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2.5">
+                                <code className="text-xs text-gray-600 font-mono flex-1 break-all leading-relaxed">
+                                    {donation.transactionHash}
+                                </code>
+                                <button
+                                    onClick={() => copyToClipboard(donation.transactionHash)}
+                                    className="p-1.5 hover:bg-gray-100 rounded-md transition-colors shrink-0"
+                                    title="Copy Transaction ID"
+                                >
+                                    {copied ? (
+                                        <Check size={14} className="text-green-500" />
+                                    ) : (
+                                        <Copy size={14} className="text-gray-400" />
+                                    )}
+                                </button>
+                            </div>
+                        ) : (
+                            <p className="text-xs text-gray-400 italic">Not recorded on blockchain</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     const renderContent = () => {
@@ -66,7 +183,11 @@ export default function DonationHistory() {
         return (
             <div className="divide-y divide-gray-100">
                 {donations.map((donation) => (
-                    <div key={donation.id} className="p-6 hover:bg-gray-50 transition-colors">
+                    <div
+                        key={donation.id}
+                        className="p-6 hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => setSelectedDonation(donation)}
+                    >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div className="flex items-start gap-4">
                                 <div className="p-3 bg-emerald-100 text-emerald-600 rounded-full">
@@ -80,25 +201,14 @@ export default function DonationHistory() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex items-center justify-between sm:justify-end gap-6 pl-14 sm:pl-0">
+                            <div className="flex items-center gap-4 pl-14 sm:pl-0">
                                 <div className="text-right">
-                                    <div className="font-bold text-emerald-600">¥{donation.amount.toLocaleString()}</div>
+                                    <div className="font-bold text-emerald-600">€{donation.amount.toLocaleString()}</div>
                                     <div className="text-xs text-gray-500 uppercase tracking-wide bg-gray-100 px-2 py-0.5 rounded-full inline-block mt-1">
                                         {donation.status}
                                     </div>
                                 </div>
-                                {donation.transactionHash && (
-                                    <button
-                                        className="p-2 text-gray-400 hover:text-emerald-600 transition-colors"
-                                        title={`Transaction Hash: ${donation.transactionHash}`}
-                                        onClick={() => {
-                                            // In a real app, this might open a blockchain explorer
-                                            alert(`Transaction Hash: ${donation.transactionHash}`);
-                                        }}
-                                    >
-                                        <ArrowUpRight size={20} />
-                                    </button>
-                                )}
+                                <Award size={18} className="text-gray-300" />
                             </div>
                         </div>
                     </div>
@@ -120,6 +230,17 @@ export default function DonationHistory() {
                     {renderContent()}
                 </div>
             </main>
+
+            {/* Certificate Modal */}
+            {selectedDonation && (
+                <CertificateModal
+                    donation={selectedDonation}
+                    onClose={() => {
+                        setSelectedDonation(null);
+                        setCopied(false);
+                    }}
+                />
+            )}
         </div>
     );
 }
