@@ -1,8 +1,7 @@
 package com.fyp.backend.controller;
 
-import com.fyp.backend.service.SupabaseStorageService;
+import com.fyp.backend.service.ImageStorageService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,10 +15,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class FileUploadController {
 
-    private final SupabaseStorageService supabaseStorageService;
-
-    @Value("${supabase.storage.enabled:true}")
-    private boolean supabaseStorageEnabled;
+    private final ImageStorageService imageStorageService;
 
     @PostMapping("/image")
     public ResponseEntity<?> uploadImage(@RequestParam("file") MultipartFile file) {
@@ -40,13 +36,13 @@ public class FileUploadController {
                 return ResponseEntity.badRequest().body(Map.of("error", "File size must be less than 5MB"));
             }
 
-            // Upload to Supabase Storage
-            String fileUrl = supabaseStorageService.uploadImage(file);
+            // Upload using the configured storage backend (Supabase or Local)
+            String fileUrl = imageStorageService.uploadImage(file);
 
             // Return response
             return ResponseEntity.ok(Map.of(
                 "url", fileUrl,
-                "message", "File uploaded successfully to Supabase Storage"
+                "message", "File uploaded successfully"
             ));
 
         } catch (IllegalArgumentException e) {

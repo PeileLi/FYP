@@ -2,15 +2,17 @@ package com.fyp.backend.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
-import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.UUID;
 
-@Service
-public class SupabaseStorageService {
+/**
+ * Supabase cloud implementation of ImageStorageService.
+ * Uploads images to Supabase Storage via REST API.
+ */
+public class SupabaseStorageService implements ImageStorageService {
 
     @Value("${supabase.url}")
     private String supabaseUrl;
@@ -23,13 +25,7 @@ public class SupabaseStorageService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    /**
-     * Upload image to Supabase Storage
-     * 
-     * @param file MultipartFile to upload
-     * @return Public URL of the uploaded file
-     * @throws IOException if upload fails
-     */
+    @Override
     public String uploadImage(MultipartFile file) throws IOException {
         // Validate file
         if (file.isEmpty()) {
@@ -113,12 +109,7 @@ public class SupabaseStorageService {
         }
     }
 
-    /**
-     * Delete image from Supabase Storage
-     * 
-     * @param filename Filename to delete
-     * @return true if deleted successfully
-     */
+    @Override
     public boolean deleteImage(String filename) {
         try {
             String deleteUrl = String.format("%s/storage/v1/object/%s/%s", 

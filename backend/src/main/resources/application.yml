@@ -29,7 +29,6 @@ spring:
         format_sql: true
 
   # File upload configuration
-  # Match Supabase 50MB limit
   servlet:
     multipart:
       enabled: true
@@ -46,7 +45,9 @@ jwt:
   secret: ${JWT_SECRET:my-secret-key-for-jwt-token-generation-change-this-in-production}
   expiration: 86400000
 
-# Supabase Storage Configuration
+# Supabase Storage Configuration (Optional)
+# SUPABASE_STORAGE_ENABLED=true  -> use Supabase Storage (current default)
+# SUPABASE_STORAGE_ENABLED=false -> use local filesystem (file.upload-dir)
 supabase:
   url: ${SUPABASE_URL:https://your-project.supabase.co}
   service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:your-service-role-key}

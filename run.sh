@@ -460,11 +460,13 @@ print_section "7. Checking Environment Configuration"
 
 if [ ! -f "${SCRIPT_DIR}/.env" ]; then
     echo "Creating .env file..."
-    if [ -f "${SCRIPT_DIR}/.env.docker" ]; then
-        cp "${SCRIPT_DIR}/.env.docker" "${SCRIPT_DIR}/.env"
-        echo -e "${GREEN}✓${NC} .env file created"
+    if [ -f "${SCRIPT_DIR}/.env.example" ]; then
+        cp "${SCRIPT_DIR}/.env.example" "${SCRIPT_DIR}/.env"
+        echo -e "${GREEN}✓${NC} .env file created from .env.example"
+        echo -e "${YELLOW}⚠️  Please review .env and fill in your configuration${NC}"
     else
-        echo -e "${YELLOW}⚠️  .env.docker not found${NC}"
+        echo -e "${RED}❌ .env.example not found. Create .env manually.${NC}"
+        exit 1
     fi
 else
     echo -e "${GREEN}✓${NC} .env file exists"

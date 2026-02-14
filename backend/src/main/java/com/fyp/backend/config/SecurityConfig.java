@@ -70,6 +70,7 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/campaigns/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/donations/campaign/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/upload/images/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/files/**").permitAll()
                         .requestMatchers("/api/blockchain/**").permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session

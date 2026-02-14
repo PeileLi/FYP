@@ -58,7 +58,7 @@ export default function CreateCampaign() {
                 return;
             }
 
-            // Validate file size (50MB - matches backend and Supabase limit)
+            // Validate file size (50MB limit)
             if (file.size > 50 * 1024 * 1024) {
                 setError('Image size must be less than 50MB');
                 return;

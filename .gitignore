@@ -12,6 +12,7 @@ node_modules/
 dist/
 build/
 .env
+backend/.env
 
 # Go
 vendor/
@@ -24,6 +25,9 @@ bin/
 # System files
 .DS_Store
 Thumbs.db
+
+# Uploaded files (local storage)
+uploads/
 
 # Logs
 *.log
