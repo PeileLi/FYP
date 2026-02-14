@@ -204,16 +204,11 @@ public class CampaignService {
 
     /**
      * Resolve the blockchain campaign ID for a given campaign.
-     * Uses the dedicated blockchainCampaignId field if available,
-     * falls back to database ID for backward compatibility with old campaigns.
+     * Uses the dedicated blockchainCampaignId field.
      */
     public static String resolveBlockchainCampaignId(Campaign campaign) {
         if (campaign.getBlockchainCampaignId() != null && !campaign.getBlockchainCampaignId().isEmpty()) {
             return campaign.getBlockchainCampaignId();
-        }
-        // Fallback for old campaigns that used DB ID as blockchain ID
-        if (campaign.getBlockchainTxId() != null) {
-            return String.valueOf(campaign.getId());
         }
         return null; // Campaign not recorded on blockchain
     }

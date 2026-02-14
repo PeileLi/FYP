@@ -280,59 +280,9 @@ public class BlockchainVerificationService {
                 log.info("Hash verification passed for campaign {}", campaign.getId());
                 return true;
                 
-            } else if (dataHashNode != null && !dataHashNode.isNull()) {
-                // PARTIAL CHAINCODE: Has dataHash but no version field (deployed chaincode older than source)
-                // Cannot reliably recompute hash; fall through to field-by-field + amount comparison
-                log.warn("Deployed chaincode has dataHash but no version field for campaign {}. " +
-                         "Using field-by-field comparison instead.", campaign.getId());
-                
-                // Compare individual immutable fields between DB and blockchain
-                String bcTitle = root.has("title") ? root.get("title").asText() : "";
-                String bcDesc = root.has("description") ? root.get("description").asText() : "";
-                String bcCategory = root.has("category") ? root.get("category").asText() : "";
-                double bcGoalAmount = root.has("goalAmount") ? root.get("goalAmount").asDouble() : 0;
-                
-                boolean fieldsMatch = campaign.getTitle().equals(bcTitle) &&
-                    campaign.getDescription().equals(bcDesc) &&
-                    campaign.getCategory().equals(bcCategory) &&
-                    campaign.getGoalAmount().doubleValue() == bcGoalAmount;
-                
-                if (!fieldsMatch) {
-                    log.error("⚠️ FIELD MISMATCH DETECTED for campaign {}", campaign.getId());
-                    log.error("  Title: DB='{}' BC='{}'", campaign.getTitle(), bcTitle);
-                    log.error("  Description: DB='{}' BC='{}'", campaign.getDescription(), bcDesc);
-                    log.error("  Category: DB='{}' BC='{}'", campaign.getCategory(), bcCategory);
-                    log.error("  GoalAmount: DB={} BC={}", campaign.getGoalAmount(), bcGoalAmount);
-                    return false;
-                }
-                
-                log.info("Field comparison verification passed for campaign {} (partial chaincode)", campaign.getId());
-                return true;
-                
             } else {
-                // OLD CHAINCODE: Fallback to simple amount comparison
-                log.warn("Old chaincode detected (no dataHash), using simple amount comparison for campaign {}", campaign.getId());
-                
-                // Check if totalAmount field exists
-                JsonNode totalAmountNode = root.get("totalAmount");
-                if (totalAmountNode == null || totalAmountNode.isNull()) {
-                    log.error("Blockchain data missing totalAmount field");
-                    return false;
-                }
-                
-                double blockchainAmount = totalAmountNode.asDouble();
-                BigDecimal dbAmount = campaign.getCurrentAmount();
-                BigDecimal blockchainAmountBD = BigDecimal.valueOf(blockchainAmount);
-                
-                boolean amountMatches = dbAmount.compareTo(blockchainAmountBD) == 0;
-                
-                if (!amountMatches) {
-                    log.error("AMOUNT MISMATCH - DB: {}, Blockchain: {}", dbAmount, blockchainAmount);
-                    return false;
-                }
-                
-                log.info("Simple amount verification passed for campaign {} (old chaincode)", campaign.getId());
-                return true;
+                log.error("Blockchain data missing dataHash or version field for campaign {}", campaign.getId());
+                return false;
             }
             
         } catch (Exception e) {

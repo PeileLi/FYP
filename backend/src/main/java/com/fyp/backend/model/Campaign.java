@@ -55,7 +55,7 @@ public class Campaign {
     @Column(nullable = true)
     private LocalDateTime completedAt;
 
-    // Blockchain transaction ID for tracking on-chain data (certificate ID like BC_xxx)
+    // Blockchain transaction ID for tracking on-chain data (certificate ID like BCxxx)
     @Column(nullable = true)
     private String blockchainTxId;
 

@@ -45,13 +45,13 @@ export default function BlockchainSearch() {
 
         try {
             const value = searchValue.trim();
-            if (value.startsWith('DON_')) {
-                // Search for donation
+            if (value.startsWith('BD')) {
+                // Search for donation (BD certificate format)
                 setSearchType('donation');
                 const response = await blockchainAPI.searchDonation(value);
                 setDonationResult(response);
             } else {
-                // Search for campaign (BC_ prefix or raw)
+                // Search for campaign (BC prefix or raw)
                 setSearchType('campaign');
                 const response = await blockchainAPI.searchByTxId(value);
                 setResult(response);
@@ -110,7 +110,7 @@ export default function BlockchainSearch() {
                                         onChange={(e) => setSearchValue(e.target.value)}
                                         required
                                         className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all"
-                                        placeholder="Enter certificate ID (BC_...) or donation ID (DON_...)"
+                                        placeholder="Enter certificate ID (BC... or BD...)"
                                     />
                                 </div>
                             </div>
@@ -410,23 +410,22 @@ function HashVerificationBox({ result }) {
     const [copiedBlockchain, setCopiedBlockchain] = useState(false);
     const [copiedCalculated, setCopiedCalculated] = useState(false);
 
-    // Calculate hash from current data (database data)
+    // Calculate hash from blockchain data fields
+    // Must match Go chaincode order: CampaignID|Initiator|CreatedAt|Title|Description|Category|GoalAmount|Auditor|Version
     const calculatedHash = useMemo(() => {
-        const hashComponents = [
-            result.campaignId,
-            result.initiator,
-            result.createdAt,
-            result.title,
-            result.description,
-            result.category,
-            result.goalAmount?.toFixed(2),
-            result.auditor,
-            '1' // Version
-        ].filter(c => c); // Filter out undefined values
-        
-        const hashInput = hashComponents.join('|');
+        const hashInput = [
+            result.campaignId || '',
+            result.initiator || '',
+            result.createdAt || '',
+            result.title || '',
+            result.description || '',
+            result.category || '',
+            result.goalAmount != null ? result.goalAmount.toFixed(2) : '0.00',
+            result.auditor || '',
+            String(result.version != null ? result.version : 1)
+        ].join('|');
         return CryptoJS.SHA256(hashInput).toString();
-    }, [result.campaignId, result.initiator, result.createdAt, result.title, result.description, result.category, result.goalAmount, result.auditor]);
+    }, [result.campaignId, result.initiator, result.createdAt, result.title, result.description, result.category, result.goalAmount, result.auditor, result.version]);
 
     // Compare hashes
     const blockchainHash = result.dataHash.toLowerCase();

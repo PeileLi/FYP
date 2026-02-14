@@ -215,7 +215,7 @@ public class FabricGatewayService {
             // Use "::" separator so that campaignID (which may contain "_") can be decoded correctly
             String timestamp = String.valueOf(System.currentTimeMillis());
             String compositeKey = campaignID + "::" + timestamp;
-            String txId = "BC_" + bytesToHex(compositeKey.getBytes());
+            String txId = "BC" + bytesToHex(compositeKey.getBytes());
 
             log.info("Campaign created on blockchain: {} with Certificate ID: {}", campaignID, txId);
             return txId;

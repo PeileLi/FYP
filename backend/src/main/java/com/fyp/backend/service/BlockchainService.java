@@ -42,8 +42,11 @@ public class BlockchainService {
                             .build();
                 }
             } else {
-                // Fallback: try using the DB ID directly (for old campaigns)
-                bcCampaignId = campaignId;
+                return BlockchainCertificateResponse.builder()
+                        .campaignId(campaignId)
+                        .verified(false)
+                        .verificationMessage("Campaign not found in database")
+                        .build();
             }
             
             // Query blockchain data using the blockchain-specific campaign ID
@@ -72,6 +75,7 @@ public class BlockchainService {
                     .goalAmount(campaignNode.has("goalAmount") ? campaignNode.get("goalAmount").asDouble() : null)
                     .auditor(campaignNode.get("auditor").asText())
                     .dataHash(campaignNode.has("dataHash") ? campaignNode.get("dataHash").asText() : null)
+                    .version(campaignNode.has("version") ? campaignNode.get("version").asInt() : null)
                     // Dynamic fields
                     .status(campaignNode.get("status").asText())
                     .totalAmount(campaignNode.has("totalAmount") ? campaignNode.get("totalAmount").asDouble() : 0.0)
@@ -83,7 +87,6 @@ public class BlockchainService {
                         .databaseStatus(campaign.getStatus())
                         .databaseCreatedAt(campaign.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
                         .blockchainTxId(campaign.getBlockchainTxId())
-                        .title(campaign.getTitle())
                         .verified(true)
                         .verificationMessage("Campaign verified successfully");
             } else {
@@ -155,6 +158,7 @@ public class BlockchainService {
                     .goalAmount(campaignNode.has("goalAmount") ? campaignNode.get("goalAmount").asDouble() : null)
                     .auditor(campaignNode.get("auditor").asText())
                     .dataHash(campaignNode.has("dataHash") ? campaignNode.get("dataHash").asText() : null)
+                    .version(campaignNode.has("version") ? campaignNode.get("version").asInt() : null)
                     .blockchainTxId(txId)
                     // Dynamic fields
                     .status(campaignNode.get("status").asText())
@@ -167,7 +171,6 @@ public class BlockchainService {
                 builder.databaseId(dbCampaign.getId())
                         .databaseStatus(dbCampaign.getStatus())
                         .databaseCreatedAt(dbCampaign.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
-                        .title(dbCampaign.getTitle())
                         .verified(true)
                         .verificationMessage("Campaign found on blockchain");
             } else {
@@ -189,11 +192,13 @@ public class BlockchainService {
     }
 
     /**
-     * Search donation record on blockchain by donation ID (e.g., DON_34_1770971306715)
+     * Search donation record on blockchain by donation certificate ID (BD format)
      */
     public java.util.Map<String, Object> searchDonation(String donationId) {
         try {
-            String blockchainData = fabricGatewayService.readDonation(donationId);
+            // Decode BD certificate ID to raw donation ID if needed
+            String rawDonationId = decodeDonationId(donationId);
+            String blockchainData = fabricGatewayService.readDonation(rawDonationId);
 
             if (blockchainData == null || blockchainData.isEmpty()) {
                 return java.util.Map.of(
@@ -229,42 +234,51 @@ public class BlockchainService {
 
     /**
      * Decode blockchain certificate ID to extract the blockchain campaign ID.
-     * Supports two formats:
-     *   New: BC_hex(blockchainCampaignId::timestamp) - separator is "::"
-     *   Old: BC_hex(dbId_timestamp) - separator is "_"
+     * Format: BChex(blockchainCampaignId::timestamp)
      */
     private String decodeCampaignIdFromTxId(String txId) {
         try {
-            // Remove BC_ prefix
-            if (!txId.startsWith("BC_")) {
+            if (!txId.startsWith("BC")) {
                 throw new IllegalArgumentException("Invalid blockchain certificate ID format");
             }
-            String hexString = txId.substring(3);
+            String hexString = txId.substring(2);
 
-            // Convert hex to bytes
             byte[] bytes = new byte[hexString.length() / 2];
             for (int i = 0; i < bytes.length; i++) {
                 bytes[i] = (byte) Integer.parseInt(hexString.substring(i * 2, i * 2 + 2), 16);
             }
 
-            // Convert bytes to string
             String decoded = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
-
-            // New format uses "::" as separator between campaign ID and timestamp
-            if (decoded.contains("::")) {
-                String[] parts = decoded.split("::", 2);
-                return parts[0]; // e.g., "C_7_1770969349959"
-            }
-
-            // Old format uses "_" as separator (campaign ID was a simple number)
-            String[] parts = decoded.split("_", 2);
-            if (parts.length < 1) {
-                throw new IllegalArgumentException("Failed to extract campaign ID from decoded string");
-            }
-            return parts[0]; // e.g., "7"
+            String[] parts = decoded.split("::", 2);
+            return parts[0]; // e.g., "C_7_1770969349959"
         } catch (Exception e) {
             log.error("Failed to decode campaign ID from txId: {}", e.getMessage());
             throw new RuntimeException("Failed to decode blockchain certificate ID: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Decode donation certificate ID to extract the raw blockchain donation ID.
+     * Format: BDhex(donationId::timestamp) -> donationId (e.g., "DON_36_1771029994724")
+     */
+    private String decodeDonationId(String donationId) {
+        if (!donationId.startsWith("BD")) {
+            throw new IllegalArgumentException("Invalid donation certificate ID format");
+        }
+
+        try {
+            String hexString = donationId.substring(2);
+
+            byte[] bytes = new byte[hexString.length() / 2];
+            for (int i = 0; i < bytes.length; i++) {
+                bytes[i] = (byte) Integer.parseInt(hexString.substring(i * 2, i * 2 + 2), 16);
+            }
+
+            String decoded = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+            return decoded.split("::", 2)[0]; // e.g., "DON_36_1771029994724"
+        } catch (Exception e) {
+            log.error("Failed to decode donation ID: {}", e.getMessage());
+            throw new RuntimeException("Failed to decode donation certificate ID: " + e.getMessage(), e);
         }
     }
 

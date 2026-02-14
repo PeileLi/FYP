@@ -104,12 +104,16 @@ public class DonationService {
                     isAnonymous
                 );
                 
-                // Update transaction hash with the blockchain donation ID
-                savedDonation.setTransactionHash(donationId);
+                // Generate blockchain certificate ID (same style as campaign BC format)
+                String timestamp = String.valueOf(System.currentTimeMillis());
+                String compositeKey = donationId + "::" + timestamp;
+                String certificateId = "BD" + bytesToHex(compositeKey.getBytes());
+                
+                savedDonation.setTransactionHash(certificateId);
                 donationRepository.save(savedDonation);
                 
-                log.info("Donation {} recorded on blockchain for campaign {} (bcId={})",
-                        donationId, campaign.getId(), blockchainCampaignId);
+                log.info("Donation {} recorded on blockchain for campaign {} (bcId={}, cert={})",
+                        donationId, campaign.getId(), blockchainCampaignId, certificateId);
             } else {
                 log.info("Blockchain skipped for donation {} (enabled={}, bcCampaignId={})",
                         savedDonation.getId(), fabricGatewayService.isEnabled(), blockchainCampaignId);
@@ -168,6 +172,17 @@ public class DonationService {
                 .status(donation.getStatus())
                 .transactionHash(donation.getTransactionHash())
                 .build();
+    }
+
+    /**
+     * Convert byte array to hex string (same as FabricGatewayService.bytesToHex)
+     */
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 }
 

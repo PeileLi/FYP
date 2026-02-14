@@ -39,8 +39,8 @@ export default function CampaignDetail() {
       setIsLoading(true);
       setError('');
 
-      // Check if id looks like a blockchain transaction ID (starts with BC_)
-      if (id && id.startsWith('BC_')) {
+      // Check if id looks like a blockchain transaction ID (starts with BC)
+      if (id && id.startsWith('BC')) {
         console.log('Detected blockchain certificate ID, querying database:', id);
         // Query database by blockchain transaction ID
         // Blockchain is only used for evidence storage, not for data recovery
@@ -226,7 +226,7 @@ export default function CampaignDetail() {
   }
 
   if (error && !campaign) {
-    const isBlockchainId = id && id.startsWith('BC_');
+    const isBlockchainId = id && id.startsWith('BC');
 
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">

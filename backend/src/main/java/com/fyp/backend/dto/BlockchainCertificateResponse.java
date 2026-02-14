@@ -20,6 +20,7 @@ public class BlockchainCertificateResponse {
     private Double goalAmount;
     private String auditor;
     private String dataHash;
+    private Integer version;
     private String blockchainTxId;
     
     // Dynamic fields from blockchain (动态字段)
