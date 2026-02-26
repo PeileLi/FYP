@@ -15,6 +15,8 @@ public interface DonationRepository extends JpaRepository<Donation, Long> {
     List<Donation> findByUserOrderByDonationDateDesc(User user);
     List<Donation> findByCampaignOrderByDonationDateDesc(Campaign campaign);
 
+    List<Donation> findTop20ByOrderByDonationDateDesc();
+
     @Query("SELECT COALESCE(SUM(d.amount), 0) FROM Donation d")
     BigDecimal getTotalDonationAmount();
 

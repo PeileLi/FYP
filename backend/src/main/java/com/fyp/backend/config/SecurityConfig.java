@@ -66,7 +66,7 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll() // Allow error page so unhandled exceptions return proper status codes (not 401)
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/hello").permitAll()
-                        .requestMatchers("/api/stats/public").permitAll()
+                        .requestMatchers("/api/stats/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/campaigns/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/donations/campaign/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/upload/images/**").permitAll()

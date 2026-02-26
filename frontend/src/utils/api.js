@@ -277,6 +277,14 @@ export const statsAPI = {
             };
         }
     },
+    getRecentDonations: async () => {
+        try {
+            return await publicApiRequest('/stats/recent-donations', { method: 'GET' });
+        } catch (error) {
+            console.warn('Failed to fetch recent donations');
+            return [];
+        }
+    },
 };
 
 // Campaign API

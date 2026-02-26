@@ -379,53 +379,53 @@ export default function Layout({ children }) {
             </div>
 
             {/* Footer */}
-            <footer className="bg-gray-900 text-gray-300 py-12 border-t border-gray-800">
+            <footer className="bg-white border-t border-gray-100 py-12">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
                         <div className="col-span-1 md:col-span-1">
                             <div className="flex items-center gap-2 mb-4">
-                                <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-1.5 rounded-lg">
+                                <div className="bg-emerald-600 p-1.5 rounded-lg">
                                     <Sprout className="text-white" size={18} strokeWidth={2.5} />
                                 </div>
-                                <span className="text-xl font-bold text-white">BlockFund</span>
+                                <span className="text-xl font-bold text-gray-900">BlockFund</span>
                             </div>
                             <p className="text-sm text-gray-400 leading-relaxed">
-                                Connecting every kind soul, making compassion know no distance.
+                                Every seed of kindness grows into a forest of change.
                             </p>
                         </div>
 
                         <div>
-                            <h4 className="text-white font-bold mb-4">About Us</h4>
-                            <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-emerald-400 transition-colors">Platform Overview</a></li>
+                            <h4 className="text-gray-900 font-semibold mb-4 text-sm">About</h4>
+                            <ul className="space-y-2 text-sm text-gray-500">
+                                <li><a href="#" className="hover:text-emerald-600 transition-colors">Platform Overview</a></li>
                             </ul>
                         </div>
 
                         <div>
-                            <h4 className="text-white font-bold mb-4">Help Center</h4>
-                            <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-emerald-400 transition-colors">FAQ</a></li>
+                            <h4 className="text-gray-900 font-semibold mb-4 text-sm">Help</h4>
+                            <ul className="space-y-2 text-sm text-gray-500">
+                                <li><a href="#" className="hover:text-emerald-600 transition-colors">FAQ</a></li>
                             </ul>
                         </div>
 
                         <div>
-                            <h4 className="text-white font-bold mb-4">Follow Us</h4>
-                            <div className="flex gap-4">
-                                <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-emerald-600 cursor-pointer transition-colors">
-                                    <Globe size={18} />
+                            <h4 className="text-gray-900 font-semibold mb-4 text-sm">Connect</h4>
+                            <div className="flex gap-3">
+                                <div className="w-9 h-9 bg-gray-50 border border-gray-200 rounded-full flex items-center justify-center hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-600 cursor-pointer transition-colors text-gray-400">
+                                    <Globe size={16} />
                                 </div>
-                                <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-emerald-600 cursor-pointer transition-colors">
-                                    <Users size={18} />
+                                <div className="w-9 h-9 bg-gray-50 border border-gray-200 rounded-full flex items-center justify-center hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-600 cursor-pointer transition-colors text-gray-400">
+                                    <Users size={16} />
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-gray-500">
-                        <p>© 2025 BlockFund Inc. All rights reserved.</p>
-                        <div className="flex gap-6 mt-4 md:mt-0">
-                            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-                            <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
+                    <div className="border-t border-gray-100 mt-10 pt-6 flex flex-col md:flex-row justify-between items-center text-xs text-gray-400">
+                        <p>© 2025 BlockFund. All rights reserved.</p>
+                        <div className="flex gap-6 mt-3 md:mt-0">
+                            <a href="#" className="hover:text-gray-600 transition-colors">Privacy Policy</a>
+                            <a href="#" className="hover:text-gray-600 transition-colors">Terms of Service</a>
                         </div>
                     </div>
                 </div>
