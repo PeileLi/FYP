@@ -44,6 +44,12 @@ public class CampaignService {
                 .build();
 
         Campaign savedCampaign = campaignRepository.save(campaign);
+
+        // Auto-upgrade regular USER to INITIATOR on first campaign creation
+        if (user.getRole() == User.Role.USER) {
+            user.setRole(User.Role.INITIATOR);
+            userRepository.save(user);
+        }
         
         // Save to blockchain if enabled
         try {

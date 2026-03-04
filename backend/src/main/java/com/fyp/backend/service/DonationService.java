@@ -164,7 +164,7 @@ public class DonationService {
                 .campaignId(donation.getCampaign().getId())
                 .campaignTitle(donation.getCampaign().getTitle())
                 .donorName(donorName)
-                .displayName(donation.getDisplayName())
+                .displayName(Boolean.TRUE.equals(donation.getIsAnonymous()) ? "Anonymous" : donation.getDisplayName())
                 .isAnonymous(donation.getIsAnonymous())
                 .amount(donation.getAmount())
                 .message(donation.getMessage())

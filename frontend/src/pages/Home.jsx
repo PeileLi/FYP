@@ -37,6 +37,16 @@ const formatAmount = (amount) =>
         maximumFractionDigits: 0,
     }).format(amount);
 
+const timeAgo = (dateStr) => {
+    if (!dateStr) return '';
+    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
+    return `${Math.floor(diff / 2592000)}mo ago`;
+};
+
 const CampaignCard = ({ data, onClick }) => {
     const percent = Math.min(Math.round((data.currentAmount / data.goalAmount) * 100), 100);
 
@@ -183,12 +193,12 @@ export default function Home() {
                                                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0 text-sm font-bold text-white shadow-sm">
                                                             {(d.displayName || 'A').charAt(0).toUpperCase()}
                                                         </div>
-                                                        <div className="min-w-0">
-                                                            <div className="text-sm font-semibold text-gray-800 truncate">
-                                                                {d.displayName || 'Anonymous'}
-                                                            </div>
-                                                            <div className="text-xs text-gray-400 truncate">{d.campaignTitle}</div>
-                                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="text-sm font-semibold text-gray-800 truncate">
+                                                {d.displayName || 'Anonymous'}
+                                            </div>
+                                            <div className="text-xs text-gray-400 truncate">{timeAgo(d.date)}</div>
+                                        </div>
                                                     </div>
                                                     <div className="text-sm font-bold text-emerald-600 flex-shrink-0 ml-3 bg-emerald-50 px-2.5 py-1 rounded-lg">
                                                         +{formatAmount(d.amount)}

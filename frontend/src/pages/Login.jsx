@@ -37,6 +37,7 @@ export default function Login() {
         email: response.email,
         displayName: response.displayName,
         avatarUrl: response.avatarUrl,
+        role: response.role,
       });
 
       // Redirect to the intended page or home page

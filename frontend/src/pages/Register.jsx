@@ -52,6 +52,7 @@ export default function Register() {
                 email: response.email,
                 displayName: response.displayName,
                 avatarUrl: response.avatarUrl,
+                role: response.role,
             });
 
             setSuccess('Account created successfully! Redirecting...');

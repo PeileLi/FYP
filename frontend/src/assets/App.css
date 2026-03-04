@@ -6,7 +6,3 @@
 .animate-scroll-up {
   animation: scroll-up 20s linear infinite;
 }
-
-.animate-scroll-up:hover {
-  animation-play-state: paused;
-}

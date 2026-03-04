@@ -322,37 +322,13 @@ export default function CampaignDetail() {
               </div>
             </div>
 
-            {/* Recent Donations */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-              <h2 className="text-xl font-semibold mb-4">
-                Recent Donations ({donations.length})
-              </h2>
-              {donations.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No donations yet. Be the first to contribute!</p>
-              ) : (
-                <div className="space-y-4">
-                  {donations.slice(0, 10).map((donation) => (
-                    <div key={donation.id} className="flex items-start gap-4 pb-4 border-b border-gray-100 last:border-0">
-                      <div className="flex-shrink-0 w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                        <Heart size={20} className="text-emerald-600" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="font-medium text-gray-900">
-                            {donation.displayName || donation.donorName || '匿名'}
-                          </p>
-                          <span className="font-bold text-emerald-600">{formatAmount(donation.amount)}</span>
-                        </div>
-                        {donation.message && (
-                          <p className="text-sm text-gray-600 italic">"{donation.message}"</p>
-                        )}
-                        <p className="text-xs text-gray-500 mt-1">{formatDate(donation.date)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Donation Chain */}
+            <DonationChainSection
+              campaign={campaign}
+              donations={donations}
+              formatAmount={formatAmount}
+              formatDate={formatDate}
+            />
           </div>
 
           {/* Sidebar */}
@@ -727,6 +703,212 @@ export default function CampaignDetail() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+const CHAIN_PREVIEW = 5; // blocks shown before "show more"
+
+// Interactive blockchain chain visualization for campaign donations
+function DonationChainSection({ campaign, donations, formatAmount, formatDate }) {
+  const [selectedIdx, setSelectedIdx] = useState(null);
+  const [expanded, setExpanded] = useState(false);
+  const [tamperedIdx, setTamperedIdx] = useState(null);
+
+  const truncHash = (h) => (h ? h.slice(0, 10) + '…' : '—');
+
+  const chronoDonations = [...donations].reverse();
+  const blocks = [
+    {
+      type: 'genesis',
+      index: 0,
+      hash: campaign.blockchainTxId,
+      prevHash: '0000000000000000',
+      label: 'Campaign',
+      sub: null,
+      amount: null,
+      time: campaign.createdAt,
+    },
+    ...chronoDonations.map((d, i) => ({
+      type: 'donation',
+      index: i + 1,
+      hash: d.transactionHash,
+      prevHash: i === 0 ? campaign.blockchainTxId : chronoDonations[i - 1].transactionHash,
+      label: d.displayName || d.donorName || 'Anonymous',
+      sub: d.message || null,
+      amount: d.amount,
+      time: d.date,
+    })),
+  ];
+
+  // Apply simulated tampering: corrupt the hash of one block so the next block's prevHash won't match
+  const displayBlocks = blocks.map((block, i) => {
+    if (tamperedIdx !== null && i === tamperedIdx && block.hash) {
+      const corrupted = block.hash.slice(0, 4) + 'XXXX' + block.hash.slice(8);
+      return { ...block, hash: corrupted, tampered: true };
+    }
+    return block;
+  });
+
+  const visibleBlocks = expanded ? displayBlocks : displayBlocks.slice(0, CHAIN_PREVIEW);
+  const hiddenCount = blocks.length - CHAIN_PREVIEW;
+
+  const handleSimulateTamper = () => {
+    // Pick a random donation block (not genesis, not the last one so the break is visible)
+    const candidates = blocks.slice(1, blocks.length - 1);
+    if (candidates.length === 0) {
+      setTamperedIdx(1); // only one donation, tamper it anyway
+      return;
+    }
+    const pick = 1 + Math.floor(Math.random() * candidates.length);
+    setTamperedIdx(pick);
+    setExpanded(true);
+    setSelectedIdx(null);
+  };
+
+  const handleReset = () => {
+    setTamperedIdx(null);
+    setSelectedIdx(null);
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base font-semibold text-gray-900">
+          Donation Chain
+          <span className="ml-2 text-xs text-gray-400 font-normal">{donations.length} records</span>
+        </h2>
+      </div>
+
+      {donations.length === 0 ? (
+        <p className="text-gray-400 text-sm text-center py-8">No donations yet. Be the first to contribute!</p>
+      ) : (
+        <>
+          <div>
+            {visibleBlocks.map((block, i) => {
+              const isOpen = selectedIdx === i;
+              const isGenesis = block.type === 'genesis';
+              const bPrev = i > 0 ? blocks[i - 1] : null;
+              const bCanVerify = !isGenesis && block.prevHash && bPrev?.hash;
+              const bHashMatch = bCanVerify ? block.prevHash === bPrev.hash : null;
+              const isLast = i === visibleBlocks.length - 1 && (expanded || hiddenCount <= 0);
+
+              return (
+                <div key={i} className="flex gap-3">
+                  {/* Left: dot + line */}
+                  <div className="flex flex-col items-center flex-shrink-0 pt-2.5">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      isGenesis ? 'bg-emerald-400' : 'bg-gray-300'
+                    }`} />
+                    {!isLast && <div className="w-px bg-gray-100 flex-1 mt-1" />}
+                  </div>
+
+                  {/* Content */}
+                  <div className={`flex-1 min-w-0 ${!isLast ? 'pb-3' : ''}`}>
+                    <button
+                      onClick={() => setSelectedIdx(isOpen ? null : i)}
+                      className="w-full flex items-start justify-between gap-4 text-left group"
+                    >
+                      <div className="min-w-0">
+                        <span className={`text-[10px] font-semibold uppercase tracking-wide ${
+                          isGenesis ? 'text-emerald-500' : 'text-gray-400'
+                        }`}>
+                          {isGenesis ? 'Genesis' : `#${block.index}`}
+                        </span>
+                        <p className="text-sm font-medium text-gray-800 truncate leading-snug group-hover:text-gray-900">
+                          {block.label}
+                        </p>
+                        {block.hash && (
+                          <p className="text-[10px] font-mono text-gray-300 truncate mt-0.5">
+                            {truncHash(block.hash)}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        {block.amount !== null ? (
+                          <p className="text-sm font-bold text-emerald-600">{formatAmount(block.amount)}</p>
+                        ) : (
+                          <p className="text-xs text-gray-300">—</p>
+                        )}
+                        <p className="text-[10px] text-gray-400 mt-0.5">
+                          {block.time ? new Date(block.time).toLocaleDateString() : ''}
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Inline hash detail */}
+                    {isOpen && (
+                      <div className="mt-2 rounded-xl border border-gray-200 overflow-hidden text-xs">
+                        <div className="divide-y divide-gray-100">
+                          {/* Current hash */}
+                          <div className="px-3 py-2">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Block Hash</p>
+                            <code className="font-mono text-[11px] text-gray-700 break-all leading-relaxed">
+                              {block.hash || 'off-chain'}
+                            </code>
+                          </div>
+
+                          {/* Previous hash */}
+                          <div className="px-3 py-2">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Previous Hash</p>
+                              {bCanVerify && (
+                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                                  bHashMatch ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'
+                                }`}>
+                                  {bHashMatch ? '✓ valid' : '✗ mismatch'}
+                                </span>
+                              )}
+                            </div>
+                            <code className={`font-mono text-[11px] break-all leading-relaxed ${
+                              bCanVerify && !bHashMatch ? 'text-red-500' : 'text-gray-700'
+                            }`}>
+                              {isGenesis ? '0000000000000000 (genesis)' : (block.prevHash || '—')}
+                            </code>
+                          </div>
+
+                          {/* Amount + Date row */}
+                          <div className="px-3 py-2 flex gap-6">
+                            {block.amount !== null && (
+                              <div>
+                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Amount</p>
+                                <p className="text-sm font-bold text-emerald-600">{formatAmount(block.amount)}</p>
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Date</p>
+                              <p className="text-gray-700">{block.time ? formatDate(block.time) : '—'}</p>
+                            </div>
+                          </div>
+
+                          {/* Message (if any) */}
+                          {block.sub && (
+                            <div className="px-3 py-2">
+                              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Message</p>
+                              <p className="text-gray-600 italic">"{block.sub}"</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Show more / collapse */}
+          {hiddenCount > 0 && (
+            <button
+              onClick={() => { setExpanded(!expanded); if (expanded) setSelectedIdx(null); }}
+              className="mt-3 w-full py-2 text-xs font-medium text-gray-500 hover:text-gray-700 border border-dashed border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+            >
+              {expanded ? 'Show less' : `Show ${hiddenCount} more`}
+            </button>
+          )}
+        </>
       )}
     </div>
   );

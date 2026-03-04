@@ -1,19 +1,25 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { getToken } from '@/utils/api';
+import { getToken, getUser } from '@/utils/api';
 
 /**
  * Protected Route Component
- * Redirects to login page if user is not authenticated
- * Saves the intended destination to redirect back after login
+ * Redirects to login if not authenticated.
+ * Optionally accepts `requiredRole` to restrict access by role.
  */
-export default function ProtectedRoute({ children }) {
+export default function ProtectedRoute({ children, requiredRole }) {
     const token = getToken();
     const location = useLocation();
 
     if (!token) {
-        // Redirect to login page and save the intended destination
         return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+    }
+
+    if (requiredRole) {
+        const user = getUser();
+        if (!user || user.role !== requiredRole) {
+            return <Navigate to="/" replace />;
+        }
     }
 
     return children;

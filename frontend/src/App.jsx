@@ -11,6 +11,8 @@ import Profile from "@/pages/Profile";
 import DonationHistory from "@/pages/DonationHistory";
 import MyCampaigns from "@/pages/MyCampaigns";
 import BlockchainSearch from "@/pages/BlockchainSearch";
+import PartnerApply from "@/pages/PartnerApply";
+import AdminPanel from "@/pages/AdminPanel";
 import Layout from "@/layouts/Layout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import "@/assets/App.css";
@@ -65,6 +67,15 @@ function App() {
           }
         />
         <Route path="/blockchain-search" element={<BlockchainSearch />} />
+        <Route path="/partner-apply" element={<PartnerApply />} />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <AdminPanel />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </Layout>
   );

@@ -93,6 +93,6 @@ public class User implements UserDetails {
     }
 
     public enum Role {
-        USER, ADMIN
+        USER, INITIATOR, ADMIN, PARTNER
     }
 }

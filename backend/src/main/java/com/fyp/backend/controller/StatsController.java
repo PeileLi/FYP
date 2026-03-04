@@ -45,7 +45,7 @@ public class StatsController {
         List<Map<String, Object>> result = new ArrayList<>();
         for (Donation d : donations) {
             Map<String, Object> item = new LinkedHashMap<>();
-            item.put("displayName", d.getDisplayName() != null ? d.getDisplayName() : "Anonymous");
+            item.put("displayName", Boolean.TRUE.equals(d.getIsAnonymous()) ? "Anonymous" : d.getDisplayName());
             item.put("amount", d.getAmount());
             item.put("date", d.getDonationDate());
             item.put("campaignTitle", d.getCampaign() != null ? d.getCampaign().getTitle() : "");

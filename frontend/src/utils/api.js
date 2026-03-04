@@ -391,6 +391,36 @@ export const uploadAPI = {
     },
 };
 
+// Partner Application API
+export const partnerAPI = {
+    apply: async (data) => {
+        return publicApiRequest('/partner/apply', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+};
+
+// Admin API (ADMIN role required)
+export const adminAPI = {
+    getPartnerApplications: async (status) => {
+        const query = status ? `?status=${status}` : '';
+        return apiRequest(`/admin/partner-applications${query}`, { method: 'GET' });
+    },
+    approvePartnerApplication: async (id, tempPassword) => {
+        return apiRequest(`/admin/partner-applications/${id}/approve`, {
+            method: 'POST',
+            body: JSON.stringify(tempPassword ? { tempPassword } : {}),
+        });
+    },
+    rejectPartnerApplication: async (id, reason) => {
+        return apiRequest(`/admin/partner-applications/${id}/reject`, {
+            method: 'POST',
+            body: JSON.stringify(reason ? { reason } : {}),
+        });
+    },
+};
+
 // Blockchain API (public, no authentication required)
 export const blockchainAPI = {
     verifyCampaign: async (campaignId) => {

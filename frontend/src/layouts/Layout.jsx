@@ -15,7 +15,9 @@ import {
     Globe,
     Users,
     Folders,
-    Shield
+    Shield,
+    LayoutDashboard,
+    Handshake,
 } from 'lucide-react';
 
 const NavButton = ({ children, primary = false, onClick }) => (
@@ -60,12 +62,14 @@ export default function Layout({ children }) {
                         email: userData.email,
                         displayName: userData.displayName,
                         avatarUrl: userData.avatarUrl,
+                        role: userData.role,
                     });
                     setUserState({
                         id: userData.id,
                         email: userData.email,
                         displayName: userData.displayName,
                         avatarUrl: userData.avatarUrl,
+                        role: userData.role,
                     });
                     setIsLoggedIn(true);
                 } catch (error) {
@@ -176,7 +180,10 @@ export default function Layout({ children }) {
                         <div className="hidden md:flex items-center gap-8">
                             <Link to="/browse-campaigns" className="text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors">Browse Projects</Link>
                             <a href="#" className="text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors">How It Works</a>
-                            <a href="#" className="text-sm font-medium text-gray-600 hover:text-emerald-600 transition-colors">About Us</a>
+                            <Link to="/partner-apply" className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors flex items-center gap-1">
+                                <Handshake size={16} />
+                                Join as Partner
+                            </Link>
                             <Link to="/blockchain-search" className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors flex items-center gap-1">
                                 <Shield size={16} />
                                 Blockchain Verify
@@ -211,7 +218,29 @@ export default function Layout({ children }) {
                                         <ChevronDown size={16} className={`transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                                     </button>
                                     {isUserMenuOpen && (
-                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
+                                        <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
+                                            {/* Role badge */}
+                                            <div className="px-4 pb-2 pt-1">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                                    user?.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
+                                                    user?.role === 'PARTNER' ? 'bg-blue-100 text-blue-700' :
+                                                    user?.role === 'INITIATOR' ? 'bg-emerald-100 text-emerald-700' :
+                                                    'bg-gray-100 text-gray-600'
+                                                }`}>
+                                                    {user?.role === 'ADMIN' ? 'Admin' :
+                                                     user?.role === 'PARTNER' ? 'Partner' :
+                                                     user?.role === 'INITIATOR' ? 'Initiator' : 'User'}
+                                                </span>
+                                            </div>
+                                            {user?.role === 'ADMIN' && (
+                                                <button
+                                                    onClick={() => { setIsUserMenuOpen(false); navigate('/admin'); }}
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50 transition-colors"
+                                                >
+                                                    <LayoutDashboard size={18} />
+                                                    <span>Admin Panel</span>
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={() => {
                                                     setIsUserMenuOpen(false);
@@ -299,19 +328,38 @@ export default function Layout({ children }) {
                     <div className="md:hidden bg-white border-b border-gray-100 animate-in slide-in-from-top-5">
                         <div className="px-4 pt-2 pb-6 space-y-2">
                             <Link to="/browse-campaigns" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600" onClick={() => setIsMobileMenuOpen(false)}>Browse Projects</Link>
+                            <Link to="/partner-apply" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
+                                <Handshake size={18} />
+                                Join as Partner
+                            </Link>
                             <Link to="/blockchain-search" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
                                 <Shield size={18} />
                                 Blockchain Verify
                             </Link>
                             <a href="#" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600">How It Works</a>
-                            <a href="#" className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600">About Us</a>
                             <div className="pt-4 flex flex-col gap-2">
                                 {isLoggedIn ? (
                                     <>
                                         <div className="w-full py-3 rounded-xl bg-emerald-50 font-medium text-emerald-700 text-center flex items-center justify-center gap-2">
                                             <User size={18} />
                                             <span>{user?.displayName || 'User'}</span>
+                                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+                                                user?.role === 'ADMIN' ? 'bg-purple-200 text-purple-700' :
+                                                user?.role === 'PARTNER' ? 'bg-blue-200 text-blue-700' :
+                                                user?.role === 'INITIATOR' ? 'bg-emerald-200 text-emerald-700' : 'hidden'
+                                            }`}>
+                                                {user?.role === 'ADMIN' ? 'Admin' : user?.role === 'PARTNER' ? 'Partner' : user?.role === 'INITIATOR' ? 'Initiator' : ''}
+                                            </span>
                                         </div>
+                                        {user?.role === 'ADMIN' && (
+                                            <button
+                                                onClick={() => { setIsMobileMenuOpen(false); navigate('/admin'); }}
+                                                className="w-full py-3 rounded-xl border border-purple-200 font-medium text-purple-700 text-center hover:bg-purple-50 transition-colors flex items-center justify-center gap-2"
+                                            >
+                                                <LayoutDashboard size={18} />
+                                                <span>Admin Panel</span>
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => {
                                                 setIsMobileMenuOpen(false);
