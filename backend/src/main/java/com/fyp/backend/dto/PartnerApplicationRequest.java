@@ -11,9 +11,6 @@ public class PartnerApplicationRequest {
     private String organizationName;
 
     @NotBlank
-    private String contactName;
-
-    @NotBlank
     @Email
     private String email;
 

@@ -13,6 +13,7 @@ import MyCampaigns from "@/pages/MyCampaigns";
 import BlockchainSearch from "@/pages/BlockchainSearch";
 import PartnerApply from "@/pages/PartnerApply";
 import AdminPanel from "@/pages/AdminPanel";
+import PartnerPanel from "@/pages/PartnerPanel";
 import Layout from "@/layouts/Layout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import "@/assets/App.css";
@@ -73,6 +74,14 @@ function App() {
           element={
             <ProtectedRoute requiredRole="ADMIN">
               <AdminPanel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/partner"
+          element={
+            <ProtectedRoute requiredRole="PARTNER">
+              <PartnerPanel />
             </ProtectedRoute>
           }
         />

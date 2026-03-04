@@ -36,7 +36,7 @@ public class Campaign {
     private BigDecimal currentAmount;
 
     @Column(nullable = false)
-    private String status; // ACTIVE, COMPLETED (goal reached), CLOSED (manually closed/interrupted)
+    private String status; // PENDING, ACTIVE (approved), SUSPENDED, COMPLETED, CLOSED
 
     @Column(nullable = false)
     private String imageUrl;
@@ -64,6 +64,21 @@ public class Campaign {
     @Column(nullable = true)
     private String blockchainCampaignId;
 
+    // Third-party partner endorsement
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean partnerEndorsed = false;
+
+    @Column(columnDefinition = "TEXT")
+    private String partnerNote;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "endorsed_by_id")
+    private User endorsedBy;
+
+    @Column(nullable = true)
+    private LocalDateTime endorsedAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -71,7 +86,7 @@ public class Campaign {
         if (currentAmount == null)
             currentAmount = BigDecimal.ZERO;
         if (status == null)
-            status = "ACTIVE"; // Directly published
+            status = "PENDING";
         if (title == null || title.equals("Pending Review"))
             title = "Campaign #" + System.currentTimeMillis(); // Auto-generated title
     }

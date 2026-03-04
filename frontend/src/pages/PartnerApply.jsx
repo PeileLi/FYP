@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Building2,
-    User,
     Mail,
-    Phone,
     FileText,
     CheckCircle,
     AlertCircle,
@@ -17,9 +15,7 @@ export default function PartnerApply() {
     const navigate = useNavigate();
     const [form, setForm] = useState({
         organizationName: '',
-        contactName: '',
         email: '',
-        phone: '',
         description: '',
     });
     const [isLoading, setIsLoading] = useState(false);
@@ -90,11 +86,6 @@ export default function PartnerApply() {
                         </div>
                         <h1 className="text-2xl font-bold text-gray-900">Partner Application</h1>
                     </div>
-                    <p className="text-gray-500 text-sm mb-8 leading-relaxed">
-                        Join BlockFund as a third-party partner organization. Fill in your details below
-                        and our admin team will review your application. You will receive your account
-                        credentials via email upon approval.
-                    </p>
 
                     {error && (
                         <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mb-6">
@@ -124,24 +115,6 @@ export default function PartnerApply() {
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                                Contact Person Name <span className="text-red-500">*</span>
-                            </label>
-                            <div className="relative">
-                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                <input
-                                    type="text"
-                                    name="contactName"
-                                    value={form.contactName}
-                                    onChange={handleChange}
-                                    required
-                                    placeholder="Full name"
-                                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">
                                 Email Address <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
@@ -153,26 +126,6 @@ export default function PartnerApply() {
                                     onChange={handleChange}
                                     required
                                     placeholder="partner@organization.com"
-                                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-                                />
-                            </div>
-                            <p className="mt-1 text-xs text-gray-500">
-                                This will be your login email once approved.
-                            </p>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                                Phone Number
-                            </label>
-                            <div className="relative">
-                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                <input
-                                    type="tel"
-                                    name="phone"
-                                    value={form.phone}
-                                    onChange={handleChange}
-                                    placeholder="+1 234 567 8900"
                                     className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
                                 />
                             </div>

@@ -399,6 +399,15 @@ export const partnerAPI = {
             body: JSON.stringify(data),
         });
     },
+    getCampaigns: (status) => {
+        const q = status ? `?status=${status}` : '';
+        return apiRequest(`/partner/campaigns${q}`, { method: 'GET' });
+    },
+    endorse: (id, note) => apiRequest(`/partner/campaigns/${id}/endorse`, {
+        method: 'POST',
+        body: JSON.stringify({ note }),
+    }),
+    revokeEndorsement: (id) => apiRequest(`/partner/campaigns/${id}/revoke-endorsement`, { method: 'POST' }),
 };
 
 // Admin API (ADMIN role required)
@@ -419,6 +428,49 @@ export const adminAPI = {
             body: JSON.stringify(reason ? { reason } : {}),
         });
     },
+    getDashboardSummary: () => apiRequest('/admin/dashboard/summary', { method: 'GET' }),
+    getDonations: (params = {}) => {
+        const q = new URLSearchParams();
+        if (params.campaignId) q.append('campaignId', params.campaignId);
+        if (params.status)     q.append('status', params.status);
+        if (params.from)       q.append('from', params.from);
+        if (params.to)         q.append('to', params.to);
+        return apiRequest(`/admin/donations${q.toString() ? '?' + q : ''}`, { method: 'GET' });
+    },
+    getDonationStats: () => apiRequest('/admin/donations/stats', { method: 'GET' }),
+    verifyDonationTx: (id) => apiRequest(`/admin/donations/${id}/verify`, { method: 'GET' }),
+    exportDonationsCsv: (params = {}) => {
+        const q = new URLSearchParams();
+        if (params.campaignId) q.append('campaignId', params.campaignId);
+        if (params.status)     q.append('status', params.status);
+        if (params.from)       q.append('from', params.from);
+        if (params.to)         q.append('to', params.to);
+        const token = localStorage.getItem('token');
+        const url = `/api/admin/donations/export${q.toString() ? '?' + q : ''}`;
+        return fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    },
+    getAllCampaigns: (status, keyword) => {
+        const params = new URLSearchParams();
+        if (status) params.append('status', status);
+        if (keyword) params.append('keyword', keyword);
+        const q = params.toString();
+        return apiRequest(`/admin/campaigns${q ? '?' + q : ''}`, { method: 'GET' });
+    },
+    updateCampaignStatus: (id, status) =>
+        apiRequest(`/admin/campaigns/${id}/status`, {
+            method: 'POST',
+            body: JSON.stringify({ status }),
+        }),
+    getAllUsers: () => apiRequest('/admin/users', { method: 'GET' }),
+    getUserActivity: (id) => apiRequest(`/admin/users/${id}/activity`, { method: 'GET' }),
+    toggleUserEnabled: (id) => apiRequest(`/admin/users/${id}/toggle-enabled`, { method: 'POST' }),
+    getBlockchainStats: () => apiRequest('/admin/blockchain/stats', { method: 'GET' }),
+    getBlockchainNodes: () => apiRequest('/admin/blockchain/nodes', { method: 'GET' }),
+    getBlockchainTransactions: (page = 0, size = 50) =>
+        apiRequest(`/admin/blockchain/transactions?page=${page}&size=${size}`, { method: 'GET' }),
+    getBlockchainAuditLogs: (page = 0, size = 50) =>
+        apiRequest(`/admin/blockchain/audit-logs?page=${page}&size=${size}`, { method: 'GET' }),
+    getBlock: (blockNum) => apiRequest(`/admin/blockchain/block/${blockNum}`, { method: 'GET' }),
 };
 
 // Blockchain API (public, no authentication required)

@@ -42,9 +42,7 @@ public class PartnerApplicationService {
 
         PartnerApplication application = PartnerApplication.builder()
                 .organizationName(request.getOrganizationName())
-                .contactName(request.getContactName())
                 .email(request.getEmail())
-                .phone(request.getPhone())
                 .description(request.getDescription())
                 .status(PartnerApplication.Status.PENDING)
                 .build();

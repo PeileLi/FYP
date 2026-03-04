@@ -352,6 +352,12 @@ export default function CampaignDetail() {
                       <span>Tampered</span>
                     </div>
                   )}
+                  {campaign.partnerEndorsed && (
+                    <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold" title={`Endorsed by ${campaign.endorsedBy}`}>
+                      <Shield size={14} />
+                      <span>Endorsed</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Show blockchain amount if tampering detected */}
@@ -466,6 +472,23 @@ export default function CampaignDetail() {
                   </>
                 )}
               </div>
+
+              {/* Partner Endorsement Card */}
+              {campaign.partnerEndorsed && (
+                <div className="mb-4 p-4 rounded-xl bg-blue-50 border border-blue-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Shield className="text-blue-600" size={18} />
+                    <h3 className="font-semibold text-blue-900 text-sm">Third-party Endorsed</h3>
+                  </div>
+                  <p className="text-xs text-blue-700">
+                    Endorsed by <strong>{campaign.endorsedBy}</strong>
+                    {campaign.endorsedAt && <span className="text-blue-400 ml-1">· {new Date(campaign.endorsedAt).toLocaleDateString()}</span>}
+                  </p>
+                  {campaign.partnerNote && (
+                    <p className="text-xs text-blue-600 italic mt-1.5">"{campaign.partnerNote}"</p>
+                  )}
+                </div>
+              )}
 
               {/* Donate Button */}
               {campaign.status === 'ACTIVE' && (

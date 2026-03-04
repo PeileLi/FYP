@@ -38,7 +38,7 @@ public class CampaignService {
                 .description(request.getDescription())
                 .goalAmount(request.getGoalAmount())
                 .currentAmount(BigDecimal.ZERO)
-                .status("ACTIVE") // Directly published
+                .status("PENDING") // Awaiting admin review
                 .imageUrl(request.getImageUrl())
                 .organizer(user)
                 .build();
@@ -270,6 +270,10 @@ public class CampaignService {
                 .blockchainDonationCount(blockchainDonationCount)
                 .hasTamperingHistory(hasTamperingHistory)
                 .tamperingIncidentCount(tamperingCount)
+                .partnerEndorsed(Boolean.TRUE.equals(campaign.getPartnerEndorsed()))
+                .partnerNote(campaign.getPartnerNote())
+                .endorsedBy(campaign.getEndorsedBy() != null ? campaign.getEndorsedBy().getDisplayName() : null)
+                .endorsedAt(campaign.getEndorsedAt())
                 .build();
     }
 }

@@ -81,7 +81,7 @@ export default function Login() {
                 <Mail className="h-5 w-5 text-gray-400" />
               </div>
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

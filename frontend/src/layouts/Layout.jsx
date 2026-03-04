@@ -219,88 +219,60 @@ export default function Layout({ children }) {
                                     </button>
                                     {isUserMenuOpen && (
                                         <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
-                                            {/* Role badge */}
-                                            <div className="px-4 pb-2 pt-1">
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                                    user?.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
-                                                    user?.role === 'PARTNER' ? 'bg-blue-100 text-blue-700' :
-                                                    user?.role === 'INITIATOR' ? 'bg-emerald-100 text-emerald-700' :
-                                                    'bg-gray-100 text-gray-600'
-                                                }`}>
-                                                    {user?.role === 'ADMIN' ? 'Admin' :
-                                                     user?.role === 'PARTNER' ? 'Partner' :
-                                                     user?.role === 'INITIATOR' ? 'Initiator' : 'User'}
-                                                </span>
-                                            </div>
-                                            {user?.role === 'ADMIN' && (
-                                                <button
-                                                    onClick={() => { setIsUserMenuOpen(false); navigate('/admin'); }}
-                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50 transition-colors"
-                                                >
-                                                    <LayoutDashboard size={18} />
-                                                    <span>Admin Panel</span>
-                                                </button>
+                                            {user?.role === 'ADMIN' ? (
+                                                <>
+                                                    <div className="px-4 pb-2 pt-1">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Admin</span>
+                                                    </div>
+                                                    <button onClick={() => { setIsUserMenuOpen(false); navigate('/admin'); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50 transition-colors">
+                                                        <LayoutDashboard size={18} /><span>Admin Panel</span>
+                                                    </button>
+                                                    <div className="h-px bg-gray-100 my-1 mx-2" />
+                                                    <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors">
+                                                        <LogOut size={18} /><span>Logout</span>
+                                                    </button>
+                                                </>
+                                            ) : user?.role === 'PARTNER' ? (
+                                                <>
+                                                    <div className="px-4 pb-2 pt-1">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Partner</span>
+                                                    </div>
+                                                    <button onClick={() => { setIsUserMenuOpen(false); navigate('/partner'); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-blue-700 hover:bg-blue-50 transition-colors">
+                                                        <Shield size={18} /><span>Partner Panel</span>
+                                                    </button>
+                                                    <div className="h-px bg-gray-100 my-1 mx-2" />
+                                                    <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors">
+                                                        <LogOut size={18} /><span>Logout</span>
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="px-4 pb-2 pt-1">
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${user?.role === 'INITIATOR' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                            {user?.role === 'INITIATOR' ? 'Initiator' : 'User'}
+                                                        </span>
+                                                    </div>
+                                                    <button onClick={() => { setIsUserMenuOpen(false); navigate('/profile'); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
+                                                        <UserCircle size={18} /><span>Profile</span>
+                                                    </button>
+                                                    <button onClick={() => { setIsUserMenuOpen(false); navigate('/donation-history'); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
+                                                        <History size={18} /><span>Donation History</span>
+                                                    </button>
+                                                    <button onClick={() => { setIsUserMenuOpen(false); navigate('/my-campaigns'); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
+                                                        <Folders size={18} /><span>My Campaigns</span>
+                                                    </button>
+                                                    <button onClick={() => { setIsUserMenuOpen(false); navigate('/blockchain-search'); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                                                        <Shield size={18} /><span>Blockchain Verify</span>
+                                                    </button>
+                                                    <div className="h-px bg-gray-100 my-1 mx-2" />
+                                                    <button onClick={() => { setIsUserMenuOpen(false); navigate('/settings'); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
+                                                        <Settings size={18} /><span>Account Settings</span>
+                                                    </button>
+                                                    <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors">
+                                                        <LogOut size={18} /><span>Logout</span>
+                                                    </button>
+                                                </>
                                             )}
-                                            <button
-                                                onClick={() => {
-                                                    setIsUserMenuOpen(false);
-                                                    navigate('/profile');
-                                                }}
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
-                                            >
-                                                <UserCircle size={18} />
-                                                <span>Profile</span>
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setIsUserMenuOpen(false);
-                                                    navigate('/donation-history');
-                                                }}
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
-                                            >
-                                                <History size={18} />
-                                                <span>Donation History</span>
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setIsUserMenuOpen(false);
-                                                    navigate('/my-campaigns');
-                                                }}
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
-                                            >
-                                                <Folders size={18} />
-                                                <span>My Campaigns</span>
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setIsUserMenuOpen(false);
-                                                    navigate('/blockchain-search');
-                                                }}
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                                            >
-                                                <Shield size={18} />
-                                                <span>Blockchain Verify</span>
-                                            </button>
-
-                                            <div className="h-px bg-gray-100 my-1 mx-2"></div>
-
-                                            <button
-                                                onClick={() => {
-                                                    setIsUserMenuOpen(false);
-                                                    navigate('/settings');
-                                                }}
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
-                                            >
-                                                <Settings size={18} />
-                                                <span>Account Settings</span>
-                                            </button>
-                                            <button
-                                                onClick={handleLogout}
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"
-                                            >
-                                                <LogOut size={18} />
-                                                <span>Logout</span>
-                                            </button>
                                         </div>
                                     )}
                                 </div>
@@ -340,7 +312,9 @@ export default function Layout({ children }) {
                             <div className="pt-4 flex flex-col gap-2">
                                 {isLoggedIn ? (
                                     <>
-                                        <div className="w-full py-3 rounded-xl bg-emerald-50 font-medium text-emerald-700 text-center flex items-center justify-center gap-2">
+                                        <div className={`w-full py-3 rounded-xl font-medium text-center flex items-center justify-center gap-2 ${
+                                            user?.role === 'ADMIN' ? 'bg-purple-50 text-purple-700' : 'bg-emerald-50 text-emerald-700'
+                                        }`}>
                                             <User size={18} />
                                             <span>{user?.displayName || 'User'}</span>
                                             <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
@@ -351,66 +325,44 @@ export default function Layout({ children }) {
                                                 {user?.role === 'ADMIN' ? 'Admin' : user?.role === 'PARTNER' ? 'Partner' : user?.role === 'INITIATOR' ? 'Initiator' : ''}
                                             </span>
                                         </div>
-                                        {user?.role === 'ADMIN' && (
-                                            <button
-                                                onClick={() => { setIsMobileMenuOpen(false); navigate('/admin'); }}
-                                                className="w-full py-3 rounded-xl border border-purple-200 font-medium text-purple-700 text-center hover:bg-purple-50 transition-colors flex items-center justify-center gap-2"
-                                            >
-                                                <LayoutDashboard size={18} />
-                                                <span>Admin Panel</span>
-                                            </button>
+                                        {user?.role === 'ADMIN' ? (
+                                            <>
+                                                <button onClick={() => { setIsMobileMenuOpen(false); navigate('/admin'); }} className="w-full py-3 rounded-xl border border-purple-200 font-medium text-purple-700 text-center hover:bg-purple-50 transition-colors flex items-center justify-center gap-2">
+                                                    <LayoutDashboard size={18} /><span>Admin Panel</span>
+                                                </button>
+                                                <button onClick={() => { setIsMobileMenuOpen(false); handleLogout(); }} className="w-full py-3 rounded-xl border border-red-200 font-medium text-red-600 text-center hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
+                                                    <LogOut size={18} /><span>Logout</span>
+                                                </button>
+                                            </>
+                                        ) : user?.role === 'PARTNER' ? (
+                                            <>
+                                                <button onClick={() => { setIsMobileMenuOpen(false); navigate('/partner'); }} className="w-full py-3 rounded-xl border border-blue-200 font-medium text-blue-700 text-center hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
+                                                    <Shield size={18} /><span>Partner Panel</span>
+                                                </button>
+                                                <button onClick={() => { setIsMobileMenuOpen(false); handleLogout(); }} className="w-full py-3 rounded-xl border border-red-200 font-medium text-red-600 text-center hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
+                                                    <LogOut size={18} /><span>Logout</span>
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button onClick={() => { setIsMobileMenuOpen(false); navigate('/profile'); }} className="w-full py-3 rounded-xl border border-gray-200 font-medium text-gray-700 text-center hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center justify-center gap-2">
+                                                    <UserCircle size={18} /><span>Profile</span>
+                                                </button>
+                                                <button onClick={() => { setIsMobileMenuOpen(false); navigate('/donation-history'); }} className="w-full py-3 rounded-xl border border-gray-200 font-medium text-gray-700 text-center hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center justify-center gap-2">
+                                                    <History size={18} /><span>Donation History</span>
+                                                </button>
+                                                <button onClick={() => { setIsMobileMenuOpen(false); navigate('/my-campaigns'); }} className="w-full py-3 rounded-xl border border-gray-200 font-medium text-gray-700 text-center hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center justify-center gap-2">
+                                                    <Folders size={18} /><span>My Campaigns</span>
+                                                </button>
+                                                <div className="h-px bg-gray-100 my-1" />
+                                                <button onClick={() => { setIsMobileMenuOpen(false); navigate('/settings'); }} className="w-full py-3 rounded-xl border border-gray-200 font-medium text-gray-700 text-center hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center justify-center gap-2">
+                                                    <Settings size={18} /><span>Account Settings</span>
+                                                </button>
+                                                <button onClick={() => { setIsMobileMenuOpen(false); handleLogout(); }} className="w-full py-3 rounded-xl border border-red-200 font-medium text-red-600 text-center hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
+                                                    <LogOut size={18} /><span>Logout</span>
+                                                </button>
+                                            </>
                                         )}
-                                        <button
-                                            onClick={() => {
-                                                setIsMobileMenuOpen(false);
-                                                navigate('/profile');
-                                            }}
-                                            className="w-full py-3 rounded-xl border border-gray-200 font-medium text-gray-700 text-center hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <UserCircle size={18} />
-                                            <span>Profile</span>
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setIsMobileMenuOpen(false);
-                                                navigate('/donation-history');
-                                            }}
-                                            className="w-full py-3 rounded-xl border border-gray-200 font-medium text-gray-700 text-center hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <History size={18} />
-                                            <span>Donation History</span>
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setIsMobileMenuOpen(false);
-                                                navigate('/my-campaigns');
-                                            }}
-                                            className="w-full py-3 rounded-xl border border-gray-200 font-medium text-gray-700 text-center hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <Folders size={18} />
-                                            <span>My Campaigns</span>
-                                        </button>
-                                        <div className="h-px bg-gray-100 my-1"></div>
-                                        <button
-                                            onClick={() => {
-                                                setIsMobileMenuOpen(false);
-                                                navigate('/settings');
-                                            }}
-                                            className="w-full py-3 rounded-xl border border-gray-200 font-medium text-gray-700 text-center hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <Settings size={18} />
-                                            <span>Account Settings</span>
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setIsMobileMenuOpen(false);
-                                                handleLogout();
-                                            }}
-                                            className="w-full py-3 rounded-xl border border-red-200 font-medium text-red-600 text-center hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <LogOut size={18} />
-                                            <span>Logout</span>
-                                        </button>
                                     </>
                                 ) : (
                                     <Link to="/login" className="w-full py-3 rounded-xl border border-gray-200 font-medium text-gray-700 text-center hover:bg-gray-50 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>Login</Link>

@@ -40,6 +40,12 @@ public class CampaignResponse {
     // Audit trail (审计追踪)
     private Boolean hasTamperingHistory;  // true if tampering was detected in the past (曾经被篡改过)
     private Integer tamperingIncidentCount;  // Number of tampering incidents (篡改次数)
+
+    // Third-party partner endorsement
+    private Boolean partnerEndorsed;
+    private String partnerNote;
+    private String endorsedBy;
+    private LocalDateTime endorsedAt;
     
     // Progress percentage
     public double getProgress() {
