@@ -94,9 +94,8 @@ public class PartnerFabricGatewayService {
      * Returns the generated auditID string, or null if Org2 is not available
      * (caller should fall back to RecordAudit via Org1 with a warning).
      */
-    public String submitReviewResult(String campaignID, String auditorOrg, String conclusion,
-                                     String evidenceSummary, String evidenceHash,
-                                     String notes, String timestamp) {
+    public String submitReviewResult(String campaignID, String reviewerOrg, String conclusion,
+                                     String evidenceHash, String commentHash, String timestamp) {
         if (!org2Ready) {
             log.warn("[PartnerFabric] Org2 gateway not ready — cannot call SubmitReviewResult for campaign {}. " +
                      "Configure FABRIC_ORG2_* env vars to enable MSP-gated audit submission.", campaignID);
@@ -105,10 +104,9 @@ public class PartnerFabricGatewayService {
         try {
             byte[] result = contract.submitTransaction(
                     "SubmitReviewResult",
-                    campaignID, auditorOrg, conclusion,
-                    evidenceSummary != null ? evidenceSummary : "",
-                    evidenceHash    != null ? evidenceHash    : "",
-                    notes           != null ? notes           : "",
+                    campaignID, reviewerOrg, conclusion,
+                    evidenceHash  != null ? evidenceHash  : "",
+                    commentHash   != null ? commentHash   : "",
                     timestamp);
             String auditId = new String(result, java.nio.charset.StandardCharsets.UTF_8);
             log.info("[PartnerFabric] SubmitReviewResult OK — auditId={}, campaign={}, MSP={}",

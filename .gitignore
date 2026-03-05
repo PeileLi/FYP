@@ -22,6 +22,9 @@ bin/
 # Chaincode deployment tracking
 .chaincode_version
 
+# Maven local repo (if accidentally placed in project)
+.m2/
+
 # System files
 .DS_Store
 Thumbs.db

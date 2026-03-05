@@ -17,11 +17,9 @@ import {
     Calendar,
     Link2,
     Activity,
-    Server,
     FileText,
     RefreshCw,
     Hash,
-    Cpu,
     Shield,
     ArrowUpRight,
     Database,
@@ -781,37 +779,9 @@ function CampaignStatusBadge({ status }) {
     );
 }
 
-const STATUS_ACTIONS = {
-    PENDING:   [{ value: 'ACTIVE', label: 'Approve', cls: 'text-emerald-600 border-emerald-200 hover:bg-emerald-50' },
-                { value: 'SUSPENDED', label: 'Suspend', cls: 'text-red-500 border-red-200 hover:bg-red-50' }],
-    ACTIVE:    [{ value: 'SUSPENDED', label: 'Suspend', cls: 'text-red-500 border-red-200 hover:bg-red-50' },
-                { value: 'COMPLETED', label: 'Complete', cls: 'text-blue-600 border-blue-200 hover:bg-blue-50' },
-                { value: 'CLOSED',    label: 'Close',    cls: 'text-gray-500 border-gray-200 hover:bg-gray-50' }],
-    SUSPENDED: [{ value: 'ACTIVE', label: 'Restore', cls: 'text-emerald-600 border-emerald-200 hover:bg-emerald-50' },
-                { value: 'CLOSED', label: 'Close',   cls: 'text-gray-500 border-gray-200 hover:bg-gray-50' }],
-    COMPLETED: [],
-    CLOSED:    [{ value: 'ACTIVE', label: 'Reopen', cls: 'text-emerald-600 border-emerald-200 hover:bg-emerald-50' }],
-};
-
-function CampaignAdminRow({ campaign, onStatusChange }) {
+function CampaignAdminRow({ campaign }) {
     const [expanded, setExpanded] = useState(false);
-    const [updating, setUpdating] = useState(false);
-    const [currentStatus, setCurrentStatus] = useState(campaign.status);
-
-    const handleAction = async (newStatus) => {
-        setUpdating(true);
-        try {
-            await adminAPI.updateCampaignStatus(campaign.id, newStatus);
-            setCurrentStatus(newStatus);
-            onStatusChange(campaign.id, newStatus);
-        } catch (e) {
-            alert(e.message || 'Failed to update status');
-        } finally {
-            setUpdating(false);
-        }
-    };
-
-    const actions = STATUS_ACTIONS[currentStatus] || [];
+    const currentStatus = campaign.status;
     const progressPct = Math.min(Number(campaign.progress || 0), 100);
 
     return (
@@ -849,21 +819,9 @@ function CampaignAdminRow({ campaign, onStatusChange }) {
                     </div>
                 </div>
 
-                {/* Actions + chevron */}
-                <div className="flex items-center gap-2 shrink-0 ml-2" onClick={e => e.stopPropagation()}>
-                    {actions.map(a => (
-                        <button
-                            key={a.value}
-                            onClick={() => handleAction(a.value)}
-                            disabled={updating}
-                            className={`text-xs px-2.5 py-1 rounded-lg font-medium border transition-colors disabled:opacity-50 ${a.cls}`}
-                        >
-                            {updating ? '…' : a.label}
-                        </button>
-                    ))}
-                    <div onClick={() => setExpanded(!expanded)}>
-                        {expanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
-                    </div>
+                {/* Chevron */}
+                <div className="flex items-center shrink-0 ml-2">
+                    {expanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
                 </div>
             </div>
 
@@ -896,24 +854,6 @@ function CampaignAdminRow({ campaign, onStatusChange }) {
                         </div>
                     </div>
 
-                    {/* Status change dropdown */}
-                    <div className="mt-4 flex items-center gap-3 flex-wrap">
-                        <span className="text-xs text-gray-400">Change status:</span>
-                        {['PENDING','ACTIVE','SUSPENDED','COMPLETED','CLOSED'].map(s => (
-                            s !== currentStatus && (
-                                <button
-                                    key={s}
-                                    onClick={() => handleAction(s)}
-                                    disabled={updating}
-                                    className={`text-xs px-2.5 py-1 rounded-lg font-medium border transition-colors disabled:opacity-50 ${
-                                        CAMPAIGN_STATUS_META[s]?.bg || 'bg-gray-100'
-                                    } ${CAMPAIGN_STATUS_META[s]?.text || 'text-gray-600'} border-current/30`}
-                                >
-                                    → {CAMPAIGN_STATUS_META[s]?.label || s}
-                                </button>
-                            )
-                        ))}
-                    </div>
                 </div>
             )}
         </div>
@@ -943,9 +883,6 @@ function CampaignManagementPanel() {
 
     useEffect(() => { load(filterStatus, keyword); }, [filterStatus, keyword]);
 
-    const handleStatusChange = (id, newStatus) => {
-        setCampaigns(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
-    };
 
     const statusCounts = Object.fromEntries(
         Object.keys(CAMPAIGN_STATUS_META).map(s => [s, campaigns.filter(c => c.status === s).length])
@@ -1000,7 +937,7 @@ function CampaignManagementPanel() {
             ) : (
                 <div className="space-y-3">
                     {campaigns.map(c => (
-                        <CampaignAdminRow key={c.id} campaign={c} onStatusChange={handleStatusChange} />
+                        <CampaignAdminRow key={c.id} campaign={c} />
                     ))}
                 </div>
             )}
@@ -1272,45 +1209,82 @@ function UserManagementPanel() {
 // ─── Blockchain Panel ────────────────────────────────────────────────────────
 
 function BlockchainPanel() {
-    const [activeSection, setActiveSection] = useState('overview');
     const [stats, setStats] = useState(null);
-    const [nodes, setNodes] = useState([]);
-    const [transactions, setTransactions] = useState([]);
-    const [auditLogs, setAuditLogs] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const [queryType, setQueryType] = useState('campaign');
+    const [queryInput, setQueryInput] = useState('');
+    const [queryLoading, setQueryLoading] = useState(false);
+    const [queryResult, setQueryResult] = useState(null);
+    const [queryError, setQueryError] = useState('');
+
+    const [transactions, setTransactions] = useState([]);
+    const [txLoading, setTxLoading] = useState(false);
+    const [txLoaded, setTxLoaded] = useState(false);
+    const [expandedTx, setExpandedTx] = useState(null);
+    const [showTx, setShowTx] = useState(false);
+
     const [blockQuery, setBlockQuery] = useState('');
     const [blockResult, setBlockResult] = useState(null);
-    const [expandedTx, setExpandedTx] = useState(null);
-    const [expandedLog, setExpandedLog] = useState(null);
+    const [blockLoading, setBlockLoading] = useState(false);
 
-    const load = async (section) => {
-        setLoading(true);
-        setError('');
-        try {
-            if (section === 'overview') {
-                const [s, n] = await Promise.all([adminAPI.getBlockchainStats(), adminAPI.getBlockchainNodes()]);
+    const truncate = (str, n = 20) => str && str.length > n ? str.slice(0, n) + '…' : (str || '—');
+
+    useEffect(() => {
+        (async () => {
+            setLoading(true);
+            try {
+                const s = await adminAPI.getBlockchainStats();
                 setStats(s);
-                setNodes(n);
-            } else if (section === 'transactions') {
-                const data = await adminAPI.getBlockchainTransactions();
-                setTransactions(data);
-            } else if (section === 'audit') {
-                const data = await adminAPI.getBlockchainAuditLogs();
-                setAuditLogs(data);
+            } catch (e) {
+                setError(e.message || 'Failed to load stats');
+            } finally {
+                setLoading(false);
             }
+        })();
+    }, []);
+
+    const handleQuery = async () => {
+        if (!queryInput.trim()) return;
+        setQueryLoading(true);
+        setQueryResult(null);
+        setQueryError('');
+        try {
+            let data;
+            if (queryType === 'campaign') {
+                const { blockchainAPI } = await import('@/utils/api');
+                data = await blockchainAPI.searchByTxId(queryInput.trim());
+            } else if (queryType === 'donation') {
+                const { blockchainAPI } = await import('@/utils/api');
+                data = await blockchainAPI.searchDonation(queryInput.trim());
+            } else {
+                data = await adminAPI.getBlock(parseInt(queryInput.trim()));
+            }
+            setQueryResult(data);
         } catch (e) {
-            setError(e.message || 'Failed to load');
+            setQueryError(e.message || 'Query failed');
         } finally {
-            setLoading(false);
+            setQueryLoading(false);
         }
     };
 
-    useEffect(() => { load(activeSection); }, [activeSection]);
+    const loadTransactions = async () => {
+        setTxLoading(true);
+        try {
+            const data = await adminAPI.getBlockchainTransactions();
+            setTransactions(data);
+            setTxLoaded(true);
+        } catch (e) {
+            setError(e.message || 'Failed to load transactions');
+        } finally {
+            setTxLoading(false);
+        }
+    };
 
-    const queryBlock = async () => {
+    const handleBlockQuery = async () => {
         if (!blockQuery) return;
-        setLoading(true);
+        setBlockLoading(true);
         setBlockResult(null);
         try {
             const data = await adminAPI.getBlock(parseInt(blockQuery));
@@ -1318,244 +1292,234 @@ function BlockchainPanel() {
         } catch (e) {
             setBlockResult({ error: e.message });
         } finally {
-            setLoading(false);
+            setBlockLoading(false);
         }
     };
 
-    const SECTIONS = [
-        { id: 'overview', label: 'Overview', icon: <Activity size={15} /> },
-        { id: 'transactions', label: 'Transactions', icon: <Link2 size={15} /> },
-        { id: 'blocks', label: 'Block Query', icon: <Database size={15} /> },
-        { id: 'audit', label: 'Chaincode Logs', icon: <FileText size={15} /> },
-    ];
-
-    const truncate = (str, n = 20) => str && str.length > n ? str.slice(0, n) + '…' : (str || '—');
-
     return (
-        <div>
-            {/* Section tabs */}
-            <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6 flex-wrap">
-                {SECTIONS.map(s => (
-                    <button key={s.id} onClick={() => setActiveSection(s.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                            activeSection === s.id ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                        }`}>
-                        {s.icon}{s.label}
-                    </button>
-                ))}
-                <button onClick={() => load(activeSection)} className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-gray-600 hover:bg-white transition-colors">
-                    <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />Refresh
-                </button>
-            </div>
-
-            {error && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mb-4">
+        <div className="space-y-6">
+            {/* Status bar */}
+            {loading ? (
+                <div className="flex items-center justify-center py-6">
+                    <Loader2 size={24} className="text-emerald-400 animate-spin" />
+                </div>
+            ) : error && !stats ? (
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
                     <AlertCircle size={15} />{error}
                 </div>
-            )}
-
-            {loading && (
-                <div className="flex items-center justify-center py-12">
-                    <Loader2 size={28} className="text-emerald-400 animate-spin" />
+            ) : stats && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                        { label: 'Block Height', value: stats.blockHeight >= 0 ? stats.blockHeight : 'N/A', icon: <Database size={18} className="text-emerald-600" />, bg: 'bg-emerald-50' },
+                        { label: 'Campaigns On-chain', value: stats.totalCampaignsOnChain, icon: <Shield size={18} className="text-blue-600" />, bg: 'bg-blue-50' },
+                        { label: 'Donations On-chain', value: stats.totalDonationsOnChain, icon: <Link2 size={18} className="text-purple-600" />, bg: 'bg-purple-50' },
+                        { label: 'Network', value: stats.fabricEnabled ? 'Connected' : 'Offline', icon: <Activity size={18} className={stats.fabricEnabled ? 'text-emerald-600' : 'text-red-500'} />, bg: stats.fabricEnabled ? 'bg-emerald-50' : 'bg-red-50' },
+                    ].map(c => (
+                        <div key={c.label} className="bg-white border border-gray-100 rounded-xl p-4">
+                            <div className={`${c.bg} p-2 rounded-lg inline-flex mb-2`}>{c.icon}</div>
+                            <p className="text-2xl font-bold text-gray-900">{c.value}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
+                        </div>
+                    ))}
                 </div>
             )}
 
-            {/* ── Overview ── */}
-            {!loading && activeSection === 'overview' && stats && (
-                <div className="space-y-6">
-                    {/* Stats cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {[
-                            { label: 'Block Height', value: stats.blockHeight >= 0 ? stats.blockHeight : 'N/A', icon: <Database size={18} className="text-emerald-600" />, bg: 'bg-emerald-50' },
-                            { label: 'Campaigns On-chain', value: stats.totalCampaignsOnChain, icon: <Shield size={18} className="text-blue-600" />, bg: 'bg-blue-50' },
-                            { label: 'Donations On-chain', value: stats.totalDonationsOnChain, icon: <Link2 size={18} className="text-purple-600" />, bg: 'bg-purple-50' },
-                            { label: 'Network Status', value: stats.fabricEnabled ? 'Connected' : 'Offline', icon: <Activity size={18} className={stats.fabricEnabled ? 'text-emerald-600' : 'text-red-500'} />, bg: stats.fabricEnabled ? 'bg-emerald-50' : 'bg-red-50' },
-                        ].map(c => (
-                            <div key={c.label} className="bg-white border border-gray-100 rounded-xl p-4">
-                                <div className={`${c.bg} p-2 rounded-lg inline-flex mb-3`}>{c.icon}</div>
-                                <p className="text-2xl font-bold text-gray-900">{c.value}</p>
-                                <p className="text-xs text-gray-500 mt-0.5">{c.label}</p>
+            {/* On-chain data query */}
+            <div className="bg-white border border-gray-100 rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                    <Hash size={15} className="text-gray-400" />Query On-chain Data
+                </h3>
+                <div className="flex gap-2 flex-wrap">
+                    <select
+                        value={queryType}
+                        onChange={e => { setQueryType(e.target.value); setQueryResult(null); setQueryError(''); }}
+                        className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white"
+                    >
+                        <option value="campaign">Campaign (BC Certificate ID)</option>
+                        <option value="donation">Donation (BD Certificate ID)</option>
+                        <option value="block">Block (Number)</option>
+                    </select>
+                    <input
+                        value={queryInput}
+                        onChange={e => setQueryInput(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleQuery()}
+                        placeholder={queryType === 'campaign' ? 'BC...' : queryType === 'donation' ? 'BD...' : 'Block number'}
+                        className="flex-1 min-w-[200px] px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                    />
+                    <button
+                        onClick={handleQuery}
+                        disabled={queryLoading || !queryInput.trim()}
+                        className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50 transition-colors flex items-center gap-2"
+                    >
+                        {queryLoading ? <Loader2 size={15} className="animate-spin" /> : <ArrowUpRight size={15} />}
+                        Query
+                    </button>
+                </div>
+
+                {queryError && (
+                    <div className="mt-3 flex items-center gap-2 text-red-600 text-sm">
+                        <AlertCircle size={15} />{queryError}
+                    </div>
+                )}
+
+                {queryResult && (
+                    <div className="mt-4 bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+                        {queryResult.error ? (
+                            <div className="flex items-center gap-2 text-red-600"><AlertCircle size={15} />{queryResult.error}</div>
+                        ) : queryResult.verificationMessage ? (
+                            <>
+                                <div className="flex items-center gap-2 mb-3">
+                                    {queryResult.verified
+                                        ? <CheckCircle size={16} className="text-emerald-600" />
+                                        : <XCircle size={16} className="text-red-500" />
+                                    }
+                                    <span className={`text-sm font-medium ${queryResult.verified ? 'text-emerald-700' : 'text-red-600'}`}>
+                                        {queryResult.verificationMessage}
+                                    </span>
+                                </div>
+                                {Object.entries(queryResult)
+                                    .filter(([k]) => !['verified', 'verificationMessage', 'error'].includes(k) && queryResult[k] != null && queryResult[k] !== '')
+                                    .map(([k, v]) => (
+                                    <div key={k} className="flex items-start gap-3">
+                                        <span className="text-gray-400 w-36 shrink-0 capitalize">{k.replace(/([A-Z])/g, ' $1')}</span>
+                                        <code className="font-mono text-gray-800 break-all text-xs">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</code>
+                                    </div>
+                                ))}
+                            </>
+                        ) : queryResult.found !== undefined ? (
+                            <>
+                                <div className="flex items-center gap-2 mb-3">
+                                    {queryResult.found
+                                        ? <CheckCircle size={16} className="text-emerald-600" />
+                                        : <XCircle size={16} className="text-red-500" />
+                                    }
+                                    <span className={`text-sm font-medium ${queryResult.found ? 'text-emerald-700' : 'text-red-600'}`}>
+                                        {queryResult.message}
+                                    </span>
+                                </div>
+                                {queryResult.found && Object.entries(queryResult)
+                                    .filter(([k]) => !['found', 'message'].includes(k) && queryResult[k] != null)
+                                    .map(([k, v]) => (
+                                    <div key={k} className="flex items-start gap-3">
+                                        <span className="text-gray-400 w-36 shrink-0 capitalize">{k.replace(/([A-Z])/g, ' $1')}</span>
+                                        <code className="font-mono text-gray-800 break-all text-xs">{String(v)}</code>
+                                    </div>
+                                ))}
+                            </>
+                        ) : (
+                            <>
+                                <h4 className="font-semibold text-gray-700 mb-3">Block #{queryResult.blockNumber}</h4>
+                                {Object.entries(queryResult).map(([k, v]) => (
+                                    <div key={k} className="flex items-start gap-3">
+                                        <span className="text-gray-400 w-32 shrink-0 capitalize">{k.replace(/([A-Z])/g, ' $1')}</span>
+                                        <code className="font-mono text-gray-800 break-all text-xs">{String(v)}</code>
+                                    </div>
+                                ))}
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Block query */}
+            <div className="bg-white border border-gray-100 rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                    <Database size={15} className="text-gray-400" />Query Block by Number
+                </h3>
+                <div className="flex gap-2">
+                    <input
+                        type="number"
+                        min={0}
+                        value={blockQuery}
+                        onChange={e => setBlockQuery(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleBlockQuery()}
+                        placeholder="Block number (e.g. 0)"
+                        className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                    />
+                    <button
+                        onClick={handleBlockQuery}
+                        disabled={blockLoading || !blockQuery}
+                        className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50 transition-colors flex items-center gap-2"
+                    >
+                        {blockLoading ? <Loader2 size={15} className="animate-spin" /> : <ArrowUpRight size={15} />}
+                        Query
+                    </button>
+                </div>
+                {blockResult && (
+                    <div className="mt-4 bg-gray-50 rounded-xl p-4 text-sm">
+                        {blockResult.error ? (
+                            <div className="flex items-center gap-2 text-red-600"><AlertCircle size={15} />{blockResult.error}</div>
+                        ) : (
+                            <div className="space-y-2">
+                                <h4 className="font-semibold text-gray-700 mb-3">Block #{blockResult.blockNumber}</h4>
+                                {Object.entries(blockResult).map(([k, v]) => (
+                                    <div key={k} className="flex items-start gap-3">
+                                        <span className="text-gray-400 w-32 shrink-0 capitalize">{k.replace(/([A-Z])/g, ' $1')}</span>
+                                        <code className="font-mono text-gray-800 break-all text-xs">{String(v)}</code>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
+                        )}
                     </div>
+                )}
+            </div>
 
-                    {/* Channel info */}
-                    <div className="bg-white border border-gray-100 rounded-xl p-5">
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Cpu size={15} className="text-gray-400" />Channel Info</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                            {[
-                                ['Channel', stats.channel],
-                                ['Chaincode', stats.chaincode],
-                                ['Peer Endpoint', stats.peerEndpoint],
-                                ['MSP ID', stats.mspId],
-                                ['Current Block Hash', truncate(stats.currentBlockHash, 30)],
-                                ['Previous Block Hash', truncate(stats.previousBlockHash, 30)],
-                            ].map(([k, v]) => (
-                                <div key={k} className="flex items-start gap-2">
-                                    <span className="text-gray-400 w-36 shrink-0">{k}</span>
-                                    <code className="font-mono text-gray-800 break-all">{v || '—'}</code>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Node status */}
-                    <div className="bg-white border border-gray-100 rounded-xl p-5">
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Server size={15} className="text-gray-400" />Node Status</h3>
-                        <div className="space-y-2">
-                            {nodes.map((n, i) => (
-                                <div key={i} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-2 h-2 rounded-full ${n.connected ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-800">{n.name}</p>
-                                            <p className="text-xs text-gray-400">{n.role} · {n.msp}</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-xs font-mono text-gray-500">{n.endpoint}</p>
-                                        <span className={`text-xs font-semibold ${n.connected ? 'text-emerald-600' : 'text-red-500'}`}>
-                                            {n.connected ? 'Online' : 'Offline'}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ── Transactions ── */}
-            {!loading && activeSection === 'transactions' && (
-                <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-                    <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-gray-700">On-chain Transactions ({transactions.length})</h3>
-                    </div>
-                    {transactions.length === 0 ? (
-                        <p className="text-center py-12 text-gray-400 text-sm">No on-chain transactions yet</p>
-                    ) : (
-                        <div className="divide-y divide-gray-50">
-                            {transactions.map((tx, i) => (
-                                <div key={i}>
-                                    <button
-                                        onClick={() => setExpandedTx(expandedTx === i ? null : i)}
-                                        className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left"
-                                    >
-                                        <div className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
-                                            tx.type === 'CREATE_CAMPAIGN' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
-                                        }`}>{tx.type === 'CREATE_CAMPAIGN' ? 'CAMPAIGN' : 'DONATION'}</div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm text-gray-800 truncate">{tx.summary}</p>
-                                            <code className="text-[10px] font-mono text-gray-400">{truncate(tx.txId, 36)}</code>
-                                        </div>
-                                        <div className="text-right shrink-0">
-                                            {tx.amount && <p className="text-sm font-semibold text-emerald-600">€{tx.amount}</p>}
-                                            <p className="text-[10px] text-gray-400">{tx.timestamp ? new Date(tx.timestamp).toLocaleString() : ''}</p>
-                                        </div>
-                                    </button>
-                                    {expandedTx === i && (
-                                        <div className="px-5 pb-4 bg-gray-50 border-t border-gray-100 text-xs space-y-1.5">
-                                            <div className="flex gap-2 pt-3"><span className="text-gray-400 w-24">Tx ID</span><code className="font-mono text-gray-700 break-all">{tx.txId}</code></div>
-                                            <div className="flex gap-2"><span className="text-gray-400 w-24">Entity</span><code className="font-mono text-gray-700">{tx.entityId}</code></div>
-                                            <div className="flex gap-2"><span className="text-gray-400 w-24">Channel</span><span className="text-gray-700">{tx.channel}</span></div>
-                                            <div className="flex gap-2"><span className="text-gray-400 w-24">Chaincode</span><span className="text-gray-700">{tx.chaincode}</span></div>
-                                            <div className="flex gap-2"><span className="text-gray-400 w-24">Time</span><span className="text-gray-700">{tx.timestamp}</span></div>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* ── Block Query ── */}
-            {!loading && activeSection === 'blocks' && (
-                <div className="space-y-4">
-                    <div className="bg-white border border-gray-100 rounded-xl p-5">
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Hash size={15} className="text-gray-400" />Query Block by Number</h3>
-                        <div className="flex gap-2">
-                            <input
-                                type="number"
-                                min={0}
-                                value={blockQuery}
-                                onChange={e => setBlockQuery(e.target.value)}
-                                placeholder="Block number (e.g. 0)"
-                                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                            />
-                            <button
-                                onClick={queryBlock}
-                                disabled={loading || !blockQuery}
-                                className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50 transition-colors flex items-center gap-2"
-                            >
-                                {loading ? <Loader2 size={15} className="animate-spin" /> : <ArrowUpRight size={15} />}
-                                Query
-                            </button>
-                        </div>
-                    </div>
-
-                    {blockResult && (
-                        <div className="bg-white border border-gray-100 rounded-xl p-5">
-                            {blockResult.error ? (
-                                <div className="flex items-center gap-2 text-red-600 text-sm"><AlertCircle size={15} />{blockResult.error}</div>
-                            ) : (
-                                <div className="space-y-2 text-sm">
-                                    <h4 className="font-semibold text-gray-700 mb-3">Block #{blockResult.blockNumber}</h4>
-                                    {Object.entries(blockResult).map(([k, v]) => (
-                                        <div key={k} className="flex items-start gap-3">
-                                            <span className="text-gray-400 w-32 shrink-0 capitalize">{k.replace(/([A-Z])/g, ' $1')}</span>
-                                            <code className="font-mono text-gray-800 break-all text-xs">{String(v)}</code>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* ── Audit / Chaincode Logs ── */}
-            {!loading && activeSection === 'audit' && (
-                <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-                    <div className="px-5 py-4 border-b border-gray-50">
-                        <h3 className="text-sm font-semibold text-gray-700">Chaincode Invocation & Tamper Audit ({auditLogs.length})</h3>
-                    </div>
-                    {auditLogs.length === 0 ? (
-                        <p className="text-center py-12 text-gray-400 text-sm">No audit records</p>
-                    ) : (
-                        <div className="divide-y divide-gray-50">
-                            {auditLogs.map((log, i) => (
-                                <div key={i}>
-                                    <button
-                                        onClick={() => setExpandedLog(expandedLog === i ? null : i)}
-                                        className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left"
-                                    >
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
-                                            log.verificationStatus === 'TAMPERED' ? 'bg-red-100 text-red-700' :
-                                            log.verificationStatus === 'VERIFIED' ? 'bg-emerald-100 text-emerald-700' :
-                                            'bg-yellow-100 text-yellow-700'
-                                        }`}>{log.verificationStatus || 'LOG'}</span>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm text-gray-800">{log.entityType} #{log.entityId} · <span className="font-mono text-gray-500">{log.fieldName}</span></p>
-                                            <p className="text-[10px] text-gray-400">{log.modifiedSource} · {log.modifiedBy}</p>
-                                        </div>
-                                        <p className="text-[10px] text-gray-400 shrink-0">{log.modifiedAt ? new Date(log.modifiedAt).toLocaleString() : ''}</p>
-                                    </button>
-                                    {expandedLog === i && (
-                                        <div className="px-5 pb-4 bg-gray-50 border-t border-gray-100 text-xs space-y-1.5">
-                                            <div className="pt-3 grid grid-cols-2 gap-3">
-                                                <div><p className="text-gray-400 mb-0.5">Old Value</p><code className="font-mono text-gray-700 break-all">{log.oldValue || '—'}</code></div>
-                                                <div><p className="text-gray-400 mb-0.5">New Value</p><code className="font-mono text-gray-700 break-all">{log.newValue || '—'}</code></div>
+            {/* Transaction history (collapsible) */}
+            <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+                <button
+                    onClick={() => { setShowTx(!showTx); if (!txLoaded) loadTransactions(); }}
+                    className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                >
+                    <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                        <Link2 size={15} className="text-gray-400" />
+                        On-chain Transactions {txLoaded ? `(${transactions.length})` : ''}
+                    </h3>
+                    {showTx ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                </button>
+                {showTx && (
+                    <div className="border-t border-gray-50">
+                        {txLoading ? (
+                            <div className="flex items-center justify-center py-8">
+                                <Loader2 size={20} className="text-emerald-400 animate-spin" />
+                            </div>
+                        ) : transactions.length === 0 ? (
+                            <p className="text-center py-8 text-gray-400 text-sm">No on-chain transactions yet</p>
+                        ) : (
+                            <div className="divide-y divide-gray-50">
+                                {transactions.map((tx, i) => (
+                                    <div key={i}>
+                                        <button
+                                            onClick={() => setExpandedTx(expandedTx === i ? null : i)}
+                                            className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left"
+                                        >
+                                            <div className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                                                tx.type === 'CREATE_CAMPAIGN' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                                            }`}>{tx.type === 'CREATE_CAMPAIGN' ? 'CAMPAIGN' : 'DONATION'}</div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm text-gray-800 truncate">{tx.summary}</p>
+                                                <code className="text-[10px] font-mono text-gray-400">{truncate(tx.txId, 36)}</code>
                                             </div>
-                                            {log.notes && <div className="flex gap-2"><span className="text-gray-400 w-16">Notes</span><span className="text-gray-700">{log.notes}</span></div>}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
+                                            <div className="text-right shrink-0">
+                                                {tx.amount && <p className="text-sm font-semibold text-emerald-600">€{tx.amount}</p>}
+                                                <p className="text-[10px] text-gray-400">{tx.timestamp ? new Date(tx.timestamp).toLocaleString() : ''}</p>
+                                            </div>
+                                        </button>
+                                        {expandedTx === i && (
+                                            <div className="px-5 pb-4 bg-gray-50 border-t border-gray-100 text-xs space-y-1.5">
+                                                <div className="flex gap-2 pt-3"><span className="text-gray-400 w-24">Tx ID</span><code className="font-mono text-gray-700 break-all">{tx.txId}</code></div>
+                                                <div className="flex gap-2"><span className="text-gray-400 w-24">Entity</span><code className="font-mono text-gray-700">{tx.entityId}</code></div>
+                                                <div className="flex gap-2"><span className="text-gray-400 w-24">Channel</span><span className="text-gray-700">{tx.channel}</span></div>
+                                                <div className="flex gap-2"><span className="text-gray-400 w-24">Chaincode</span><span className="text-gray-700">{tx.chaincode}</span></div>
+                                                <div className="flex gap-2"><span className="text-gray-400 w-24">Time</span><span className="text-gray-700">{tx.timestamp}</span></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

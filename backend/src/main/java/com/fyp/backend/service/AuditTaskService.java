@@ -147,13 +147,14 @@ public class AuditTaskService {
     }
 
     /**
-     * Called by PartnerAuditService after a successful audit submission
-     * to mark the task as COMPLETED.
+     * Called by PartnerAuditService after a successful audit submission.
+     * Assigns the submitting partner and marks the task as COMPLETED.
      */
     @Transactional
-    public void completeTaskForCampaign(Long campaignId) {
+    public void completeTaskForCampaign(Long campaignId, User partner) {
         campaignRepo.findById(campaignId).ifPresent(campaign ->
             taskRepo.findByCampaign(campaign).ifPresent(task -> {
+                task.setAssignedPartner(partner);
                 task.setStatus(Status.COMPLETED);
                 taskRepo.save(task);
             })

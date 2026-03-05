@@ -192,14 +192,13 @@ public class FabricGatewayService {
     // ==================== Campaign Functions ====================
 
     /**
-     * Create a new campaign on the blockchain
-     * 在区块链上创建新的捐款项目
-     * 
-     * @return Transaction ID (composite key: campaignID_timestamp) for blockchain
-     *         verification
+     * Create a campaign on the blockchain with minimal trusted state.
+     * Detail fields (title, description, …) are anchored by dataHash.
+     *
+     * @return Certificate ID for blockchain verification
      */
-    public String createCampaign(String campaignID, String title, String description, String category, String initiator,
-            double goalAmount) {
+    public String createCampaign(String campaignID, String initiator,
+            double goalAmount, String auditor, String deadline, String dataHash) {
         if (!isEnabled()) {
             log.debug("Fabric is disabled or not initialized, skipping blockchain operation");
             return null;
@@ -207,15 +206,13 @@ public class FabricGatewayService {
 
         try {
             String createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-            String auditor = ""; // Empty auditor to trigger AUTO_APPROVED
 
             contract.submitTransaction("CreateCampaign",
-                    campaignID, title, description, category, initiator, createdAt, String.valueOf(goalAmount),
-                    auditor);
+                    campaignID, initiator, createdAt, String.valueOf(goalAmount),
+                    auditor != null ? auditor : "",
+                    deadline != null ? deadline : "",
+                    dataHash);
 
-            // Generate a blockchain certificate ID using campaign ID and timestamp
-            // Use "::" separator so that campaignID (which may contain "_") can be decoded
-            // correctly
             String timestamp = String.valueOf(System.currentTimeMillis());
             String compositeKey = campaignID + "::" + timestamp;
             String txId = "BC" + bytesToHex(compositeKey.getBytes());
@@ -281,11 +278,11 @@ public class FabricGatewayService {
     // ==================== Donation Functions ====================
 
     /**
-     * Create a new donation record on blockchain
-     * 在区块链上创建新的捐款记录
+     * Create a donation record on blockchain with minimal evidence.
+     * donorHash is an anonymized identity (SHA-256); PII never reaches the chain.
      */
-    public void createDonation(String donationID, String campaignID, double amount, String donor, String displayName,
-            boolean isAnonymous) {
+    public void createDonation(String donationID, String campaignID, double amount,
+            String donorHash, String paymentRefHash) {
         if (!isEnabled()) {
             return;
         }
@@ -297,13 +294,11 @@ public class FabricGatewayService {
                     donationID,
                     campaignID,
                     String.valueOf(amount),
-                    donor,
-                    displayName,
-                    String.valueOf(isAnonymous),
-                    donatedAt);
+                    donorHash,
+                    donatedAt,
+                    paymentRefHash != null ? paymentRefHash : "");
 
-            log.info("Donation created on blockchain: {} for campaign {} (Display: {}, Anonymous: {})",
-                    donationID, campaignID, displayName, isAnonymous);
+            log.info("Donation created on blockchain: {} for campaign {}", donationID, campaignID);
         } catch (Exception e) {
             log.error("Failed to create donation on blockchain: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to create donation on blockchain: " + e.getMessage(), e);
@@ -329,10 +324,11 @@ public class FabricGatewayService {
     }
 
     /**
-     * Record a third-party audit conclusion on the blockchain
+     * Record a third-party review conclusion on the blockchain.
+     * Human-readable text lives off-chain; commentHash anchors it.
      */
-    public String recordAudit(String campaignID, String auditorOrg, String conclusion,
-                              String evidenceSummary, String evidenceHash, String notes, String timestamp) {
+    public String recordAudit(String campaignID, String reviewerOrg, String conclusion,
+                              String evidenceHash, String commentHash, String timestamp) {
         if (!isEnabled()) {
             log.warn("Fabric not enabled, skipping audit recording for campaign {}", campaignID);
             return null;
@@ -340,10 +336,9 @@ public class FabricGatewayService {
         try {
             byte[] result = contract.submitTransaction(
                     "RecordAudit",
-                    campaignID, auditorOrg, conclusion,
-                    evidenceSummary != null ? evidenceSummary : "",
+                    campaignID, reviewerOrg, conclusion,
                     evidenceHash != null ? evidenceHash : "",
-                    notes != null ? notes : "",
+                    commentHash != null ? commentHash : "",
                     timestamp);
             return new String(result, java.nio.charset.StandardCharsets.UTF_8);
         } catch (Exception e) {

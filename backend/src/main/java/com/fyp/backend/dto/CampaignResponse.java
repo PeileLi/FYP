@@ -29,17 +29,13 @@ public class CampaignResponse {
     private LocalDateTime completedAt; // Optional: set when campaign completes or is interrupted
     private String blockchainTxId; // Blockchain transaction ID for verification
     
-    // Data integrity verification
-    private Boolean dataVerified;  // true if matches blockchain, false if tampered, null if not verified
-    private String verificationStatus; // "VERIFIED", "TAMPERED", "NOT_RECORDED", "VERIFICATION_FAILED"
+    // Data integrity verification (via on-chain dataHash)
+    private Boolean dataVerified;  // true if DB hash matches on-chain hash
+    private String verificationStatus; // VERIFIED | TAMPERED | NOT_RECORDED | VERIFICATION_FAILED
     
-    // Blockchain verification details (显示链上真实数据)
-    private BigDecimal blockchainAmount;  // Real amount from blockchain (区块链真实金额)
-    private Integer blockchainDonationCount;  // Real donation count from blockchain (区块链真实捐款次数)
-    
-    // Audit trail (审计追踪)
-    private Boolean hasTamperingHistory;  // true if tampering was detected in the past (曾经被篡改过)
-    private Integer tamperingIncidentCount;  // Number of tampering incidents (篡改次数)
+    // Audit trail
+    private Boolean hasTamperingHistory;
+    private Integer tamperingIncidentCount;
 
     // Third-party partner audit
     private String auditStatus;

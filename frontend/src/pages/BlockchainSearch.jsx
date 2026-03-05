@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Search,
@@ -15,14 +15,10 @@ import {
     FileText,
     AlertCircle,
     Target,
-    TrendingUp,
     Hash,
-    Tag,
     DollarSign,
-    Users,
     Heart
 } from 'lucide-react';
-import CryptoJS from 'crypto-js';
 import { blockchainAPI } from '../utils/api';
 
 export default function BlockchainSearch() {
@@ -175,41 +171,11 @@ export default function BlockchainSearch() {
 
                             {result.verified && (
                                 <>
-                                    {/* Basic Information */}
-                                    <div className="mb-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                            <FileText className="mr-2 text-blue-600" size={20} />
-                                            Campaign Information
-                                        </h3>
-                                        <div className="space-y-3">
-                                            {result.title && result.title !== 'N/A' && (
-                                                <InfoRow
-                                                    icon={<FileText size={18} />}
-                                                    label="Title"
-                                                    value={result.title}
-                                                />
-                                            )}
-                                            {result.category && result.category !== 'N/A' && (
-                                                <InfoRow
-                                                    icon={<Tag size={18} />}
-                                                    label="Category"
-                                                    value={result.category}
-                                                    badge
-                                                />
-                                            )}
-                                            <InfoRow
-                                                icon={<FileText size={18} />}
-                                                label="Description"
-                                                value={result.description}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Immutable Commitment Fields */}
+                                    {/* On-chain Trusted State */}
                                     <div className="mb-6">
                                         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                                             <Shield className="mr-2 text-emerald-600" size={20} />
-                                            Immutable Commitment
+                                            On-chain Trusted State
                                         </h3>
                                         <div className="space-y-3">
                                             <InfoRow
@@ -228,6 +194,20 @@ export default function BlockchainSearch() {
                                                 label="Created At"
                                                 value={new Date(result.createdAt).toLocaleString()}
                                             />
+                                            {result.lastUpdated && (
+                                                <InfoRow
+                                                    icon={<Calendar size={18} />}
+                                                    label="Last Updated"
+                                                    value={new Date(result.lastUpdated).toLocaleString()}
+                                                />
+                                            )}
+                                            {result.deadline && (
+                                                <InfoRow
+                                                    icon={<Calendar size={18} />}
+                                                    label="Deadline"
+                                                    value={new Date(result.deadline).toLocaleString()}
+                                                />
+                                            )}
                                             {result.goalAmount !== null && result.goalAmount !== undefined && (
                                                 <InfoRow
                                                     icon={<Target size={18} />}
@@ -236,38 +216,23 @@ export default function BlockchainSearch() {
                                                 />
                                             )}
                                             <InfoRow
-                                                icon={<CheckCircle size={18} />}
-                                                label="Auditor"
-                                                value={result.auditor}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Dynamic Operational Fields */}
-                                    <div className="mb-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                            <TrendingUp className="mr-2 text-blue-600" size={20} />
-                                            Current Status
-                                        </h3>
-                                        <div className="space-y-3">
-                                            <InfoRow
                                                 icon={<Shield size={18} />}
                                                 label="Status"
                                                 value={result.status}
                                                 badge
                                             />
-                                            {result.totalAmount !== null && result.totalAmount !== undefined && (
+                                            {result.auditor && (
                                                 <InfoRow
-                                                    icon={<DollarSign size={18} />}
-                                                    label="Total Raised"
-                                                    value={`€${result.totalAmount.toFixed(2)}`}
+                                                    icon={<CheckCircle size={18} />}
+                                                    label="Auditor"
+                                                    value={result.auditor}
                                                 />
                                             )}
-                                            {result.donationCount !== null && result.donationCount !== undefined && (
+                                            {result.version !== null && result.version !== undefined && (
                                                 <InfoRow
-                                                    icon={<Users size={18} />}
-                                                    label="Donation Count"
-                                                    value={result.donationCount.toString()}
+                                                    icon={<Database size={18} />}
+                                                    label="Version"
+                                                    value={result.version.toString()}
                                                 />
                                             )}
                                         </div>
@@ -377,22 +342,27 @@ export default function BlockchainSearch() {
                                                 label="Amount"
                                                 value={donationResult.amount != null ? `€${donationResult.amount.toFixed(2)}` : 'N/A'}
                                             />
-                                            <InfoRow
-                                                icon={<User size={18} />}
-                                                label="Display Name"
-                                                value={donationResult.isAnonymous ? 'Anonymous' : (donationResult.displayName || 'N/A')}
-                                            />
+                                            {donationResult.donorHash && (
+                                                <InfoRow
+                                                    icon={<Hash size={18} />}
+                                                    label="Donor Hash"
+                                                    value={donationResult.donorHash}
+                                                    mono
+                                                />
+                                            )}
                                             <InfoRow
                                                 icon={<Calendar size={18} />}
                                                 label="Donated At"
                                                 value={donationResult.donatedAt ? new Date(donationResult.donatedAt).toLocaleString() : 'N/A'}
                                             />
-                                            <InfoRow
-                                                icon={<Shield size={18} />}
-                                                label="Anonymous"
-                                                value={donationResult.isAnonymous ? 'Yes' : 'No'}
-                                                badge
-                                            />
+                                            {donationResult.paymentRefHash && (
+                                                <InfoRow
+                                                    icon={<Hash size={18} />}
+                                                    label="Payment Ref Hash"
+                                                    value={donationResult.paymentRefHash}
+                                                    mono
+                                                />
+                                            )}
                                         </div>
                                     </div>
                                 </>
@@ -411,25 +381,9 @@ function HashVerificationBox({ result }) {
     const [copiedCalculated, setCopiedCalculated] = useState(false);
 
     // Calculate hash from blockchain data fields
-    // Must match Go chaincode order: CampaignID|Initiator|CreatedAt|Title|Description|Category|GoalAmount|Auditor|Version
-    const calculatedHash = useMemo(() => {
-        const hashInput = [
-            result.campaignId || '',
-            result.initiator || '',
-            result.createdAt || '',
-            result.title || '',
-            result.description || '',
-            result.category || '',
-            result.goalAmount != null ? result.goalAmount.toFixed(2) : '0.00',
-            result.auditor || '',
-            String(result.version != null ? result.version : 1)
-        ].join('|');
-        return CryptoJS.SHA256(hashInput).toString();
-    }, [result.campaignId, result.initiator, result.createdAt, result.title, result.description, result.category, result.goalAmount, result.auditor, result.version]);
-
-    // Compare hashes
-    const blockchainHash = result.dataHash.toLowerCase();
-    const isMatch = blockchainHash === calculatedHash.toLowerCase();
+    const blockchainHash = (result.dataHash || '').toLowerCase();
+    const computedHash = (result.computedDataHash || '').toLowerCase();
+    const isMatch = blockchainHash && computedHash && blockchainHash === computedHash;
 
     const handleCopyBlockchain = () => {
         navigator.clipboard.writeText(result.dataHash);
@@ -438,7 +392,7 @@ function HashVerificationBox({ result }) {
     };
 
     const handleCopyCalculated = () => {
-        navigator.clipboard.writeText(calculatedHash);
+        navigator.clipboard.writeText(computedHash);
         setCopiedCalculated(true);
         setTimeout(() => setCopiedCalculated(false), 2000);
     };
@@ -524,7 +478,7 @@ function HashVerificationBox({ result }) {
                     <div className={`bg-white rounded-lg p-3 font-mono text-xs break-all border ${
                         isMatch ? 'border-green-200' : 'border-red-200'
                     }`}>
-                        {calculatedHash}
+                        {computedHash || 'N/A'}
                     </div>
                 </div>
             </div>

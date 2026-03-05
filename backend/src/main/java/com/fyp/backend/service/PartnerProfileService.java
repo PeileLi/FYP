@@ -43,7 +43,7 @@ public class PartnerProfileService {
             PartnerProfile p = PartnerProfile.builder()
                     .user(user)
                     .orgName(user.getDisplayName())
-                    .fabricMspId(fabricConfig.getMspId())
+                    .fabricMspId(fabricConfig.getOrg2MspId())
                     .build();
             return profileRepository.save(p);
         });
@@ -83,17 +83,15 @@ public class PartnerProfileService {
         PartnerProfile profile = getOrCreateProfile(partner);
 
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("mspId",        profile.getFabricMspId() != null ? profile.getFabricMspId() : fabricConfig.getMspId());
+        m.put("mspId",        profile.getFabricMspId() != null ? profile.getFabricMspId() : fabricConfig.getOrg2MspId());
         m.put("channelName",  fabricConfig.getChannelName());
         m.put("chaincodeName", fabricConfig.getChaincodeName());
-        m.put("peerEndpoint", fabricConfig.getPeerEndpoint());
-        m.put("certPath",     fabricConfig.getCertPath());
+        m.put("peerEndpoint", fabricConfig.getOrg2PeerEndpoint());
+        m.put("certPath",     fabricConfig.getOrg2CertPath());
 
-        // Read system CA cert details (informational)
-        Map<String, Object> certInfo = readSystemCertInfo();
+        Map<String, Object> certInfo = readOrg2CertInfo();
         m.put("systemCert", certInfo);
 
-        // Partner's own cert serial (if set)
         m.put("partnerCertSerial", profile.getCertSerial());
 
         return m;
@@ -162,17 +160,18 @@ public class PartnerProfileService {
         m.put("displayName",      user.getDisplayName());
         m.put("orgName",          profile.getOrgName() != null ? profile.getOrgName() : user.getDisplayName());
         m.put("credentialNumber", profile.getCredentialNumber());
-        m.put("fabricMspId",      profile.getFabricMspId() != null ? profile.getFabricMspId() : fabricConfig.getMspId());
+        m.put("fabricMspId",      profile.getFabricMspId() != null ? profile.getFabricMspId() : fabricConfig.getOrg2MspId());
         m.put("certSerial",       profile.getCertSerial());
         m.put("updatedAt",        profile.getUpdatedAt() != null ? profile.getUpdatedAt().toString() : "");
         return m;
     }
 
-    private Map<String, Object> readSystemCertInfo() {
+    private Map<String, Object> readOrg2CertInfo() {
         Map<String, Object> info = new LinkedHashMap<>();
         try {
-            if (fabricConfig.getCertPath() == null) return info;
-            Path certPath = Paths.get(fabricConfig.getCertPath());
+            String org2Cert = fabricConfig.getOrg2CertPath();
+            if (org2Cert == null || org2Cert.isBlank()) return info;
+            Path certPath = Paths.get(org2Cert);
             if (!Files.exists(certPath)) return info;
 
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
@@ -181,14 +180,10 @@ public class PartnerProfileService {
                 cert = (X509Certificate) cf.generateCertificate(is);
             }
 
-            info.put("subject",   cert.getSubjectX500Principal().getName());
-            info.put("issuer",    cert.getIssuerX500Principal().getName());
-            info.put("serial",    cert.getSerialNumber().toString(16).toUpperCase());
-            info.put("notBefore", cert.getNotBefore().toString());
-            info.put("notAfter",  cert.getNotAfter().toString());
-            info.put("algorithm", cert.getSigAlgName());
+            info.put("subject", cert.getSubjectX500Principal().getName());
+            info.put("issuer",  cert.getIssuerX500Principal().getName());
         } catch (Exception e) {
-            log.warn("Could not read system cert info: {}", e.getMessage());
+            log.warn("Could not read Org2 cert info: {}", e.getMessage());
             info.put("error", "Certificate not readable");
         }
         return info;

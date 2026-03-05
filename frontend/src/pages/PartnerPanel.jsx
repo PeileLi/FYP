@@ -37,22 +37,12 @@ const CAMPAIGN_STATUS_META = {
     CLOSED:    'bg-gray-100 text-gray-500',
 };
 
-const FILTER_TABS = [
-    { id: '',              label: 'All' },
-    { id: 'PENDING_AUDIT', label: 'Pending' },
-    { id: 'UNDER_REVIEW',  label: 'Under Review' },
-    { id: 'REQUIRES_INFO', label: 'Requires Info' },
-    { id: 'APPROVED',      label: 'Approved' },
-    { id: 'RISK_FLAGGED',  label: 'Risk Flagged' },
-    { id: 'REJECTED',      label: 'Rejected' },
-];
 
 // ── Audit submission modal ────────────────────────────────────────────────────
 
 function AuditModal({ campaign, onClose, onDone }) {
     const [conclusion, setConclusion]         = useState('');
     const [evidenceSummary, setEvidenceSummary] = useState('');
-    const [evidenceHash, setEvidenceHash]     = useState('');
     const [notes, setNotes]                   = useState('');
     const [loading, setLoading]               = useState(false);
     const [error, setError]                   = useState('');
@@ -62,7 +52,7 @@ function AuditModal({ campaign, onClose, onDone }) {
         if (!conclusion) { setError('Please select a conclusion.'); return; }
         setLoading(true); setError('');
         try {
-            await partnerAPI.submitAudit(campaign.id, { conclusion, evidenceSummary, evidenceHash, notes });
+            await partnerAPI.submitAudit(campaign.id, { conclusion, evidenceSummary, notes });
             onDone(); onClose();
         } catch (e) { setError(e.message); } finally { setLoading(false); }
     };
@@ -105,14 +95,6 @@ function AuditModal({ campaign, onClose, onDone }) {
                         <textarea value={evidenceSummary} onChange={e => setEvidenceSummary(e.target.value)} rows={3}
                             placeholder="Summarize materials reviewed and key findings..."
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"/>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1">
-                            <Hash size={14}/>Evidence Hash <span className="text-xs text-gray-400 font-normal">(SHA-256 of off-chain files)</span>
-                        </label>
-                        <input value={evidenceHash} onChange={e => setEvidenceHash(e.target.value)} placeholder="e.g. a3f2c1d9..."
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-300"/>
-                        <p className="text-[11px] text-gray-400 mt-1">Hash is permanently recorded on-chain as proof of evidence</p>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1"><MessageSquare size={14}/>Additional Notes</label>
@@ -868,40 +850,23 @@ function DeclineModal({ task, onClose, onDone }) {
 
 const TASK_FILTER = [
     { id: 'open',      label: 'Open',      icon: Inbox },
-    { id: 'mine',      label: 'In Progress', icon: UserCheck },
     { id: 'completed', label: 'Completed', icon: CheckCircle },
 ];
 
-function TaskCard({ task, onAccept, onDecline, onAudit, onReview, view }) {
-    const [expanded, setExpanded] = useState(false);
-    const [declineLogs, setDeclineLogs] = useState(null);
+function TaskCard({ task, onAudit, onReview, view }) {
     const c = task.campaign || {};
     const progress = c.goalAmount > 0 ? Math.min(100, c.currentAmount / c.goalAmount * 100) : 0;
-
-    const loadDeclineLogs = async () => {
-        if (declineLogs) { setExpanded(e => !e); return; }
-        try { setDeclineLogs(await partnerAPI.getDeclineLogs(task.id)); } catch { setDeclineLogs([]); }
-        setExpanded(true);
-    };
 
     return (
         <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
             <div className="px-5 py-4">
                 <div className="flex items-start gap-3">
-                    {/* Status indicator */}
                     <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${
-                        view === 'open'      ? 'bg-amber-400' :
-                        view === 'mine'      ? 'bg-blue-500' :
-                        view === 'completed' ? 'bg-emerald-400' : 'bg-gray-300'}`}/>
+                        view === 'completed' ? 'bg-emerald-400' : 'bg-amber-400'}`}/>
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-sm font-semibold text-gray-800">{c.title}</p>
                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${CAMPAIGN_STATUS_META[c.status] || 'bg-gray-100 text-gray-500'}`}>{c.status}</span>
-                            {task.declineCount > 0 && (
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-600">
-                                    {task.declineCount}× declined
-                                </span>
-                            )}
                         </div>
                         <p className="text-xs text-gray-400 mt-0.5">{c.organizer} · {c.category}</p>
                         <div className="flex items-center gap-2 mt-2">
@@ -914,15 +879,8 @@ function TaskCard({ task, onAccept, onDecline, onAudit, onReview, view }) {
                     </div>
                 </div>
 
-                {/* Action row */}
                 <div className="mt-3 flex items-center gap-2 flex-wrap">
                     {view === 'open' && (
-                        <button onClick={() => onAccept(task)}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-500 transition-colors">
-                            <UserCheck size={12}/>Accept Task
-                        </button>
-                    )}
-                    {view === 'mine' && (
                         <>
                             <button onClick={() => onReview(task)}
                                 className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-500 transition-colors">
@@ -932,40 +890,17 @@ function TaskCard({ task, onAccept, onDecline, onAudit, onReview, view }) {
                                 className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-500 transition-colors">
                                 <Shield size={12}/>Submit Audit
                             </button>
-                            <button onClick={() => onDecline(task)}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-semibold hover:bg-red-100 transition-colors">
-                                <Ban size={12}/>Decline
-                            </button>
                         </>
                     )}
-                    {task.declineCount > 0 && (
-                        <button onClick={loadDeclineLogs}
-                            className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 ml-auto">
-                            <RotateCcw size={11}/>
-                            {expanded ? 'Hide' : 'Show'} decline history
-                            {expanded ? <ChevronUp size={11}/> : <ChevronDown size={11}/>}
-                        </button>
+                    {view === 'completed' && task.assignedPartner && (
+                        <span className="text-[11px] text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg font-medium">
+                            Audited by {task.assignedPartner}
+                        </span>
                     )}
                     <span className="ml-auto text-[11px] text-gray-300">
                         Task #{task.id} · {task.createdAt ? new Date(task.createdAt).toLocaleDateString() : ''}
                     </span>
                 </div>
-
-                {/* Decline logs */}
-                {expanded && declineLogs && declineLogs.length > 0 && (
-                    <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
-                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Decline History</p>
-                        {declineLogs.map(log => (
-                            <div key={log.id} className="bg-red-50 rounded-lg px-3 py-2 text-xs">
-                                <div className="flex items-center justify-between mb-1">
-                                    <span className="font-medium text-red-700">{log.partner}</span>
-                                    <span className="text-gray-400">{log.createdAt ? new Date(log.createdAt).toLocaleString() : ''}</span>
-                                </div>
-                                <p className="text-gray-600">"{log.reason}"</p>
-                            </div>
-                        ))}
-                    </div>
-                )}
             </div>
         </div>
     );
@@ -976,46 +911,21 @@ function TaskInboxTab() {
     const [tasks, setTasks]           = useState([]);
     const [loading, setLoading]       = useState(true);
     const [error, setError]           = useState('');
-    const [declineTarget, setDeclineTarget] = useState(null);
     const [auditTarget, setAuditTarget]     = useState(null);
-    const [reviewTarget, setReviewTarget]   = useState(null); // task for material review
-    const [accepting, setAccepting]   = useState(null); // task id being accepted
+    const [reviewTarget, setReviewTarget]   = useState(null);
 
     const load = useCallback(async () => {
         setLoading(true); setError('');
         try {
-            const fn = view === 'open' ? partnerAPI.getOpenTasks :
-                       view === 'mine' ? partnerAPI.getMyTasks :
-                                         partnerAPI.getCompletedTasks;
+            const fn = view === 'open' ? partnerAPI.getOpenTasks : partnerAPI.getCompletedTasks;
             setTasks(await fn());
         } catch (e) { setError(e.message); } finally { setLoading(false); }
     }, [view]);
 
     useEffect(() => { load(); }, [load]);
 
-    const handleAccept = async (task) => {
-        setAccepting(task.id);
-        try {
-            await partnerAPI.acceptTask(task.id);
-            await load();
-            setView('mine'); // switch to in-progress tab
-        } catch (e) { setError(e.message); } finally { setAccepting(null); }
-    };
-
-    const counts = { open: null, mine: null, completed: null };
-
     return (
         <div className="space-y-5">
-            {/* Inline guidance */}
-            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700 flex items-start gap-2">
-                <AlertCircle size={14} className="shrink-0 mt-0.5"/>
-                <span>
-                    <strong>Workflow:</strong> Accept an open task to start review → Submit your audit conclusion → Task is automatically marked complete.
-                    If you cannot proceed, decline with a reason and the task returns to the open pool.
-                </span>
-            </div>
-
-            {/* Filter tabs */}
             <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
                 {TASK_FILTER.map(tab => {
                     const Icon = tab.icon;
@@ -1040,32 +950,24 @@ function TaskInboxTab() {
                 <div className="bg-white border border-gray-100 rounded-xl py-16 text-center">
                     <Inbox size={32} className="text-gray-200 mx-auto mb-3"/>
                     <p className="text-sm text-gray-400">
-                        {view === 'open' ? 'No open tasks — all campaigns have been assigned or completed.' :
-                         view === 'mine' ? 'You have no tasks in progress.' :
-                         'No completed tasks yet.'}
+                        {view === 'open' ? 'No open audit tasks at the moment.' : 'No completed tasks yet.'}
                     </p>
                 </div>
             ) : (
                 <div className="space-y-3">
                     <p className="text-xs text-gray-400">{tasks.length} task{tasks.length !== 1 ? 's' : ''}</p>
                     {tasks.map(task => (
-                        <div key={task.id} className={accepting === task.id ? 'opacity-50 pointer-events-none' : ''}>
-                            <TaskCard
-                                task={task}
-                                view={view}
-                                onAccept={handleAccept}
-                                onDecline={setDeclineTarget}
-                                onAudit={setAuditTarget}
-                                onReview={setReviewTarget}
-                            />
-                        </div>
+                        <TaskCard
+                            key={task.id}
+                            task={task}
+                            view={view}
+                            onAudit={setAuditTarget}
+                            onReview={setReviewTarget}
+                        />
                     ))}
                 </div>
             )}
 
-            {declineTarget && (
-                <DeclineModal task={declineTarget} onClose={() => setDeclineTarget(null)} onDone={load}/>
-            )}
             {auditTarget && (
                 <AuditModal campaign={auditTarget} onClose={() => setAuditTarget(null)} onDone={load}/>
             )}
@@ -1077,138 +979,6 @@ function TaskInboxTab() {
                     onAuditDone={load}
                 />
             )}
-        </div>
-    );
-}
-
-// ── Tab: Campaign Audit ───────────────────────────────────────────────────────
-
-function AuditTab() {
-    const [campaigns, setCampaigns] = useState([]);
-    const [loading, setLoading]     = useState(true);
-    const [error, setError]         = useState('');
-    const [filterTab, setFilterTab] = useState('');
-    const [expandedId, setExpandedId] = useState(null);
-    const [auditTarget, setAuditTarget]   = useState(null);
-    const [historyTarget, setHistoryTarget] = useState(null);
-
-    const load = useCallback(async () => {
-        setLoading(true); setError('');
-        try { setCampaigns(await partnerAPI.getAuditCampaigns(filterTab || undefined)); }
-        catch (e) { setError(e.message); } finally { setLoading(false); }
-    }, [filterTab]);
-
-    useEffect(() => { load(); }, [load]);
-
-    const counts = {
-        total:    campaigns.length,
-        approved: campaigns.filter(c => c.auditStatus === 'APPROVED').length,
-        pending:  campaigns.filter(c => c.auditStatus === 'PENDING_AUDIT').length,
-        risk:     campaigns.filter(c => c.auditStatus === 'RISK_FLAGGED').length,
-    };
-
-    return (
-        <div className="space-y-5">
-            {/* Stats */}
-            <div className="grid grid-cols-4 gap-3">
-                {[
-                    { label: 'Total',    value: counts.total,    color: 'text-gray-900' },
-                    { label: 'Approved', value: counts.approved,  color: 'text-emerald-600' },
-                    { label: 'Pending',  value: counts.pending,   color: 'text-amber-600' },
-                    { label: 'Risk',     value: counts.risk,      color: 'text-rose-600' },
-                ].map(s => (
-                    <div key={s.label} className="bg-white border border-gray-100 rounded-xl p-4 text-center">
-                        <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-                        <p className="text-xs text-gray-500 mt-1">{s.label}</p>
-                    </div>
-                ))}
-            </div>
-
-            {/* Filter tabs */}
-            <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-                {FILTER_TABS.map(tab => (
-                    <button key={tab.id} onClick={() => setFilterTab(tab.id)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-                        {tab.label}
-                    </button>
-                ))}
-            </div>
-
-            {error && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
-                    <AlertCircle size={14}/>{error}
-                </div>
-            )}
-
-            {loading ? (
-                <div className="flex justify-center py-16"><Loader2 size={24} className="text-gray-300 animate-spin"/></div>
-            ) : campaigns.length === 0 ? (
-                <div className="bg-white border border-gray-100 rounded-xl py-16 text-center text-gray-400 text-sm">No campaigns found</div>
-            ) : (
-                <div className="space-y-2">
-                    {campaigns.map(c => {
-                        const auditMeta = AUDIT_META[c.auditStatus] || AUDIT_META.PENDING_AUDIT;
-                        const statusCls = CAMPAIGN_STATUS_META[c.status] || 'bg-gray-100 text-gray-500';
-                        const progress  = c.goalAmount > 0 ? Math.min(100, c.currentAmount / c.goalAmount * 100) : 0;
-                        const expanded  = expandedId === c.id;
-                        return (
-                            <div key={c.id} className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-                                <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50/60 transition-colors text-left"
-                                    onClick={() => setExpandedId(expanded ? null : c.id)}>
-                                    <div className={`w-2 h-2 rounded-full shrink-0 ${
-                                        c.auditStatus === 'APPROVED'     ? 'bg-emerald-400' :
-                                        c.auditStatus === 'RISK_FLAGGED' ? 'bg-rose-500' :
-                                        c.auditStatus === 'REJECTED'     ? 'bg-red-400' :
-                                        c.auditStatus === 'REQUIRES_INFO'? 'bg-amber-400' : 'bg-gray-300'}`}/>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <p className="text-sm font-semibold text-gray-800 truncate">{c.title}</p>
-                                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${statusCls}`}>{c.status}</span>
-                                            <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${auditMeta.cls}`}>
-                                                {auditMeta.icon}{auditMeta.label}
-                                            </span>
-                                        </div>
-                                        <p className="text-xs text-gray-400 mt-0.5">{c.organizer} · {c.category}</p>
-                                        <div className="flex items-center gap-2 mt-1.5">
-                                            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${progress}%` }}/>
-                                            </div>
-                                            <span className="text-xs text-gray-500 shrink-0">€{Number(c.currentAmount).toFixed(0)} / €{Number(c.goalAmount).toFixed(0)}</span>
-                                        </div>
-                                    </div>
-                                    {expanded ? <ChevronUp size={16} className="text-gray-400 shrink-0"/> : <ChevronDown size={16} className="text-gray-400 shrink-0"/>}
-                                </button>
-                                {expanded && (
-                                    <div className="px-5 pb-4 border-t border-gray-50 bg-gray-50/30 space-y-3">
-                                        {c.description && <p className="pt-3 text-xs text-gray-600 leading-relaxed line-clamp-4">{c.description}</p>}
-                                        {c.latestAuditConclusion && (
-                                            <div className={`p-3 rounded-xl border text-xs ${AUDIT_META[c.latestAuditConclusion]?.cls || ''} bg-opacity-30`}>
-                                                <div className="flex items-center gap-1.5 font-semibold">
-                                                    {AUDIT_META[c.latestAuditConclusion]?.icon}
-                                                    Latest: {AUDIT_META[c.latestAuditConclusion]?.label}
-                                                    <span className="text-gray-400 font-normal">· {c.latestAuditAt ? new Date(c.latestAuditAt).toLocaleDateString() : ''}</span>
-                                                </div>
-                                            </div>
-                                        )}
-                                        <div className="flex gap-2 flex-wrap">
-                                            <button onClick={() => setAuditTarget(c)}
-                                                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-500 transition-colors">
-                                                <Shield size={12}/>Submit Audit
-                                            </button>
-                                            <button onClick={() => setHistoryTarget(c)}
-                                                className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-50 transition-colors">
-                                                <FileText size={12}/>View History
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-            {auditTarget   && <AuditModal   campaign={auditTarget}   onClose={() => setAuditTarget(null)}   onDone={load}/>}
-            {historyTarget && <HistoryModal campaign={historyTarget} onClose={() => setHistoryTarget(null)}/>}
         </div>
     );
 }
@@ -1319,47 +1089,33 @@ function ProfileTab() {
                         <div className="sm:col-span-2">
                             <p className="text-xs font-medium text-gray-500 mb-1">MSP ID (override)</p>
                             <input value={form.fabricMspId || ''} onChange={e => setForm(f => ({ ...f, fabricMspId: e.target.value }))}
-                                placeholder="e.g. Org1MSP"
+                                placeholder="e.g. Org2MSP"
                                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-300"/>
                         </div>
                     )}
                 </div>
 
-                {/* System certificate */}
+                {/* Org2 identity status */}
                 <div className="mt-5 pt-5 border-t border-gray-100">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">System CA Certificate</p>
-                    {cert.error ? (
-                        <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">{cert.error}</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Identity Status</p>
+                    {cert.subject ? (
+                        <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"/>
+                            Org2 certificate active — signed by {cert.issuer?.split(',')[0] || 'CA'}
+                        </div>
+                    ) : cert.error ? (
+                        <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"/>
+                            Certificate not available
+                        </div>
                     ) : (
-                        <div className="space-y-2">
-                            {[
-                                { label: 'Subject',    value: cert.subject },
-                                { label: 'Issuer',     value: cert.issuer },
-                                { label: 'Serial',     value: cert.serial },
-                                { label: 'Valid From', value: cert.notBefore },
-                                { label: 'Valid To',   value: cert.notAfter },
-                                { label: 'Algorithm',  value: cert.algorithm },
-                            ].map(row => row.value && (
-                                <div key={row.label} className="flex gap-3 text-xs">
-                                    <span className="w-24 shrink-0 text-gray-400 font-medium">{row.label}</span>
-                                    <span className="text-gray-700 font-mono break-all">{row.value}</span>
-                                </div>
-                            ))}
+                        <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
+                            <span className="w-2 h-2 rounded-full bg-gray-400 shrink-0"/>
+                            No certificate information
                         </div>
                     )}
                 </div>
 
-                {/* Custom cert serial */}
-                <div className="mt-4">
-                    <p className="text-xs font-medium text-gray-500 mb-1">Partner Certificate Serial / Fingerprint</p>
-                    {editing ? (
-                        <input value={form.certSerial || ''} onChange={e => setForm(f => ({ ...f, certSerial: e.target.value }))}
-                            placeholder="Optional: paste your cert serial or SHA-256 fingerprint"
-                            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-300"/>
-                    ) : (
-                        <p className="text-sm font-mono text-gray-700">{profile?.certSerial || <span className="text-gray-400 italic not-italic text-xs">Not configured</span>}</p>
-                    )}
-                </div>
             </div>
         </div>
     );
@@ -1424,10 +1180,9 @@ function MyRecordsTab() {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 const MAIN_TABS = [
-    { id: 'inbox',   label: 'Task Inbox',     icon: Inbox },
-    { id: 'audit',   label: 'Campaign Audit', icon: Shield },
-    { id: 'profile', label: 'My Profile',     icon: Building2 },
+    { id: 'inbox',   label: 'Audit Pool',     icon: Inbox },
     { id: 'records', label: 'My Records',     icon: BarChart3 },
+    { id: 'profile', label: 'My Profile',     icon: Building2 },
 ];
 
 export default function PartnerPanel() {
@@ -1463,7 +1218,6 @@ export default function PartnerPanel() {
 
                 {/* Tab content */}
                 {activeTab === 'inbox'       && <TaskInboxTab/>}
-                {activeTab === 'audit'       && <AuditTab/>}
                 {activeTab === 'profile'     && <ProfileTab/>}
                 {activeTab === 'records'  && <MyRecordsTab/>}
             </div>

@@ -88,23 +88,20 @@ public class DonationService {
 
         // Create donation record on blockchain
         try {
-            // Resolve the blockchain campaign ID (independent of DB auto-increment ID)
             String blockchainCampaignId = CampaignService.resolveBlockchainCampaignId(campaign);
             
             if (fabricGatewayService.isEnabled() && blockchainCampaignId != null) {
                 String donationId = "DON_" + savedDonation.getId() + "_" + System.currentTimeMillis();
-                String donorIdentifier = user.getEmail();
+                String donorHash = CampaignService.sha256Hex(user.getEmail());
                 
                 fabricGatewayService.createDonation(
                     donationId,
                     blockchainCampaignId,
                     request.getAmount().doubleValue(),
-                    donorIdentifier,
-                    displayName,
-                    isAnonymous
+                    donorHash,
+                    "" // paymentRefHash (empty for now)
                 );
                 
-                // Generate blockchain certificate ID (same style as campaign BC format)
                 String timestamp = String.valueOf(System.currentTimeMillis());
                 String compositeKey = donationId + "::" + timestamp;
                 String certificateId = "BD" + bytesToHex(compositeKey.getBytes());
@@ -120,7 +117,6 @@ public class DonationService {
             }
         } catch (Exception e) {
             log.error("Failed to record donation on blockchain: {}", e.getMessage());
-            // Keep the temporary transaction hash - donation is still valid in database
         }
 
         // Update campaign amount

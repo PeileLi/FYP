@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -28,84 +26,92 @@ const (
 	StatusSuspended     = "SUSPENDED"      // Suspended (risk flagged / admin action)
 )
 
-// Campaign represents a donation campaign on the blockchain
-// 捐款项目 - 支持审核后修改
+// Campaign stores the minimal trusted state for a donation campaign on-chain.
+// Detail fields (title, description, category, etc.) live off-chain and are
+// anchored by dataHash + version for tamper-evidence.
 type Campaign struct {
-	// Absolute Immutable fields - NEVER change (绝对不可变字段)
-	CampaignID string `json:"campaignId"` // Unique campaign identifier (捐款编号)
-	Initiator  string `json:"initiator"`  // Campaign creator (发起人)
-	CreatedAt  string `json:"createdAt"`  // Creation timestamp (发起时间)
-
-	// Auditable Mutable fields - can be modified with approval (可审核修改字段)
-	Title       string  `json:"title"`       // Campaign title (活动标题)
-	Description string  `json:"description"` // Campaign description (项目描述)
-	Category    string  `json:"category"`    // Campaign category (项目分类)
-	GoalAmount  float64 `json:"goalAmount"`  // Target amount to raise (目标金额)
-	Auditor     string  `json:"auditor"`     // Third-party auditor/organization (审核机构)
-
-	// Versioning and Hash (版本控制和哈希)
-	Version      int    `json:"version"`      // Data version, increment on each approved modification (数据版本)
-	DataHash     string `json:"dataHash"`     // SHA-256 hash of current version (当前版本的hash)
-	LastUpdated  string `json:"lastUpdated"`  // Last modification timestamp (最后修改时间)
-	LastModifier string `json:"lastModifier"` // Who made the last modification (最后修改者)
-
-	// Dynamic Operational fields (动态运营字段)
-	Status        string  `json:"status"`        // Campaign status: IN_PROGRESS/COMPLETED/SUSPENDED (状态)
-	TotalAmount   float64 `json:"totalAmount"`   // Total amount raised (总筹款金额)
-	DonationCount int     `json:"donationCount"` // Total number of donations (捐款次数)
+	CampaignID  string  `json:"campaignId"`  // Unique identifier
+	Initiator   string  `json:"initiator"`   // Creator's on-chain identity
+	CreatedAt   string  `json:"createdAt"`   // Creation timestamp
+	LastUpdated string  `json:"lastUpdated"` // Last modification timestamp
+	Deadline    string  `json:"deadline"`    // Optional expiry timestamp (empty = no deadline)
+	GoalAmount  float64 `json:"goalAmount"`  // Target amount (hard constraint)
+	Status      string  `json:"status"`      // IN_PROGRESS / COMPLETED / SUSPENDED / PENDING_REVIEW
+	Auditor     string  `json:"auditor"`     // Auditor org identifier (accountability)
+	Version     int     `json:"version"`     // Off-chain data version counter
+	DataHash    string  `json:"dataHash"`    // SHA-256 of off-chain detail snapshot (provided by backend)
 }
 
-// CampaignHistory records historical versions of campaign modifications
-// 记录活动的历史修改版本
+// CampaignHistory records a version snapshot before a campaign update.
+// Only on-chain fields are stored; off-chain detail changes are captured
+// via the dataHash transition (oldHash → newHash).
 type CampaignHistory struct {
-	CampaignID   string  `json:"campaignId"`
-	Version      int     `json:"version"`
-	Title        string  `json:"title"`
-	Description  string  `json:"description"`
-	Category     string  `json:"category"`
-	GoalAmount   float64 `json:"goalAmount"`
-	Auditor      string  `json:"auditor"`
-	DataHash     string  `json:"dataHash"`
-	ModifiedAt   string  `json:"modifiedAt"`
-	ModifiedBy   string  `json:"modifiedBy"`
-	ModifyReason string  `json:"modifyReason"` // Reason for modification (修改原因)
+	CampaignID string  `json:"campaignId"`
+	Version    int     `json:"version"`    // Version that was replaced
+	Deadline   string  `json:"deadline"`   // Deadline at this version
+	GoalAmount float64 `json:"goalAmount"` // GoalAmount at this version
+	Auditor    string  `json:"auditor"`    // Auditor at this version
+	DataHash   string  `json:"dataHash"`   // Off-chain data hash at this version
+	ModifiedAt string  `json:"modifiedAt"` // When the update occurred
 }
 
-// AuditRecord stores a third-party partner's audit conclusion for a campaign.
-// Written by SubmitReviewResult (Org2MSP) or RecordAudit (backward-compat).
+// AuditRecord stores a third-party review conclusion on-chain.
+// Human-readable details (summary, notes) live off-chain, anchored by commentHash.
 type AuditRecord struct {
-	DocType         string `json:"docType"` // "AUDIT"
-	AuditID         string `json:"auditId"` // Unique: AUDIT_{campaignId}_{seq}
-	CampaignID      string `json:"campaignId"`
-	AuditorOrg      string `json:"auditorOrg"`      // Partner display name
-	CallerMSP       string `json:"callerMsp"`       // Fabric MSP ID of the submitting organisation
-	Conclusion      string `json:"conclusion"`      // APPROVED | REJECTED | REQUIRES_INFO | RISK_FLAGGED
-	EvidenceSummary string `json:"evidenceSummary"` // Human-readable summary
-	EvidenceHash    string `json:"evidenceHash"`    // SHA-256 of off-chain evidence files
-	Notes           string `json:"notes"`           // Additional remarks
-	Timestamp       string `json:"timestamp"`
+	AuditID      string `json:"auditId"`      // Unique: AUDIT_{campaignId}_{seq}
+	CampaignID   string `json:"campaignId"`   // Reviewed campaign
+	ReviewerOrg  string `json:"reviewerOrg"`  // Reviewer org identifier (accountability)
+	CallerMSP    string `json:"callerMsp"`    // Fabric MSP ID (cryptographic proof)
+	Conclusion   string `json:"conclusion"`   // APPROVED | REJECTED | REQUIRES_INFO | RISK_FLAGGED
+	EvidenceHash string `json:"evidenceHash"` // SHA-256 of off-chain evidence files
+	CommentHash  string `json:"commentHash"`  // SHA-256 of off-chain review comments/notes
+	Timestamp    string `json:"timestamp"`
 }
 
-// CampaignApprovalRecord is written by ApproveCampaign to record the approval event.
+// CampaignApprovalRecord records the platform's approval event on-chain.
+// Links to the AuditRecord that gated the approval for an auditable trail.
 type CampaignApprovalRecord struct {
-	DocType       string `json:"docType"` // "APPROVAL"
 	CampaignID    string `json:"campaignId"`
 	ApprovedBy    string `json:"approvedBy"`    // Platform admin identifier
 	CallerMSP     string `json:"callerMsp"`     // Must be PlatformMSPID
-	ReviewAuditID string `json:"reviewAuditId"` // The APPROVED review that gated this action
+	ReviewAuditID string `json:"reviewAuditId"` // AuditID of the APPROVED review
 	Timestamp     string `json:"timestamp"`
 }
 
-// Donation represents a single donation record on the blockchain
-// 捐款记录
+// Donation stores the minimal on-chain evidence for a single donation.
+// Display-layer concerns (displayName, isAnonymous) live off-chain.
+// The donor field holds an anonymized identifier (e.g. SHA-256 of real ID)
+// so the chain proves "who donated" without leaking PII.
 type Donation struct {
-	DonationID  string  `json:"donationId"`  // Unique donation identifier
-	CampaignID  string  `json:"campaignId"`  // Associated campaign ID (关联项目编号)
-	Amount      float64 `json:"amount"`      // Donation amount (捐款金额)
-	Donor       string  `json:"donor"`       // Donor identifier (捐款人真实标识，保留在链上)
-	DisplayName string  `json:"displayName"` // Public display name (公开显示名称)
-	IsAnonymous bool    `json:"isAnonymous"` // Whether donation is anonymous (是否匿名)
-	DonatedAt   string  `json:"donatedAt"`   // Donation timestamp (捐款时间)
+	DonationID    string  `json:"donationId"`              // Unique identifier
+	CampaignID    string  `json:"campaignId"`              // Associated campaign
+	Amount        float64 `json:"amount"`                  // Donation amount
+	DonorHash     string  `json:"donorHash"`               // Anonymized donor identity (SHA-256 of real ID)
+	DonatedAt     string  `json:"donatedAt"`               // Timestamp
+	PaymentRefHash string `json:"paymentRefHash"` // Optional: SHA-256 of off-chain payment receipt/order
+}
+
+// Disbursement status constants
+const (
+	DisbStatusDisbursed    = "DISBURSED"     // Funds released, pending post-audit
+	DisbStatusAuditPassed  = "AUDIT_PASSED"  // Post-audit approved
+	DisbStatusAuditFlagged = "AUDIT_FLAGGED" // Post-audit flagged an issue
+)
+
+// DisbursementRecord stores a fund withdrawal event on-chain.
+// Flow: platform disburses first → third-party audits after (先拨款后审核).
+type DisbursementRecord struct {
+	DisbursementID string  `json:"disbursementId"` // Unique: DISB_{campaignId}_{seq}
+	CampaignID     string  `json:"campaignId"`
+	Amount         float64 `json:"amount"`         // Disbursed amount
+	RecipientHash  string  `json:"recipientHash"`  // SHA-256 of real recipient identity
+	PaymentHash    string  `json:"paymentHash"`    // SHA-256 of off-chain payment proof
+	CallerMSP      string  `json:"callerMsp"`      // MSP that recorded the disbursement
+	Status         string  `json:"status"`          // DISBURSED / AUDIT_PASSED / AUDIT_FLAGGED
+	Timestamp      string  `json:"timestamp"`       // When disbursement was recorded
+	AuditedBy      string  `json:"auditedBy"`      // Auditor org (set after audit)
+	AuditTimestamp string  `json:"auditTimestamp"` // When audit occurred
+	AuditCommentHash string `json:"auditCommentHash"` // SHA-256 of audit comments
 }
 
 // SmartContract provides functions for managing campaigns and donations
@@ -123,21 +129,14 @@ func donationKey(donationID string) string {
 	return "DONATION_" + donationID
 }
 
-// calculateCampaignHash computes SHA-256 of immutable + auditable fields + version. Dynamic fields (TotalAmount, DonationCount, Status) are excluded.
-func calculateCampaignHash(c *Campaign) string {
-	data := c.CampaignID +
-		"|" + c.Initiator +
-		"|" + c.CreatedAt +
-		"|" + c.Title +
-		"|" + c.Description +
-		"|" + c.Category +
-		"|" + strconv.FormatFloat(c.GoalAmount, 'f', 2, 64) +
-		"|" + c.Auditor +
-		"|" + strconv.Itoa(c.Version)
-
-	// Compute SHA-256 hash
-	hash := sha256.Sum256([]byte(data))
-	return hex.EncodeToString(hash[:])
+// validateDataHash rejects obviously invalid hash values. The actual hash is
+// computed by the backend from off-chain detail fields; the chaincode only
+// stores it as a trust anchor.
+func validateDataHash(h string) error {
+	if len(h) != 64 {
+		return fmt.Errorf("dataHash must be a 64-char hex string (SHA-256), got length %d", len(h))
+	}
+	return nil
 }
 
 // historyKey generates the world state key for campaign history
@@ -158,6 +157,16 @@ func latestAuditSeqKey(campaignID string) string {
 // approvalKey generates the world state key for a campaign approval record
 func approvalKey(campaignID string) string {
 	return "APPROVAL_" + campaignID
+}
+
+// disbursementKey generates the world state key for a disbursement record
+func disbursementKey(campaignID string, seq int) string {
+	return "DISB_" + campaignID + "_" + strconv.Itoa(seq)
+}
+
+// latestDisbSeqKey stores the latest disbursement sequence for a campaign
+func latestDisbSeqKey(campaignID string) string {
+	return "DISB_SEQ_" + campaignID
 }
 
 // getCallerMSPID retrieves the MSP ID of the transaction submitter from the client identity.
@@ -182,12 +191,13 @@ func requireMSP(ctx contractapi.TransactionContextInterface, required string) er
 	return nil
 }
 
-// CreateCampaign creates a new donation campaign
-// 创建捐款项目 - 审核机制暂时可选
+// CreateCampaign writes the minimal trusted state for a new campaign.
+// Detail fields (title, description, …) are stored off-chain; their integrity
+// is anchored by dataHash.
 func (s *SmartContract) CreateCampaign(ctx contractapi.TransactionContextInterface,
-	campaignID string, title string, description string, category string, initiator string, createdAt string, goalAmount float64, auditor string) error {
+	campaignID string, initiator string, createdAt string,
+	goalAmount float64, auditor string, deadline string, dataHash string) error {
 
-	// Check if campaign already exists
 	exists, err := s.CampaignExists(ctx, campaignID)
 	if err != nil {
 		return err
@@ -196,48 +206,32 @@ func (s *SmartContract) CreateCampaign(ctx contractapi.TransactionContextInterfa
 		return fmt.Errorf("campaign %s already exists", campaignID)
 	}
 
-	// Validate goal amount
 	if goalAmount <= 0 {
 		return fmt.Errorf("goal amount must be positive, got %f", goalAmount)
 	}
-
-	// Validate required fields
-	if title == "" || description == "" || category == "" || initiator == "" {
-		return fmt.Errorf("title, description, category, and initiator are required")
+	if initiator == "" {
+		return fmt.Errorf("initiator is required")
+	}
+	if err := validateDataHash(dataHash); err != nil {
+		return err
 	}
 
-	// If auditor is empty, set default value to bypass audit for now
-	// 如果审核机构为空，设置默认值以暂时跳过审核
 	if auditor == "" {
 		auditor = "AUTO_APPROVED"
 	}
 
 	campaign := Campaign{
-		// Absolute immutable fields
-		CampaignID: campaignID,
-		Initiator:  initiator,
-		CreatedAt:  createdAt,
-
-		// Auditable mutable fields (initial values)
-		Title:       title,
-		Description: description,
-		Category:    category,
+		CampaignID:  campaignID,
+		Initiator:   initiator,
+		CreatedAt:   createdAt,
+		LastUpdated: createdAt,
+		Deadline:    deadline, // empty string = no deadline
 		GoalAmount:  goalAmount,
+		Status:      StatusInProgress,
 		Auditor:     auditor,
-
-		// Versioning fields (initial values)
-		Version:      1,
-		LastUpdated:  createdAt,
-		LastModifier: initiator,
-
-		// Dynamic operational fields (initial values)
-		Status:        StatusInProgress,
-		TotalAmount:   0.0,
-		DonationCount: 0,
+		Version:     1,
+		DataHash:    dataHash,
 	}
-
-	// Calculate data hash for integrity verification
-	campaign.DataHash = calculateCampaignHash(&campaign)
 
 	data, err := json.Marshal(campaign)
 	if err != nil {
@@ -269,89 +263,61 @@ func (s *SmartContract) ReadCampaign(ctx contractapi.TransactionContextInterface
 	return &campaign, nil
 }
 
-// UpdateCampaign updates auditable mutable fields of a campaign with approval
-// This creates a new version, recalculates hash, and stores the old version in history
-// 更新项目的可审核修改字段（需要审核批准）
-// 会创建新版本、重新计算hash、并将旧版本存入历史记录
+// UpdateCampaign bumps the version, records the previous snapshot in history,
+// and stores the new on-chain mutable values. Off-chain detail changes are
+// reflected through the updated dataHash provided by the backend.
 func (s *SmartContract) UpdateCampaign(ctx contractapi.TransactionContextInterface,
-	campaignID string, modifier string, modifyReason string,
-	newTitle string, newDescription string, newCategory string, newGoalAmount float64, newAuditor string) error {
+	campaignID string, newGoalAmount float64, newAuditor string, newDeadline string, newDataHash string) error {
 
-	// Read current campaign
 	campaign, err := s.ReadCampaign(ctx, campaignID)
 	if err != nil {
 		return fmt.Errorf("failed to read campaign: %v", err)
 	}
 
-	// Validate new values
 	if newGoalAmount <= 0 {
 		return fmt.Errorf("goal amount must be positive")
 	}
-	if newTitle == "" || newDescription == "" || newCategory == "" {
-		return fmt.Errorf("title, description, and category cannot be empty")
+	if err := validateDataHash(newDataHash); err != nil {
+		return err
 	}
 
-	// Get current timestamp
 	txTimestamp, err := ctx.GetStub().GetTxTimestamp()
 	if err != nil {
 		return fmt.Errorf("failed to get transaction timestamp: %v", err)
 	}
 	modifiedAt := txTimestamp.AsTime().Format("2006-01-02T15:04:05.000Z")
 
-	// Create history record for current version BEFORE modification
+	// Snapshot current version before mutation
 	history := CampaignHistory{
-		CampaignID:   campaign.CampaignID,
-		Version:      campaign.Version,
-		Title:        campaign.Title,
-		Description:  campaign.Description,
-		Category:     campaign.Category,
-		GoalAmount:   campaign.GoalAmount,
-		Auditor:      campaign.Auditor,
-		DataHash:     campaign.DataHash,
-		ModifiedAt:   modifiedAt,
-		ModifiedBy:   modifier,
-		ModifyReason: modifyReason,
+		CampaignID: campaign.CampaignID,
+		Version:    campaign.Version,
+		Deadline:   campaign.Deadline,
+		GoalAmount: campaign.GoalAmount,
+		Auditor:    campaign.Auditor,
+		DataHash:   campaign.DataHash,
+		ModifiedAt: modifiedAt,
 	}
-
-	// Save history to blockchain
 	historyData, err := json.Marshal(history)
 	if err != nil {
 		return fmt.Errorf("failed to marshal history: %v", err)
 	}
-	histKey := historyKey(campaignID, campaign.Version)
-	err = ctx.GetStub().PutState(histKey, historyData)
-	if err != nil {
+	if err = ctx.GetStub().PutState(historyKey(campaignID, campaign.Version), historyData); err != nil {
 		return fmt.Errorf("failed to save history: %v", err)
 	}
 
-	// Update campaign with new values
-	campaign.Title = newTitle
-	campaign.Description = newDescription
-	campaign.Category = newCategory
+	// Apply new values
 	campaign.GoalAmount = newGoalAmount
 	campaign.Auditor = newAuditor
-
-	// Increment version
+	campaign.Deadline = newDeadline
+	campaign.DataHash = newDataHash
 	campaign.Version++
 	campaign.LastUpdated = modifiedAt
-	campaign.LastModifier = modifier
 
-	// Recalculate hash for new version
-	campaign.DataHash = calculateCampaignHash(campaign)
-
-	// Save updated campaign
 	data, err := json.Marshal(campaign)
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated campaign: %v", err)
 	}
-
-	key := campaignKey(campaignID)
-	err = ctx.GetStub().PutState(key, data)
-	if err != nil {
-		return fmt.Errorf("failed to save updated campaign: %v", err)
-	}
-
-	return nil
+	return ctx.GetStub().PutState(campaignKey(campaignID), data)
 }
 
 // GetCampaignHistory retrieves the modification history for a specific version
@@ -440,12 +406,13 @@ func (s *SmartContract) CampaignExists(ctx contractapi.TransactionContextInterfa
 	return data != nil, nil
 }
 
-// CreateDonation records a new donation
-// 创建捐款记录
+// CreateDonation records the minimal donation evidence on-chain.
+// donorHash must be an anonymized identifier (e.g. SHA-256 of the real
+// donor ID); the chaincode never receives PII.
 func (s *SmartContract) CreateDonation(ctx contractapi.TransactionContextInterface,
-	donationID string, campaignID string, amount float64, donor string, displayName string, isAnonymous bool, donatedAt string) error {
+	donationID string, campaignID string, amount float64,
+	donorHash string, donatedAt string, paymentRefHash string) error {
 
-	// Check if donation already exists
 	exists, err := s.DonationExists(ctx, donationID)
 	if err != nil {
 		return err
@@ -454,7 +421,6 @@ func (s *SmartContract) CreateDonation(ctx contractapi.TransactionContextInterfa
 		return fmt.Errorf("donation %s already exists", donationID)
 	}
 
-	// Verify the campaign exists and is in progress
 	campaign, err := s.ReadCampaign(ctx, campaignID)
 	if err != nil {
 		return err
@@ -462,20 +428,24 @@ func (s *SmartContract) CreateDonation(ctx contractapi.TransactionContextInterfa
 	if campaign.Status != StatusInProgress {
 		return fmt.Errorf("campaign %s is not accepting donations (status: %s)", campaignID, campaign.Status)
 	}
+	if campaign.Deadline != "" && donatedAt > campaign.Deadline {
+		return fmt.Errorf("campaign %s has expired (deadline: %s)", campaignID, campaign.Deadline)
+	}
 
-	// Validate amount
 	if amount <= 0 {
 		return fmt.Errorf("donation amount must be positive")
 	}
+	if donorHash == "" {
+		return fmt.Errorf("donorHash is required")
+	}
 
 	donation := Donation{
-		DonationID:  donationID,
-		CampaignID:  campaignID,
-		Amount:      amount,
-		Donor:       donor,
-		DisplayName: displayName,
-		IsAnonymous: isAnonymous,
-		DonatedAt:   donatedAt,
+		DonationID:     donationID,
+		CampaignID:     campaignID,
+		Amount:         amount,
+		DonorHash:      donorHash,
+		DonatedAt:      donatedAt,
+		PaymentRefHash: paymentRefHash,
 	}
 
 	data, err := json.Marshal(donation)
@@ -483,25 +453,7 @@ func (s *SmartContract) CreateDonation(ctx contractapi.TransactionContextInterfa
 		return fmt.Errorf("failed to marshal donation: %v", err)
 	}
 
-	// Save donation
-	err = ctx.GetStub().PutState(donationKey(donationID), data)
-	if err != nil {
-		return fmt.Errorf("failed to save donation: %v", err)
-	}
-
-	// Update campaign total amount and donation count (immutable on blockchain)
-	campaign.TotalAmount += amount
-	campaign.DonationCount++
-
-	// Recalculate data hash after updating amount
-	campaign.DataHash = calculateCampaignHash(campaign)
-
-	campaignData, err := json.Marshal(campaign)
-	if err != nil {
-		return fmt.Errorf("failed to marshal updated campaign: %v", err)
-	}
-
-	return ctx.GetStub().PutState(campaignKey(campaignID), campaignData)
+	return ctx.GetStub().PutState(donationKey(donationID), data)
 }
 
 // ReadDonation retrieves a donation by ID
@@ -539,13 +491,12 @@ func (s *SmartContract) DonationExists(ctx contractapi.TransactionContextInterfa
 	return data != nil, nil
 }
 
-// RecordAudit records a third-party audit conclusion for a campaign on the ledger.
-// conclusion must be one of: APPROVED, REJECTED, REQUIRES_INFO, RISK_FLAGGED
+// RecordAudit records a third-party review conclusion on-chain.
+// Detail text (summary, notes) lives off-chain; commentHash anchors it.
 func (s *SmartContract) RecordAudit(ctx contractapi.TransactionContextInterface,
-	campaignID string, auditorOrg string, conclusion string,
-	evidenceSummary string, evidenceHash string, notes string, timestamp string) (string, error) {
+	campaignID string, reviewerOrg string, conclusion string,
+	evidenceHash string, commentHash string, timestamp string) (string, error) {
 
-	// Validate conclusion value
 	validConclusions := map[string]bool{
 		"APPROVED": true, "REJECTED": true, "REQUIRES_INFO": true, "RISK_FLAGGED": true,
 	}
@@ -553,7 +504,6 @@ func (s *SmartContract) RecordAudit(ctx contractapi.TransactionContextInterface,
 		return "", fmt.Errorf("invalid conclusion: %s. Must be APPROVED, REJECTED, REQUIRES_INFO, or RISK_FLAGGED", conclusion)
 	}
 
-	// Verify campaign exists
 	exists, err := s.CampaignExists(ctx, campaignID)
 	if err != nil {
 		return "", err
@@ -562,7 +512,6 @@ func (s *SmartContract) RecordAudit(ctx contractapi.TransactionContextInterface,
 		return "", fmt.Errorf("campaign %s does not exist", campaignID)
 	}
 
-	// Get current sequence number
 	seqBytes, err := ctx.GetStub().GetState(latestAuditSeqKey(campaignID))
 	if err != nil {
 		return "", fmt.Errorf("failed to read audit sequence: %v", err)
@@ -576,48 +525,39 @@ func (s *SmartContract) RecordAudit(ctx contractapi.TransactionContextInterface,
 		seq++
 	}
 
-	// Capture caller MSP for backward-compat (may be any org in this legacy path)
 	callerMSP, _ := getCallerMSPID(ctx)
 
 	auditID := "AUDIT_" + campaignID + "_" + strconv.Itoa(seq)
 	record := AuditRecord{
-		DocType:         "AUDIT",
-		AuditID:         auditID,
-		CampaignID:      campaignID,
-		AuditorOrg:      auditorOrg,
-		CallerMSP:       callerMSP,
-		Conclusion:      conclusion,
-		EvidenceSummary: evidenceSummary,
-		EvidenceHash:    evidenceHash,
-		Notes:           notes,
-		Timestamp:       timestamp,
+		AuditID:      auditID,
+		CampaignID:   campaignID,
+		ReviewerOrg:  reviewerOrg,
+		CallerMSP:    callerMSP,
+		Conclusion:   conclusion,
+		EvidenceHash: evidenceHash,
+		CommentHash:  commentHash,
+		Timestamp:    timestamp,
 	}
 
 	data, err := json.Marshal(record)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal audit record: %v", err)
 	}
-
 	if err := ctx.GetStub().PutState(auditKey(campaignID, seq), data); err != nil {
 		return "", fmt.Errorf("failed to store audit record: %v", err)
 	}
-
-	// Update sequence counter
 	if err := ctx.GetStub().PutState(latestAuditSeqKey(campaignID), []byte(strconv.Itoa(seq))); err != nil {
 		return "", fmt.Errorf("failed to update sequence: %v", err)
 	}
 
-	// If RISK_FLAGGED or REJECTED, also suspend the campaign status on chain
+	// If RISK_FLAGGED or REJECTED, suspend the campaign on chain
 	if conclusion == "RISK_FLAGGED" || conclusion == "REJECTED" {
 		campData, _ := ctx.GetStub().GetState(campaignKey(campaignID))
 		if campData != nil {
 			var camp Campaign
 			if err := json.Unmarshal(campData, &camp); err == nil {
-				if conclusion == "RISK_FLAGGED" {
-					camp.Status = StatusSuspended
-				}
+				camp.Status = StatusSuspended
 				camp.LastUpdated = timestamp
-				camp.LastModifier = auditorOrg
 				if updated, err := json.Marshal(camp); err == nil {
 					_ = ctx.GetStub().PutState(campaignKey(campaignID), updated)
 				}
@@ -630,13 +570,11 @@ func (s *SmartContract) RecordAudit(ctx contractapi.TransactionContextInterface,
 
 // ── MSP-gated functions ───────────────────────────────────────────────────────
 
-// SubmitReviewResult records a third-party audit conclusion on the ledger.
-// ACCESS CONTROL: Only callers whose client certificate is issued by ThirdPartyMSPID
-// (Org2MSP) are permitted.  A platform org (Org1MSP) calling this function will
-// receive a 403-equivalent error embedded in the chaincode response.
+// SubmitReviewResult records a third-party review conclusion on the ledger.
+// ACCESS CONTROL: Only Org2MSP (ThirdPartyMSPID) may call this function.
 func (s *SmartContract) SubmitReviewResult(ctx contractapi.TransactionContextInterface,
-	campaignID string, auditorOrg string, conclusion string,
-	evidenceSummary string, evidenceHash string, notes string, timestamp string) (string, error) {
+	campaignID string, reviewerOrg string, conclusion string,
+	evidenceHash string, commentHash string, timestamp string) (string, error) {
 
 	// ── MSP check ──────────────────────────────────────────────────────────
 	mspID, err := getCallerMSPID(ctx)
@@ -644,8 +582,8 @@ func (s *SmartContract) SubmitReviewResult(ctx contractapi.TransactionContextInt
 		return "", err
 	}
 	if mspID != ThirdPartyMSPID {
-		return "", fmt.Errorf("access denied: SubmitReviewResult requires caller MSP=%s, got MSP=%s. "+
-			"Only the third-party auditor organisation may submit review results.", ThirdPartyMSPID, mspID)
+		return "", fmt.Errorf("access denied: SubmitReviewResult requires MSP=%s, got MSP=%s",
+			ThirdPartyMSPID, mspID)
 	}
 
 	// ── Validate conclusion ────────────────────────────────────────────────
@@ -678,16 +616,14 @@ func (s *SmartContract) SubmitReviewResult(ctx contractapi.TransactionContextInt
 
 	auditID := "AUDIT_" + campaignID + "_" + strconv.Itoa(seq)
 	record := AuditRecord{
-		DocType:         "AUDIT",
-		AuditID:         auditID,
-		CampaignID:      campaignID,
-		AuditorOrg:      auditorOrg,
-		CallerMSP:       mspID, // recorded — proves Org2MSP submitted this
-		Conclusion:      conclusion,
-		EvidenceSummary: evidenceSummary,
-		EvidenceHash:    evidenceHash,
-		Notes:           notes,
-		Timestamp:       timestamp,
+		AuditID:      auditID,
+		CampaignID:   campaignID,
+		ReviewerOrg:  reviewerOrg,
+		CallerMSP:    mspID,
+		Conclusion:   conclusion,
+		EvidenceHash: evidenceHash,
+		CommentHash:  commentHash,
+		Timestamp:    timestamp,
 	}
 
 	data, err := json.Marshal(record)
@@ -709,7 +645,6 @@ func (s *SmartContract) SubmitReviewResult(ctx contractapi.TransactionContextInt
 			if err := json.Unmarshal(campData, &camp); err == nil {
 				camp.Status = StatusSuspended
 				camp.LastUpdated = timestamp
-				camp.LastModifier = auditorOrg + " [" + mspID + "]"
 				if updated, err := json.Marshal(camp); err == nil {
 					_ = ctx.GetStub().PutState(campaignKey(campaignID), updated)
 				}
@@ -717,7 +652,6 @@ func (s *SmartContract) SubmitReviewResult(ctx contractapi.TransactionContextInt
 		}
 	}
 
-	// Emit event so application layer can react
 	_ = ctx.GetStub().SetEvent("ReviewSubmitted", []byte(
 		fmt.Sprintf(`{"auditId":"%s","campaignId":"%s","conclusion":"%s","callerMsp":"%s"}`,
 			auditID, campaignID, conclusion, mspID)))
@@ -758,14 +692,12 @@ func (s *SmartContract) ApproveCampaign(ctx contractapi.TransactionContextInterf
 	if latestAudit.Conclusion != "APPROVED" {
 		return fmt.Errorf("approval denied: latest review conclusion for campaign %s is %s "+
 			"(must be APPROVED). Issued by %s [%s].",
-			campaignID, latestAudit.Conclusion, latestAudit.AuditorOrg, latestAudit.CallerMSP)
+			campaignID, latestAudit.Conclusion, latestAudit.ReviewerOrg, latestAudit.CallerMSP)
 	}
 
 	// ── Transition status ──────────────────────────────────────────────────
 	campaign.Status = StatusInProgress
 	campaign.LastUpdated = timestamp
-	campaign.LastModifier = approvedBy + " [" + PlatformMSPID + "]"
-	campaign.DataHash = calculateCampaignHash(campaign)
 
 	data, err := json.Marshal(campaign)
 	if err != nil {
@@ -778,7 +710,6 @@ func (s *SmartContract) ApproveCampaign(ctx contractapi.TransactionContextInterf
 	// ── Write approval record ──────────────────────────────────────────────
 	mspID, _ := getCallerMSPID(ctx)
 	approval := CampaignApprovalRecord{
-		DocType:       "APPROVAL",
 		CampaignID:    campaignID,
 		ApprovedBy:    approvedBy,
 		CallerMSP:     mspID,
@@ -878,6 +809,156 @@ func (s *SmartContract) GetLatestAuditRecord(ctx contractapi.TransactionContextI
 		return nil, fmt.Errorf("failed to unmarshal audit record: %v", err)
 	}
 	return &record, nil
+}
+
+// ── Disbursement functions (先拨款后审核) ──────────────────────────────────────
+
+// RecordDisbursement records that the platform has disbursed funds for a campaign.
+// ACCESS CONTROL: Only PlatformMSPID (Org1MSP) may record disbursements.
+func (s *SmartContract) RecordDisbursement(ctx contractapi.TransactionContextInterface,
+	campaignID string, amount float64, recipientHash string,
+	paymentHash string, timestamp string) (string, error) {
+
+	if err := requireMSP(ctx, PlatformMSPID); err != nil {
+		return "", fmt.Errorf("RecordDisbursement: %v", err)
+	}
+
+	exists, err := s.CampaignExists(ctx, campaignID)
+	if err != nil {
+		return "", err
+	}
+	if !exists {
+		return "", fmt.Errorf("campaign %s does not exist", campaignID)
+	}
+
+	if amount <= 0 {
+		return "", fmt.Errorf("disbursement amount must be positive")
+	}
+	if recipientHash == "" || paymentHash == "" {
+		return "", fmt.Errorf("recipientHash and paymentHash are required")
+	}
+
+	seqBytes, err := ctx.GetStub().GetState(latestDisbSeqKey(campaignID))
+	if err != nil {
+		return "", fmt.Errorf("failed to read disbursement sequence: %v", err)
+	}
+	seq := 1
+	if seqBytes != nil {
+		seq, _ = strconv.Atoi(string(seqBytes))
+		seq++
+	}
+
+	callerMSP, _ := getCallerMSPID(ctx)
+	disbID := "DISB_" + campaignID + "_" + strconv.Itoa(seq)
+
+	record := DisbursementRecord{
+		DisbursementID: disbID,
+		CampaignID:     campaignID,
+		Amount:         amount,
+		RecipientHash:  recipientHash,
+		PaymentHash:    paymentHash,
+		CallerMSP:      callerMSP,
+		Status:         DisbStatusDisbursed,
+		Timestamp:      timestamp,
+	}
+
+	data, err := json.Marshal(record)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal disbursement: %v", err)
+	}
+	if err := ctx.GetStub().PutState(disbursementKey(campaignID, seq), data); err != nil {
+		return "", fmt.Errorf("failed to store disbursement: %v", err)
+	}
+	if err := ctx.GetStub().PutState(latestDisbSeqKey(campaignID), []byte(strconv.Itoa(seq))); err != nil {
+		return "", fmt.Errorf("failed to update disbursement sequence: %v", err)
+	}
+
+	_ = ctx.GetStub().SetEvent("DisbursementRecorded", []byte(
+		fmt.Sprintf(`{"disbursementId":"%s","campaignId":"%s","amount":%f}`,
+			disbID, campaignID, amount)))
+
+	return disbID, nil
+}
+
+// AuditDisbursement allows the third-party auditor to review a disbursement
+// after funds have already been released (后审核).
+// ACCESS CONTROL: Only ThirdPartyMSPID (Org2MSP) may audit disbursements.
+func (s *SmartContract) AuditDisbursement(ctx contractapi.TransactionContextInterface,
+	campaignID string, disbSeq int, approved bool,
+	auditCommentHash string, timestamp string) error {
+
+	if err := requireMSP(ctx, ThirdPartyMSPID); err != nil {
+		return fmt.Errorf("AuditDisbursement: %v", err)
+	}
+
+	data, err := ctx.GetStub().GetState(disbursementKey(campaignID, disbSeq))
+	if err != nil {
+		return fmt.Errorf("failed to read disbursement: %v", err)
+	}
+	if data == nil {
+		return fmt.Errorf("disbursement %s seq %d not found", campaignID, disbSeq)
+	}
+
+	var record DisbursementRecord
+	if err := json.Unmarshal(data, &record); err != nil {
+		return fmt.Errorf("failed to unmarshal disbursement: %v", err)
+	}
+
+	if record.Status != DisbStatusDisbursed {
+		return fmt.Errorf("disbursement already audited (status: %s)", record.Status)
+	}
+
+	mspID, _ := getCallerMSPID(ctx)
+	record.AuditedBy = mspID
+	record.AuditTimestamp = timestamp
+	record.AuditCommentHash = auditCommentHash
+
+	if approved {
+		record.Status = DisbStatusAuditPassed
+	} else {
+		record.Status = DisbStatusAuditFlagged
+	}
+
+	updated, err := json.Marshal(record)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated disbursement: %v", err)
+	}
+	if err := ctx.GetStub().PutState(disbursementKey(campaignID, disbSeq), updated); err != nil {
+		return fmt.Errorf("failed to store updated disbursement: %v", err)
+	}
+
+	_ = ctx.GetStub().SetEvent("DisbursementAudited", []byte(
+		fmt.Sprintf(`{"disbursementId":"%s","status":"%s","auditedBy":"%s"}`,
+			record.DisbursementID, record.Status, mspID)))
+
+	return nil
+}
+
+// QueryDisbursements returns all disbursement records for a campaign.
+func (s *SmartContract) QueryDisbursements(ctx contractapi.TransactionContextInterface,
+	campaignID string) ([]*DisbursementRecord, error) {
+
+	seqBytes, err := ctx.GetStub().GetState(latestDisbSeqKey(campaignID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read disbursement sequence: %v", err)
+	}
+	if seqBytes == nil {
+		return []*DisbursementRecord{}, nil
+	}
+	maxSeq, _ := strconv.Atoi(string(seqBytes))
+
+	var records []*DisbursementRecord
+	for i := 1; i <= maxSeq; i++ {
+		data, err := ctx.GetStub().GetState(disbursementKey(campaignID, i))
+		if err != nil || data == nil {
+			continue
+		}
+		var r DisbursementRecord
+		if err := json.Unmarshal(data, &r); err == nil {
+			records = append(records, &r)
+		}
+	}
+	return records, nil
 }
 
 func main() {

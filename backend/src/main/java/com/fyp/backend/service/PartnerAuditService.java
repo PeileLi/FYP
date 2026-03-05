@@ -84,17 +84,15 @@ public class PartnerAuditService {
 
     @Transactional
     public Map<String, Object> submitAudit(Long campaignId, String conclusion,
-                                           String evidenceSummary, String evidenceHash, String notes) {
+                                           String evidenceSummary, String notes) {
         if (!VALID_CONCLUSIONS.contains(conclusion)) {
             throw new RuntimeException("Invalid conclusion: " + conclusion);
         }
-        // Enforce: only the assigned partner may submit an audit conclusion
         scopeService.requireFullAccess(campaignId);
         User partner = currentPartner();
         Campaign campaign = campaignRepository.findById(campaignId)
                 .orElseThrow(() -> new RuntimeException("Campaign not found: " + campaignId));
 
-        // Update campaign audit status
         campaign.setAuditStatus(conclusion);
         if ("APPROVED".equals(conclusion)) {
             campaign.setPartnerEndorsed(true);
@@ -108,8 +106,14 @@ public class PartnerAuditService {
         }
         campaignRepository.save(campaign);
 
-        // Record audit in DB
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+
+        // Auto-compute hashes from off-chain text fields
+        String evidenceHash = CampaignService.sha256Hex(evidenceSummary != null ? evidenceSummary : "");
+        String commentHash = CampaignService.sha256Hex(
+                (evidenceSummary != null ? evidenceSummary : "") + "|" +
+                (notes != null ? notes : ""));
+
         CampaignAudit audit = CampaignAudit.builder()
                 .campaign(campaign)
                 .auditor(partner)
@@ -119,7 +123,6 @@ public class PartnerAuditService {
                 .notes(notes)
                 .build();
 
-        // Submit to blockchain — prefer Org2 gateway (SubmitReviewResult with MSP gate)
         String blockchainAuditId = null;
         try {
             String campaignChainId = campaign.getBlockchainCampaignId() != null
@@ -127,26 +130,22 @@ public class PartnerAuditService {
                     : campaign.getBlockchainTxId();
             if (campaignChainId != null) {
                 if (partnerFabricGatewayService.isOrg2Ready()) {
-                    // Use Org2MSP credentials → chaincode enforces MSP gate
                     blockchainAuditId = partnerFabricGatewayService.submitReviewResult(
                             campaignChainId,
                             partner.getDisplayName(),
                             conclusion,
-                            evidenceSummary != null ? evidenceSummary : "",
-                            evidenceHash    != null ? evidenceHash    : "",
-                            notes           != null ? notes           : "",
+                            evidenceHash,
+                            commentHash,
                             timestamp);
                     log.info("SubmitReviewResult [Org2MSP] OK: {} for campaign {}", blockchainAuditId, campaignId);
                 } else {
-                    // Fallback: RecordAudit via Org1MSP (no MSP gate, but still recorded)
                     log.warn("Org2 gateway not ready — falling back to RecordAudit via Org1MSP for campaign {}", campaignId);
                     blockchainAuditId = fabricGatewayService.recordAudit(
                             campaignChainId,
                             partner.getDisplayName(),
                             conclusion,
-                            evidenceSummary != null ? evidenceSummary : "",
-                            evidenceHash    != null ? evidenceHash    : "",
-                            notes           != null ? notes           : "",
+                            evidenceHash,
+                            commentHash,
                             timestamp);
                     log.info("RecordAudit [Org1MSP fallback] OK: {} for campaign {}", blockchainAuditId, campaignId);
                 }
@@ -158,8 +157,7 @@ public class PartnerAuditService {
 
         auditRepository.save(audit);
 
-        // Mark the audit task as completed
-        try { auditTaskService.completeTaskForCampaign(campaignId); } catch (Exception e) {
+        try { auditTaskService.completeTaskForCampaign(campaignId, partner); } catch (Exception e) {
             log.warn("Could not mark audit task as completed: {}", e.getMessage());
         }
 

@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -54,18 +56,18 @@ public class CampaignService {
         // Save to blockchain if enabled
         try {
             if (fabricGatewayService.isEnabled()) {
-                // Generate a unique blockchain campaign ID independent of DB auto-increment
-                // Format: C_{dbId}_{timestamp} - ensures uniqueness even after DB reset
                 String blockchainCampaignId = "C_" + savedCampaign.getId() + "_" + System.currentTimeMillis();
                 
-                String title = savedCampaign.getTitle();
-                String description = savedCampaign.getDescription();
-                String category = savedCampaign.getCategory();
                 String initiator = user.getEmail();
                 double goalAmount = savedCampaign.getGoalAmount().doubleValue();
-                String txId = fabricGatewayService.createCampaign(blockchainCampaignId, title, description, category, initiator, goalAmount);
+                String dataHash = computeCampaignDataHash(savedCampaign);
                 
-                // Save both the blockchain campaign ID and the certificate TX ID
+                String txId = fabricGatewayService.createCampaign(
+                        blockchainCampaignId, initiator, goalAmount,
+                        "", // auditor (empty = AUTO_APPROVED)
+                        "", // deadline (empty = no deadline)
+                        dataHash);
+                
                 savedCampaign.setBlockchainCampaignId(blockchainCampaignId);
                 if (txId != null && !txId.isEmpty()) {
                     savedCampaign.setBlockchainTxId(txId);
@@ -73,8 +75,6 @@ public class CampaignService {
                 savedCampaign = campaignRepository.save(savedCampaign);
             }
         } catch (Exception e) {
-            // Log error but don't fail the transaction
-            // Campaign is already saved in DB; blockchain is for evidence only
             log.error("Failed to save campaign to blockchain (campaign still saved in DB): {}", e.getMessage());
         }
         
@@ -219,22 +219,46 @@ public class CampaignService {
         return null; // Campaign not recorded on blockchain
     }
 
+    /**
+     * Compute SHA-256 hash of the off-chain detail fields that are anchored
+     * on the blockchain via the dataHash field.
+     */
+    public static String computeCampaignDataHash(Campaign campaign) {
+        String data = nullSafe(campaign.getTitle()) + "|" +
+                      nullSafe(campaign.getDescription()) + "|" +
+                      nullSafe(campaign.getCategory()) + "|" +
+                      nullSafe(campaign.getImageUrl());
+        return sha256Hex(data);
+    }
+
+    public static String sha256Hex(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hashBytes) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("SHA-256 computation failed", e);
+        }
+    }
+
+    private static String nullSafe(String s) {
+        return s != null ? s : "";
+    }
+
     private CampaignResponse mapToResponse(Campaign campaign) {
-        // Verify data integrity with blockchain and get blockchain data
         boolean isVerified = false;
         String verificationStatus = "NOT_VERIFIED";
-        java.math.BigDecimal blockchainAmount = null;
-        Integer blockchainDonationCount = null;
         
         if (campaign.getBlockchainTxId() != null && fabricGatewayService.isEnabled()) {
             try {
                 BlockchainVerificationService.CompleteVerificationResult result = 
                     verificationService.verifyComplete(campaign);
-                
                 isVerified = result.isVerified();
                 verificationStatus = result.getStatus();
-                blockchainAmount = result.getBlockchainAmount();
-                blockchainDonationCount = result.getBlockchainDonationCount();
             } catch (Exception e) {
                 verificationStatus = "VERIFICATION_FAILED";
             }
@@ -242,11 +266,10 @@ public class CampaignService {
             verificationStatus = "NOT_RECORDED";
         }
         
-        // Check audit history for past tampering
         boolean hasTamperingHistory = dataAuditService.hasTamperingHistory(campaign.getId());
         int tamperingCount = (int) dataAuditService.getCampaignAuditHistory(campaign.getId())
             .stream()
-            .filter(log -> "TAMPERED".equals(log.getVerificationStatus()))
+            .filter(auditLog -> "TAMPERED".equals(auditLog.getVerificationStatus()))
             .count();
         
         return CampaignResponse.builder()
@@ -266,8 +289,6 @@ public class CampaignService {
                 .blockchainTxId(campaign.getBlockchainTxId())
                 .dataVerified(isVerified)
                 .verificationStatus(verificationStatus)
-                .blockchainAmount(blockchainAmount)
-                .blockchainDonationCount(blockchainDonationCount)
                 .hasTamperingHistory(hasTamperingHistory)
                 .tamperingIncidentCount(tamperingCount)
                 .auditStatus(campaign.getAuditStatus())

@@ -33,18 +33,15 @@ public class PartnerMaterialService {
     // ── Read-only campaign detail (scope-aware) ───────────────────────────────
 
     /**
-     * Returns campaign detail respecting the minimum-visibility principle:
-     *  - OPEN_VIEW  → basic info + audit history summary only (no materials)
-     *  - FULL_ACCESS → full detail including documents, updates, fund plan
+     * Returns full campaign detail for any authenticated partner with an open task.
      */
     public Map<String, Object> getCampaignDetail(Long campaignId) {
-        PartnerScopeService.ScopeLevel scope = scopeService.requireAtLeastOpenView(campaignId);
+        scopeService.requireFullAccess(campaignId);
         Campaign c = getCampaign(campaignId);
 
         Map<String, Object> m = new LinkedHashMap<>();
 
-        // ── Basic info ───────────────────────────────────────────────────────
-        boolean fullAccess = (scope == PartnerScopeService.ScopeLevel.FULL_ACCESS);
+        boolean fullAccess = true;
 
         // ── Visible to all in-scope partners (basic info) ────────────────────
         Map<String, Object> info = new LinkedHashMap<>();
@@ -72,7 +69,7 @@ public class PartnerMaterialService {
         // Description is basic info — visible to all
         info.put("description", c.getDescription());
         m.put("basicInfo", info);
-        m.put("scopeLevel", scope.name()); // tell the frontend what access level applies
+        m.put("scopeLevel", "FULL_ACCESS");
 
         // ── FULL_ACCESS only: materials ───────────────────────────────────────
         if (fullAccess) {
@@ -140,8 +137,7 @@ public class PartnerMaterialService {
     }
 
     public List<Map<String, Object>> getVerifications(Long campaignId) {
-        // Visible to any in-scope partner (OPEN_VIEW or FULL_ACCESS)
-        scopeService.requireAtLeastOpenView(campaignId);
+        scopeService.requireFullAccess(campaignId);
         Campaign c = getCampaign(campaignId);
         return verificationRepo.findByCampaignOrderByCreatedAtDesc(c)
                 .stream().map(this::toVerificationMap).toList();
@@ -155,7 +151,7 @@ public class PartnerMaterialService {
      * Blockchain data is transparent by design.
      */
     public Map<String, Object> getChainRecords(Long campaignId) {
-        scopeService.requireAtLeastOpenView(campaignId);
+        scopeService.requireFullAccess(campaignId);
         Campaign c = getCampaign(campaignId);
 
         Map<String, Object> m = new LinkedHashMap<>();

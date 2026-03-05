@@ -26,8 +26,9 @@ public class PartnerAuditController {
 
     /**
      * Submit audit conclusion for a campaign.
-     * Body: { conclusion, evidenceSummary, evidenceHash, notes }
+     * Body: { conclusion, evidenceSummary, notes }
      * conclusion: APPROVED | REJECTED | REQUIRES_INFO | RISK_FLAGGED
+     * evidenceHash and commentHash are auto-computed by the backend.
      */
     @PostMapping("/campaigns/{id}/submit")
     public ResponseEntity<Map<String, Object>> submitAudit(
@@ -35,10 +36,9 @@ public class PartnerAuditController {
             @RequestBody Map<String, String> body) {
         String conclusion      = body.getOrDefault("conclusion", "");
         String evidenceSummary = body.getOrDefault("evidenceSummary", "");
-        String evidenceHash    = body.getOrDefault("evidenceHash", "");
         String notes           = body.getOrDefault("notes", "");
         return ResponseEntity.ok(
-                partnerAuditService.submitAudit(id, conclusion, evidenceSummary, evidenceHash, notes));
+                partnerAuditService.submitAudit(id, conclusion, evidenceSummary, notes));
     }
 
     /** Get full audit history for a campaign */
