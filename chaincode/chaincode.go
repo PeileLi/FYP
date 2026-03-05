@@ -83,12 +83,12 @@ type CampaignApprovalRecord struct {
 // The donor field holds an anonymized identifier (e.g. SHA-256 of real ID)
 // so the chain proves "who donated" without leaking PII.
 type Donation struct {
-	DonationID    string  `json:"donationId"`              // Unique identifier
-	CampaignID    string  `json:"campaignId"`              // Associated campaign
-	Amount        float64 `json:"amount"`                  // Donation amount
-	DonorHash     string  `json:"donorHash"`               // Anonymized donor identity (SHA-256 of real ID)
-	DonatedAt     string  `json:"donatedAt"`               // Timestamp
-	PaymentRefHash string `json:"paymentRefHash"` // Optional: SHA-256 of off-chain payment receipt/order
+	DonationID     string  `json:"donationId"`     // Unique identifier
+	CampaignID     string  `json:"campaignId"`     // Associated campaign
+	Amount         float64 `json:"amount"`         // Donation amount
+	DonorHash      string  `json:"donorHash"`      // Anonymized donor identity (SHA-256 of real ID)
+	DonatedAt      string  `json:"donatedAt"`      // Timestamp
+	PaymentRefHash string  `json:"paymentRefHash"` // Optional: SHA-256 of off-chain payment receipt/order
 }
 
 // Disbursement status constants
@@ -101,17 +101,17 @@ const (
 // DisbursementRecord stores a fund withdrawal event on-chain.
 // Flow: platform disburses first → third-party audits after (先拨款后审核).
 type DisbursementRecord struct {
-	DisbursementID string  `json:"disbursementId"` // Unique: DISB_{campaignId}_{seq}
-	CampaignID     string  `json:"campaignId"`
-	Amount         float64 `json:"amount"`         // Disbursed amount
-	RecipientHash  string  `json:"recipientHash"`  // SHA-256 of real recipient identity
-	PaymentHash    string  `json:"paymentHash"`    // SHA-256 of off-chain payment proof
-	CallerMSP      string  `json:"callerMsp"`      // MSP that recorded the disbursement
-	Status         string  `json:"status"`          // DISBURSED / AUDIT_PASSED / AUDIT_FLAGGED
-	Timestamp      string  `json:"timestamp"`       // When disbursement was recorded
-	AuditedBy      string  `json:"auditedBy"`      // Auditor org (set after audit)
-	AuditTimestamp string  `json:"auditTimestamp"` // When audit occurred
-	AuditCommentHash string `json:"auditCommentHash"` // SHA-256 of audit comments
+	DisbursementID   string  `json:"disbursementId"` // Unique: DISB_{campaignId}_{seq}
+	CampaignID       string  `json:"campaignId"`
+	Amount           float64 `json:"amount"`           // Disbursed amount
+	RecipientHash    string  `json:"recipientHash"`    // SHA-256 of real recipient identity
+	PaymentHash      string  `json:"paymentHash"`      // SHA-256 of off-chain payment proof
+	CallerMSP        string  `json:"callerMsp"`        // MSP that recorded the disbursement
+	Status           string  `json:"status"`           // DISBURSED / AUDIT_PASSED / AUDIT_FLAGGED
+	Timestamp        string  `json:"timestamp"`        // When disbursement was recorded
+	AuditedBy        string  `json:"auditedBy"`        // Auditor org (set after audit)
+	AuditTimestamp   string  `json:"auditTimestamp"`   // When audit occurred
+	AuditCommentHash string  `json:"auditCommentHash"` // SHA-256 of audit comments
 }
 
 // SmartContract provides functions for managing campaigns and donations
