@@ -74,8 +74,8 @@ type CampaignHistory struct {
 // AuditRecord stores a third-party partner's audit conclusion for a campaign.
 // Written by SubmitReviewResult (Org2MSP) or RecordAudit (backward-compat).
 type AuditRecord struct {
-	DocType         string `json:"docType"`         // "AUDIT"
-	AuditID         string `json:"auditId"`         // Unique: AUDIT_{campaignId}_{seq}
+	DocType         string `json:"docType"` // "AUDIT"
+	AuditID         string `json:"auditId"` // Unique: AUDIT_{campaignId}_{seq}
 	CampaignID      string `json:"campaignId"`
 	AuditorOrg      string `json:"auditorOrg"`      // Partner display name
 	CallerMSP       string `json:"callerMsp"`       // Fabric MSP ID of the submitting organisation
@@ -88,12 +88,12 @@ type AuditRecord struct {
 
 // CampaignApprovalRecord is written by ApproveCampaign to record the approval event.
 type CampaignApprovalRecord struct {
-	DocType        string `json:"docType"`        // "APPROVAL"
-	CampaignID     string `json:"campaignId"`
-	ApprovedBy     string `json:"approvedBy"`     // Platform admin identifier
-	CallerMSP      string `json:"callerMsp"`      // Must be PlatformMSPID
-	ReviewAuditID  string `json:"reviewAuditId"`  // The APPROVED review that gated this action
-	Timestamp      string `json:"timestamp"`
+	DocType       string `json:"docType"` // "APPROVAL"
+	CampaignID    string `json:"campaignId"`
+	ApprovedBy    string `json:"approvedBy"`    // Platform admin identifier
+	CallerMSP     string `json:"callerMsp"`     // Must be PlatformMSPID
+	ReviewAuditID string `json:"reviewAuditId"` // The APPROVED review that gated this action
+	Timestamp     string `json:"timestamp"`
 }
 
 // Donation represents a single donation record on the blockchain
