@@ -2,8 +2,7 @@ package com.fyp.backend.repository;
 
 import com.fyp.backend.model.Campaign;
 import com.fyp.backend.model.User;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -25,6 +24,7 @@ public interface CampaignRepository extends JpaRepository<Campaign, Long> {
     // Admin queries
     List<Campaign> findAllByOrderByCreatedAtDesc();
     List<Campaign> findByStatusOrderByCreatedAtDesc(String status);
+    List<Campaign> findByAuditStatusOrderByCreatedAtDesc(String auditStatus);
 
     @Query("SELECT c FROM Campaign c WHERE " +
            "(:status IS NULL OR c.status = :status) AND " +

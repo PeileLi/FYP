@@ -198,7 +198,8 @@ public class FabricGatewayService {
      * @return Transaction ID (composite key: campaignID_timestamp) for blockchain
      *         verification
      */
-    public String createCampaign(String campaignID, String title, String description, String category, String initiator, double goalAmount) {
+    public String createCampaign(String campaignID, String title, String description, String category, String initiator,
+            double goalAmount) {
         if (!isEnabled()) {
             log.debug("Fabric is disabled or not initialized, skipping blockchain operation");
             return null;
@@ -209,10 +210,12 @@ public class FabricGatewayService {
             String auditor = ""; // Empty auditor to trigger AUTO_APPROVED
 
             contract.submitTransaction("CreateCampaign",
-                    campaignID, title, description, category, initiator, createdAt, String.valueOf(goalAmount), auditor);
+                    campaignID, title, description, category, initiator, createdAt, String.valueOf(goalAmount),
+                    auditor);
 
             // Generate a blockchain certificate ID using campaign ID and timestamp
-            // Use "::" separator so that campaignID (which may contain "_") can be decoded correctly
+            // Use "::" separator so that campaignID (which may contain "_") can be decoded
+            // correctly
             String timestamp = String.valueOf(System.currentTimeMillis());
             String compositeKey = campaignID + "::" + timestamp;
             String txId = "BC" + bytesToHex(compositeKey.getBytes());
@@ -281,7 +284,8 @@ public class FabricGatewayService {
      * Create a new donation record on blockchain
      * 在区块链上创建新的捐款记录
      */
-    public void createDonation(String donationID, String campaignID, double amount, String donor, String displayName, boolean isAnonymous) {
+    public void createDonation(String donationID, String campaignID, double amount, String donor, String displayName,
+            boolean isAnonymous) {
         if (!isEnabled()) {
             return;
         }
@@ -290,15 +294,15 @@ public class FabricGatewayService {
             String donatedAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 
             contract.submitTransaction("CreateDonation",
-                    donationID, 
-                    campaignID, 
-                    String.valueOf(amount), 
-                    donor, 
+                    donationID,
+                    campaignID,
+                    String.valueOf(amount),
+                    donor,
                     displayName,
                     String.valueOf(isAnonymous),
                     donatedAt);
 
-            log.info("Donation created on blockchain: {} for campaign {} (Display: {}, Anonymous: {})", 
+            log.info("Donation created on blockchain: {} for campaign {} (Display: {}, Anonymous: {})",
                     donationID, campaignID, displayName, isAnonymous);
         } catch (Exception e) {
             log.error("Failed to create donation on blockchain: {}", e.getMessage(), e);
@@ -321,6 +325,98 @@ public class FabricGatewayService {
         } catch (Exception e) {
             log.error("Failed to read donation from blockchain: {}", e.getMessage());
             throw new RuntimeException("Failed to read donation from blockchain: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Record a third-party audit conclusion on the blockchain
+     */
+    public String recordAudit(String campaignID, String auditorOrg, String conclusion,
+                              String evidenceSummary, String evidenceHash, String notes, String timestamp) {
+        if (!isEnabled()) {
+            log.warn("Fabric not enabled, skipping audit recording for campaign {}", campaignID);
+            return null;
+        }
+        try {
+            byte[] result = contract.submitTransaction(
+                    "RecordAudit",
+                    campaignID, auditorOrg, conclusion,
+                    evidenceSummary != null ? evidenceSummary : "",
+                    evidenceHash != null ? evidenceHash : "",
+                    notes != null ? notes : "",
+                    timestamp);
+            return new String(result, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.error("Failed to record audit on blockchain: {}", e.getMessage());
+            throw new RuntimeException("Failed to record audit on blockchain: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Calls ApproveCampaign() on the chaincode using Org1MSP credentials.
+     * The chaincode enforces:
+     *   1. Caller MSP == Org1MSP
+     *   2. Latest review conclusion == APPROVED (submitted by Org2MSP)
+     */
+    public void approveCampaign(String campaignID, String approvedBy, String timestamp) {
+        if (!isEnabled()) {
+            log.warn("Fabric not enabled — skipping ApproveCampaign for campaign {}", campaignID);
+            return;
+        }
+        try {
+            contract.submitTransaction("ApproveCampaign", campaignID, approvedBy, timestamp);
+            log.info("ApproveCampaign OK — campaign {}", campaignID);
+        } catch (Exception e) {
+            log.error("ApproveCampaign failed for {}: {}", campaignID, e.getMessage());
+            throw new RuntimeException("Blockchain ApproveCampaign failed: " + e.getMessage(), e);
+        }
+    }
+
+    /** Calls QueryReviews() (open to all MSPs) via Org1 gateway. */
+    public String queryReviews(String campaignID) {
+        if (!isEnabled()) return null;
+        try {
+            byte[] result = contract.evaluateTransaction("QueryReviews", campaignID);
+            return new String(result, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.warn("QueryReviews failed for {}: {}", campaignID, e.getMessage());
+            return null;
+        }
+    }
+
+    /** Calls GetApprovalRecord() to check on-chain approval status. */
+    public String getApprovalRecord(String campaignID) {
+        if (!isEnabled()) return null;
+        try {
+            byte[] result = contract.evaluateTransaction("GetApprovalRecord", campaignID);
+            return new String(result, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.warn("GetApprovalRecord failed for {}: {}", campaignID, e.getMessage());
+            return null;
+        }
+    }
+
+    /** Retrieve the latest audit record for a campaign from the ledger. */
+    public String getLatestAuditRecord(String campaignID) {
+        if (!isEnabled()) return null;
+        try {
+            byte[] result = contract.evaluateTransaction("GetLatestAuditRecord", campaignID);
+            return new String(result, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.warn("Could not fetch latest audit record for {}: {}", campaignID, e.getMessage());
+            return null;
+        }
+    }
+
+    /** Read campaign state from ledger (includes status, amounts). */
+    public String readCampaignOnChain(String campaignID) {
+        if (!isEnabled()) return null;
+        try {
+            byte[] result = contract.evaluateTransaction("ReadCampaign", campaignID);
+            return new String(result, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.warn("Could not read on-chain campaign {}: {}", campaignID, e.getMessage());
+            return null;
         }
     }
 

@@ -65,12 +65,17 @@ fabric:
   enabled: ${FABRIC_ENABLED:true}
   channel-name: ${FABRIC_CHANNEL_NAME:mychannel}
   chaincode-name: ${FABRIC_CHAINCODE_NAME:donation}
+  # Org1 (Platform)
   msp-id: ${FABRIC_MSP_ID:Org1MSP}
-  peer-endpoint: ${FABRIC_PEER_ENDPOINT:localhost:7051}
+  peer-endpoint: ${FABRIC_PEER_ENDPOINT:peer0.org1.example.com:7051}
   peer-host-alias: ${FABRIC_PEER_HOST_ALIAS:peer0.org1.example.com}
-  # Certificate paths - use container paths (mapped by docker-compose volumes)
-  # These are defaults that work when NOT using Docker (for local development)
-  # When using Docker, environment variables from .env will override these
-  cert-path: ${FABRIC_CERT_PATH:/fabric/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/Admin@org1.example.com-cert.pem}
+  cert-path: ${FABRIC_CERT_PATH:/fabric/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem}
   key-path: ${FABRIC_KEY_PATH:/fabric/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore}
   tls-cert-path: ${FABRIC_TLS_CERT_PATH:/fabric/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt}
+  # Org2 (Third-party auditor) — required for SubmitReviewResult MSP gate
+  org2-msp-id: ${FABRIC_ORG2_MSP_ID:Org2MSP}
+  org2-cert-path: ${FABRIC_ORG2_CERT_PATH:}
+  org2-key-path: ${FABRIC_ORG2_KEY_PATH:}
+  org2-tls-cert-path: ${FABRIC_ORG2_TLS_CERT_PATH:}
+  org2-peer-endpoint: ${FABRIC_ORG2_PEER_ENDPOINT:peer0.org2.example.com:9051}
+  org2-peer-host-alias: ${FABRIC_ORG2_PEER_HOST_ALIAS:peer0.org2.example.com}

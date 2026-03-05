@@ -408,6 +408,40 @@ export const partnerAPI = {
         body: JSON.stringify({ note }),
     }),
     revokeEndorsement: (id) => apiRequest(`/partner/campaigns/${id}/revoke-endorsement`, { method: 'POST' }),
+    // Audit API
+    getAuditCampaigns: (auditStatus) => {
+        const q = auditStatus ? `?auditStatus=${auditStatus}` : '';
+        return apiRequest(`/partner/audit/campaigns${q}`, { method: 'GET' });
+    },
+    submitAudit: (id, body) => apiRequest(`/partner/audit/campaigns/${id}/submit`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+    }),
+    getAuditHistory: (id) => apiRequest(`/partner/audit/campaigns/${id}/history`, { method: 'GET' }),
+    // Task Inbox
+    getOpenTasks:      () => apiRequest('/partner/tasks/open',      { method: 'GET' }),
+    getMyTasks:        () => apiRequest('/partner/tasks/mine',      { method: 'GET' }),
+    getCompletedTasks: () => apiRequest('/partner/tasks/completed', { method: 'GET' }),
+    getDeclineLogs:    (id) => apiRequest(`/partner/tasks/${id}/decline-logs`, { method: 'GET' }),
+    acceptTask:        (id) => apiRequest(`/partner/tasks/${id}/accept`,  { method: 'POST', body: '{}' }),
+    declineTask:       (id, reason) => apiRequest(`/partner/tasks/${id}/decline`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+    }),
+    // Material Review
+    getCampaignDetail:    (id) => apiRequest(`/partner/campaigns/${id}/detail`, { method: 'GET' }),
+    submitVerification:   (id, body) => apiRequest(`/partner/campaigns/${id}/verification`, { method: 'POST', body: JSON.stringify(body) }),
+    getVerifications:     (id) => apiRequest(`/partner/campaigns/${id}/verifications`, { method: 'GET' }),
+    addDocument:          (id, body) => apiRequest(`/partner/campaigns/${id}/documents`, { method: 'POST', body: JSON.stringify(body) }),
+    addUpdate:            (id, body) => apiRequest(`/partner/campaigns/${id}/updates`, { method: 'POST', body: JSON.stringify(body) }),
+    updateFundUsagePlan:  (id, plan) => apiRequest(`/partner/campaigns/${id}/fund-usage-plan`, { method: 'PUT', body: JSON.stringify({ plan }) }),
+    getChainRecords:      (id) => apiRequest(`/partner/campaigns/${id}/chain-records`, { method: 'GET' }),
+    // Profile
+    getProfile: () => apiRequest('/partner/profile', { method: 'GET' }),
+    updateProfile: (body) => apiRequest('/partner/profile', { method: 'PUT', body: JSON.stringify(body) }),
+    getFabricIdentity: () => apiRequest('/partner/profile/fabric-identity', { method: 'GET' }),
+    getPermissions: () => apiRequest('/partner/profile/permissions', { method: 'GET' }),
+    getMyAudits: () => apiRequest('/partner/profile/my-audits', { method: 'GET' }),
 };
 
 // Admin API (ADMIN role required)

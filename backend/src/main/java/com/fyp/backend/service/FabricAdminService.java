@@ -5,10 +5,8 @@ import com.fyp.backend.model.DataAuditLog;
 import com.fyp.backend.repository.CampaignRepository;
 import com.fyp.backend.repository.DataAuditLogRepository;
 import com.fyp.backend.repository.DonationRepository;
-import com.google.protobuf.InvalidProtocolBufferException;
 import lombok.extern.slf4j.Slf4j;
 import org.hyperledger.fabric.protos.common.BlockchainInfo;
-import org.hyperledger.fabric.client.Contract;
 import org.hyperledger.fabric.client.Gateway;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -211,6 +209,7 @@ public class FabricAdminService {
         return blockInfo;
     }
 
+    @SuppressWarnings("resource") // gw is a shared singleton; closing it here would destroy the app-wide connection
     private org.hyperledger.fabric.client.Network getNetwork() {
         try {
             var field = FabricGatewayService.class.getDeclaredField("gateway");

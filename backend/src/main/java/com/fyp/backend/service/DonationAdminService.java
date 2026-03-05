@@ -1,7 +1,6 @@
 package com.fyp.backend.service;
 
 import com.fyp.backend.model.Donation;
-import com.fyp.backend.repository.CampaignRepository;
 import com.fyp.backend.repository.DonationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +16,6 @@ import java.util.*;
 public class DonationAdminService {
 
     private final DonationRepository donationRepository;
-    private final CampaignRepository campaignRepository;
     private final FabricGatewayService fabricGatewayService;
 
     public List<Map<String, Object>> getDonations(Long campaignId, String status,

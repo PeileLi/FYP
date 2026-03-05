@@ -55,16 +55,24 @@ public class Campaign {
     @Column(nullable = true)
     private LocalDateTime completedAt;
 
-    // Blockchain transaction ID for tracking on-chain data (certificate ID like BCxxx)
+    // Blockchain transaction ID for tracking on-chain data (certificate ID like
+    // BCxxx)
     @Column(nullable = true)
     private String blockchainTxId;
 
-    // The actual campaign ID used on the blockchain ledger (independent of database auto-increment ID)
+    // The actual campaign ID used on the blockchain ledger (independent of database
+    // auto-increment ID)
     // This ensures DB ID changes (reset, migration) don't break the blockchain link
     @Column(nullable = true)
     private String blockchainCampaignId;
 
-    // Third-party partner endorsement
+    // Third-party partner audit
+    // auditStatus: PENDING_AUDIT, UNDER_REVIEW, APPROVED, REJECTED, REQUIRES_INFO, RISK_FLAGGED
+    @Column(nullable = false)
+    @Builder.Default
+    private String auditStatus = "PENDING_AUDIT";
+
+    // Keep simple endorsement for display (set by service when APPROVED)
     @Column(nullable = false)
     @Builder.Default
     private Boolean partnerEndorsed = false;
@@ -78,6 +86,9 @@ public class Campaign {
 
     @Column(nullable = true)
     private LocalDateTime endorsedAt;
+
+    @Column(columnDefinition = "TEXT")
+    private String fundUsagePlan;
 
     @PrePersist
     protected void onCreate() {

@@ -417,31 +417,54 @@ if [ "$FABRIC_NEEDS_DEPLOY" = true ]; then
     cd "${SCRIPT_DIR}"
     
     print_section "5. Deploying Chaincode"
-    
-    cd "${CHAINCODE_DIR}"
-    chmod +x deploy.sh
-    
+
+    chmod +x "${CHAINCODE_DIR}/deploy.sh"
+
     echo "Deploying chaincode: ${CHAINCODE_NAME}"
-    if yes | ./deploy.sh "${CHAINCODE_NAME}"; then
+    if "${CHAINCODE_DIR}/deploy.sh" "${CHAINCODE_NAME}" "${CHANNEL_NAME}"; then
         echo -e "${GREEN}✓${NC} Chaincode deployed"
     else
         echo -e "${RED}❌ Failed to deploy chaincode${NC}"
-        echo "Deploy manually: cd chaincode && ./deploy.sh"
+        echo "Deploy manually: ${CHAINCODE_DIR}/deploy.sh"
     fi
-    
+
     cd "${SCRIPT_DIR}"
 else
     print_section "4. Using Existing Fabric Network"
-    
-    echo -e "${GREEN}✓${NC} Fabric network healthy, skipping deployment"
-    echo -e "${CYAN}ℹ️  Existing chaincode preserved${NC}"
-    
+
+    echo -e "${GREEN}✓${NC} Fabric network healthy"
+
     CHAINCODE_VERSION_FILE="${CHAINCODE_DIR}/.chaincode_version"
+
+    # Validate version file: must exist AND have a non-empty CURRENT_SEQUENCE
+    CHAINCODE_NEEDS_DEPLOY=false
     if [ -f "${CHAINCODE_VERSION_FILE}" ]; then
         source "${CHAINCODE_VERSION_FILE}"
-        echo "Chaincode version: ${CURRENT_VERSION}"
-        echo "Sequence: ${CURRENT_SEQUENCE}"
-        echo "Last deployed: ${LAST_DEPLOY_TIME}"
+        if [ -n "${CURRENT_VERSION}" ] && [ -n "${CURRENT_SEQUENCE}" ]; then
+            echo -e "${CYAN}ℹ️  Existing chaincode preserved${NC}"
+            echo "  Chaincode version : ${CURRENT_VERSION}"
+            echo "  Sequence          : ${CURRENT_SEQUENCE}"
+            echo "  Last deployed     : ${LAST_DEPLOY_TIME}"
+        else
+            echo -e "${YELLOW}⚠️  Version file is empty or incomplete — will redeploy chaincode${NC}"
+            CHAINCODE_NEEDS_DEPLOY=true
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Version file not found — will deploy chaincode${NC}"
+        CHAINCODE_NEEDS_DEPLOY=true
+    fi
+
+    if [ "${CHAINCODE_NEEDS_DEPLOY}" = true ]; then
+        print_section "5. Deploying Chaincode (catch-up)"
+
+        chmod +x "${CHAINCODE_DIR}/deploy.sh"
+        echo "Deploying chaincode: ${CHAINCODE_NAME}"
+        if "${CHAINCODE_DIR}/deploy.sh" "${CHAINCODE_NAME}" "${CHANNEL_NAME}"; then
+            echo -e "${GREEN}✓${NC} Chaincode deployed"
+        else
+            echo -e "${RED}❌ Failed to deploy chaincode${NC}"
+            echo "Deploy manually: ${CHAINCODE_DIR}/deploy.sh"
+        fi
     fi
 fi
 
@@ -476,7 +499,18 @@ fi
 print_section "8. Starting Backend and Frontend Services"
 
 echo "Building and starting services..."
-$DOCKER_COMPOSE up -d --build
+build_output=$($DOCKER_COMPOSE up -d --build 2>&1)
+build_exit=$?
+echo "$build_output"
+
+# Docker BuildKit snapshot cache corruption — detect and auto-recover
+if [ $build_exit -ne 0 ] && echo "$build_output" | grep -q "parent snapshot.*does not exist"; then
+    echo ""
+    echo -e "${YELLOW}⚠️  Docker BuildKit cache corruption detected. Pruning cache and retrying...${NC}"
+    docker builder prune -f >/dev/null 2>&1
+    echo "Retrying build..."
+    $DOCKER_COMPOSE up -d --build
+fi
 
 # Step 9: Wait for services
 print_section "9. Waiting for Services to Start"

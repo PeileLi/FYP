@@ -10,12 +10,22 @@ import (
 	"github.com/hyperledger/fabric-contract-api-go/v2/contractapi"
 )
 
-// Campaign status constants
-// Audit mechanism is temporarily optional
+// ── MSP identity constants ────────────────────────────────────────────────────
+// ThirdPartyMSPID is the Fabric MSP for the third-party auditor organisation (Org2).
+// Only peers and clients enrolled under this MSP may call SubmitReviewResult.
+// PlatformMSPID is the MSP for the platform / backend (Org1).
+// Only peers/clients of this MSP may call ApproveCampaign.
 const (
-	StatusInProgress = "IN_PROGRESS" // Campaign is in progress, accepting donations (进行中)
-	StatusCompleted  = "COMPLETED"   // Campaign has been completed (已完成)
-	StatusSuspended  = "SUSPENDED"   // Campaign is suspended due to special circumstances (中断)
+	ThirdPartyMSPID = "Org2MSP" // Third-party auditor organisation
+	PlatformMSPID   = "Org1MSP" // Platform / backend organisation
+)
+
+// Campaign status constants
+const (
+	StatusPendingReview = "PENDING_REVIEW" // Waiting for third-party review
+	StatusInProgress    = "IN_PROGRESS"    // Approved and accepting donations
+	StatusCompleted     = "COMPLETED"      // Campaign completed
+	StatusSuspended     = "SUSPENDED"      // Suspended (risk flagged / admin action)
 )
 
 // Campaign represents a donation campaign on the blockchain
@@ -59,6 +69,31 @@ type CampaignHistory struct {
 	ModifiedAt   string  `json:"modifiedAt"`
 	ModifiedBy   string  `json:"modifiedBy"`
 	ModifyReason string  `json:"modifyReason"` // Reason for modification (修改原因)
+}
+
+// AuditRecord stores a third-party partner's audit conclusion for a campaign.
+// Written by SubmitReviewResult (Org2MSP) or RecordAudit (backward-compat).
+type AuditRecord struct {
+	DocType         string `json:"docType"`         // "AUDIT"
+	AuditID         string `json:"auditId"`         // Unique: AUDIT_{campaignId}_{seq}
+	CampaignID      string `json:"campaignId"`
+	AuditorOrg      string `json:"auditorOrg"`      // Partner display name
+	CallerMSP       string `json:"callerMsp"`       // Fabric MSP ID of the submitting organisation
+	Conclusion      string `json:"conclusion"`      // APPROVED | REJECTED | REQUIRES_INFO | RISK_FLAGGED
+	EvidenceSummary string `json:"evidenceSummary"` // Human-readable summary
+	EvidenceHash    string `json:"evidenceHash"`    // SHA-256 of off-chain evidence files
+	Notes           string `json:"notes"`           // Additional remarks
+	Timestamp       string `json:"timestamp"`
+}
+
+// CampaignApprovalRecord is written by ApproveCampaign to record the approval event.
+type CampaignApprovalRecord struct {
+	DocType        string `json:"docType"`        // "APPROVAL"
+	CampaignID     string `json:"campaignId"`
+	ApprovedBy     string `json:"approvedBy"`     // Platform admin identifier
+	CallerMSP      string `json:"callerMsp"`      // Must be PlatformMSPID
+	ReviewAuditID  string `json:"reviewAuditId"`  // The APPROVED review that gated this action
+	Timestamp      string `json:"timestamp"`
 }
 
 // Donation represents a single donation record on the blockchain
@@ -108,6 +143,43 @@ func calculateCampaignHash(c *Campaign) string {
 // historyKey generates the world state key for campaign history
 func historyKey(campaignID string, version int) string {
 	return "HISTORY_" + campaignID + "_V" + strconv.Itoa(version)
+}
+
+// auditKey generates the world state key for an audit record
+func auditKey(campaignID string, seq int) string {
+	return "AUDIT_" + campaignID + "_" + strconv.Itoa(seq)
+}
+
+// latestAuditSeqKey stores the latest audit sequence number for a campaign
+func latestAuditSeqKey(campaignID string) string {
+	return "AUDIT_SEQ_" + campaignID
+}
+
+// approvalKey generates the world state key for a campaign approval record
+func approvalKey(campaignID string) string {
+	return "APPROVAL_" + campaignID
+}
+
+// getCallerMSPID retrieves the MSP ID of the transaction submitter from the client identity.
+func getCallerMSPID(ctx contractapi.TransactionContextInterface) (string, error) {
+	mspID, err := ctx.GetClientIdentity().GetMSPID()
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve caller MSPID: %v", err)
+	}
+	return mspID, nil
+}
+
+// requireMSP asserts that the caller belongs to the expected MSP; returns an
+// informative error if not.
+func requireMSP(ctx contractapi.TransactionContextInterface, required string) error {
+	mspID, err := getCallerMSPID(ctx)
+	if err != nil {
+		return err
+	}
+	if mspID != required {
+		return fmt.Errorf("access denied: this function requires MSP=%s, caller has MSP=%s", required, mspID)
+	}
+	return nil
 }
 
 // CreateCampaign creates a new donation campaign
@@ -465,6 +537,347 @@ func (s *SmartContract) DonationExists(ctx contractapi.TransactionContextInterfa
 	}
 
 	return data != nil, nil
+}
+
+// RecordAudit records a third-party audit conclusion for a campaign on the ledger.
+// conclusion must be one of: APPROVED, REJECTED, REQUIRES_INFO, RISK_FLAGGED
+func (s *SmartContract) RecordAudit(ctx contractapi.TransactionContextInterface,
+	campaignID string, auditorOrg string, conclusion string,
+	evidenceSummary string, evidenceHash string, notes string, timestamp string) (string, error) {
+
+	// Validate conclusion value
+	validConclusions := map[string]bool{
+		"APPROVED": true, "REJECTED": true, "REQUIRES_INFO": true, "RISK_FLAGGED": true,
+	}
+	if !validConclusions[conclusion] {
+		return "", fmt.Errorf("invalid conclusion: %s. Must be APPROVED, REJECTED, REQUIRES_INFO, or RISK_FLAGGED", conclusion)
+	}
+
+	// Verify campaign exists
+	exists, err := s.CampaignExists(ctx, campaignID)
+	if err != nil {
+		return "", err
+	}
+	if !exists {
+		return "", fmt.Errorf("campaign %s does not exist", campaignID)
+	}
+
+	// Get current sequence number
+	seqBytes, err := ctx.GetStub().GetState(latestAuditSeqKey(campaignID))
+	if err != nil {
+		return "", fmt.Errorf("failed to read audit sequence: %v", err)
+	}
+	seq := 1
+	if seqBytes != nil {
+		seq, err = strconv.Atoi(string(seqBytes))
+		if err != nil {
+			return "", fmt.Errorf("failed to parse sequence: %v", err)
+		}
+		seq++
+	}
+
+	// Capture caller MSP for backward-compat (may be any org in this legacy path)
+	callerMSP, _ := getCallerMSPID(ctx)
+
+	auditID := "AUDIT_" + campaignID + "_" + strconv.Itoa(seq)
+	record := AuditRecord{
+		DocType:         "AUDIT",
+		AuditID:         auditID,
+		CampaignID:      campaignID,
+		AuditorOrg:      auditorOrg,
+		CallerMSP:       callerMSP,
+		Conclusion:      conclusion,
+		EvidenceSummary: evidenceSummary,
+		EvidenceHash:    evidenceHash,
+		Notes:           notes,
+		Timestamp:       timestamp,
+	}
+
+	data, err := json.Marshal(record)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal audit record: %v", err)
+	}
+
+	if err := ctx.GetStub().PutState(auditKey(campaignID, seq), data); err != nil {
+		return "", fmt.Errorf("failed to store audit record: %v", err)
+	}
+
+	// Update sequence counter
+	if err := ctx.GetStub().PutState(latestAuditSeqKey(campaignID), []byte(strconv.Itoa(seq))); err != nil {
+		return "", fmt.Errorf("failed to update sequence: %v", err)
+	}
+
+	// If RISK_FLAGGED or REJECTED, also suspend the campaign status on chain
+	if conclusion == "RISK_FLAGGED" || conclusion == "REJECTED" {
+		campData, _ := ctx.GetStub().GetState(campaignKey(campaignID))
+		if campData != nil {
+			var camp Campaign
+			if err := json.Unmarshal(campData, &camp); err == nil {
+				if conclusion == "RISK_FLAGGED" {
+					camp.Status = StatusSuspended
+				}
+				camp.LastUpdated = timestamp
+				camp.LastModifier = auditorOrg
+				if updated, err := json.Marshal(camp); err == nil {
+					_ = ctx.GetStub().PutState(campaignKey(campaignID), updated)
+				}
+			}
+		}
+	}
+
+	return auditID, nil
+}
+
+// ── MSP-gated functions ───────────────────────────────────────────────────────
+
+// SubmitReviewResult records a third-party audit conclusion on the ledger.
+// ACCESS CONTROL: Only callers whose client certificate is issued by ThirdPartyMSPID
+// (Org2MSP) are permitted.  A platform org (Org1MSP) calling this function will
+// receive a 403-equivalent error embedded in the chaincode response.
+func (s *SmartContract) SubmitReviewResult(ctx contractapi.TransactionContextInterface,
+	campaignID string, auditorOrg string, conclusion string,
+	evidenceSummary string, evidenceHash string, notes string, timestamp string) (string, error) {
+
+	// ── MSP check ──────────────────────────────────────────────────────────
+	mspID, err := getCallerMSPID(ctx)
+	if err != nil {
+		return "", err
+	}
+	if mspID != ThirdPartyMSPID {
+		return "", fmt.Errorf("access denied: SubmitReviewResult requires caller MSP=%s, got MSP=%s. "+
+			"Only the third-party auditor organisation may submit review results.", ThirdPartyMSPID, mspID)
+	}
+
+	// ── Validate conclusion ────────────────────────────────────────────────
+	validConclusions := map[string]bool{
+		"APPROVED": true, "REJECTED": true, "REQUIRES_INFO": true, "RISK_FLAGGED": true,
+	}
+	if !validConclusions[conclusion] {
+		return "", fmt.Errorf("invalid conclusion: %s", conclusion)
+	}
+
+	// ── Verify campaign exists ─────────────────────────────────────────────
+	exists, err := s.CampaignExists(ctx, campaignID)
+	if err != nil {
+		return "", err
+	}
+	if !exists {
+		return "", fmt.Errorf("campaign %s does not exist", campaignID)
+	}
+
+	// ── Allocate sequence number ───────────────────────────────────────────
+	seqBytes, err := ctx.GetStub().GetState(latestAuditSeqKey(campaignID))
+	if err != nil {
+		return "", fmt.Errorf("failed to read audit sequence: %v", err)
+	}
+	seq := 1
+	if seqBytes != nil {
+		seq, _ = strconv.Atoi(string(seqBytes))
+		seq++
+	}
+
+	auditID := "AUDIT_" + campaignID + "_" + strconv.Itoa(seq)
+	record := AuditRecord{
+		DocType:         "AUDIT",
+		AuditID:         auditID,
+		CampaignID:      campaignID,
+		AuditorOrg:      auditorOrg,
+		CallerMSP:       mspID, // recorded — proves Org2MSP submitted this
+		Conclusion:      conclusion,
+		EvidenceSummary: evidenceSummary,
+		EvidenceHash:    evidenceHash,
+		Notes:           notes,
+		Timestamp:       timestamp,
+	}
+
+	data, err := json.Marshal(record)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal review result: %v", err)
+	}
+	if err := ctx.GetStub().PutState(auditKey(campaignID, seq), data); err != nil {
+		return "", fmt.Errorf("failed to store review result: %v", err)
+	}
+	if err := ctx.GetStub().PutState(latestAuditSeqKey(campaignID), []byte(strconv.Itoa(seq))); err != nil {
+		return "", fmt.Errorf("failed to update audit sequence: %v", err)
+	}
+
+	// ── Side-effects: suspend campaign if risk-flagged ─────────────────────
+	if conclusion == "RISK_FLAGGED" {
+		campData, _ := ctx.GetStub().GetState(campaignKey(campaignID))
+		if campData != nil {
+			var camp Campaign
+			if err := json.Unmarshal(campData, &camp); err == nil {
+				camp.Status = StatusSuspended
+				camp.LastUpdated = timestamp
+				camp.LastModifier = auditorOrg + " [" + mspID + "]"
+				if updated, err := json.Marshal(camp); err == nil {
+					_ = ctx.GetStub().PutState(campaignKey(campaignID), updated)
+				}
+			}
+		}
+	}
+
+	// Emit event so application layer can react
+	_ = ctx.GetStub().SetEvent("ReviewSubmitted", []byte(
+		fmt.Sprintf(`{"auditId":"%s","campaignId":"%s","conclusion":"%s","callerMsp":"%s"}`,
+			auditID, campaignID, conclusion, mspID)))
+
+	return auditID, nil
+}
+
+// ApproveCampaign transitions a campaign's on-chain status from PENDING_REVIEW to
+// IN_PROGRESS.  Two invariants are enforced:
+//  1. Only the platform organisation (PlatformMSPID / Org1MSP) may call this function.
+//  2. The latest review record for the campaign must have conclusion == "APPROVED".
+//     This ensures the platform cannot approve a campaign that has not been cleared by
+//     the third-party auditor — the audit gate is enforced in chaincode, not just
+//     in the application layer.
+func (s *SmartContract) ApproveCampaign(ctx contractapi.TransactionContextInterface,
+	campaignID string, approvedBy string, timestamp string) error {
+
+	// ── MSP check ──────────────────────────────────────────────────────────
+	if err := requireMSP(ctx, PlatformMSPID); err != nil {
+		return fmt.Errorf("ApproveCampaign: %v", err)
+	}
+
+	// ── Load campaign ──────────────────────────────────────────────────────
+	campaign, err := s.ReadCampaign(ctx, campaignID)
+	if err != nil {
+		return err
+	}
+
+	// ── Review gate: require latest audit to be APPROVED ──────────────────
+	latestAudit, err := s.GetLatestAuditRecord(ctx, campaignID)
+	if err != nil {
+		return fmt.Errorf("failed to read latest audit record: %v", err)
+	}
+	if latestAudit == nil {
+		return fmt.Errorf("approval denied: campaign %s has no third-party review record. "+
+			"A third-party org must submit an APPROVED review before the platform can approve.", campaignID)
+	}
+	if latestAudit.Conclusion != "APPROVED" {
+		return fmt.Errorf("approval denied: latest review conclusion for campaign %s is %s "+
+			"(must be APPROVED). Issued by %s [%s].",
+			campaignID, latestAudit.Conclusion, latestAudit.AuditorOrg, latestAudit.CallerMSP)
+	}
+
+	// ── Transition status ──────────────────────────────────────────────────
+	campaign.Status = StatusInProgress
+	campaign.LastUpdated = timestamp
+	campaign.LastModifier = approvedBy + " [" + PlatformMSPID + "]"
+	campaign.DataHash = calculateCampaignHash(campaign)
+
+	data, err := json.Marshal(campaign)
+	if err != nil {
+		return fmt.Errorf("failed to marshal campaign: %v", err)
+	}
+	if err := ctx.GetStub().PutState(campaignKey(campaignID), data); err != nil {
+		return fmt.Errorf("failed to save approved campaign: %v", err)
+	}
+
+	// ── Write approval record ──────────────────────────────────────────────
+	mspID, _ := getCallerMSPID(ctx)
+	approval := CampaignApprovalRecord{
+		DocType:       "APPROVAL",
+		CampaignID:    campaignID,
+		ApprovedBy:    approvedBy,
+		CallerMSP:     mspID,
+		ReviewAuditID: latestAudit.AuditID,
+		Timestamp:     timestamp,
+	}
+	approvalData, err := json.Marshal(approval)
+	if err != nil {
+		return fmt.Errorf("failed to marshal approval record: %v", err)
+	}
+	if err := ctx.GetStub().PutState(approvalKey(campaignID), approvalData); err != nil {
+		return fmt.Errorf("failed to store approval record: %v", err)
+	}
+
+	_ = ctx.GetStub().SetEvent("CampaignApproved", []byte(
+		fmt.Sprintf(`{"campaignId":"%s","approvedBy":"%s","reviewAuditId":"%s"}`,
+			campaignID, approvedBy, latestAudit.AuditID)))
+
+	return nil
+}
+
+// QueryReviews returns all audit records for a campaign.
+// ACCESS CONTROL: Open — any enrolled identity on the channel may query.
+// Results include the CallerMSP field so consumers can verify the review was
+// submitted by the authorised third-party organisation.
+func (s *SmartContract) QueryReviews(ctx contractapi.TransactionContextInterface,
+	campaignID string) ([]*AuditRecord, error) {
+
+	// Any org may query — no MSP restriction
+	seqBytes, err := ctx.GetStub().GetState(latestAuditSeqKey(campaignID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read audit sequence: %v", err)
+	}
+	if seqBytes == nil {
+		return []*AuditRecord{}, nil // no reviews yet
+	}
+	maxSeq, _ := strconv.Atoi(string(seqBytes))
+
+	var records []*AuditRecord
+	for i := 1; i <= maxSeq; i++ {
+		data, err := ctx.GetStub().GetState(auditKey(campaignID, i))
+		if err != nil || data == nil {
+			continue
+		}
+		var r AuditRecord
+		if err := json.Unmarshal(data, &r); err == nil {
+			records = append(records, &r)
+		}
+	}
+	return records, nil
+}
+
+// GetApprovalRecord retrieves the approval record for a campaign (if it exists).
+func (s *SmartContract) GetApprovalRecord(ctx contractapi.TransactionContextInterface,
+	campaignID string) (*CampaignApprovalRecord, error) {
+
+	data, err := ctx.GetStub().GetState(approvalKey(campaignID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read approval record: %v", err)
+	}
+	if data == nil {
+		return nil, nil // not yet approved
+	}
+	var record CampaignApprovalRecord
+	if err := json.Unmarshal(data, &record); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal approval record: %v", err)
+	}
+	return &record, nil
+}
+
+// GetLatestAuditRecord retrieves the most recent audit record for a campaign
+func (s *SmartContract) GetLatestAuditRecord(ctx contractapi.TransactionContextInterface,
+	campaignID string) (*AuditRecord, error) {
+
+	seqBytes, err := ctx.GetStub().GetState(latestAuditSeqKey(campaignID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read audit sequence: %v", err)
+	}
+	if seqBytes == nil {
+		return nil, nil // No audit yet
+	}
+	seq, err := strconv.Atoi(string(seqBytes))
+	if err != nil {
+		return nil, fmt.Errorf("invalid sequence: %v", err)
+	}
+
+	data, err := ctx.GetStub().GetState(auditKey(campaignID, seq))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read audit record: %v", err)
+	}
+	if data == nil {
+		return nil, nil
+	}
+
+	var record AuditRecord
+	if err := json.Unmarshal(data, &record); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal audit record: %v", err)
+	}
+	return &record, nil
 }
 
 func main() {

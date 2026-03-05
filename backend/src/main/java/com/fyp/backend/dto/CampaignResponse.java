@@ -41,7 +41,8 @@ public class CampaignResponse {
     private Boolean hasTamperingHistory;  // true if tampering was detected in the past (曾经被篡改过)
     private Integer tamperingIncidentCount;  // Number of tampering incidents (篡改次数)
 
-    // Third-party partner endorsement
+    // Third-party partner audit
+    private String auditStatus;
     private Boolean partnerEndorsed;
     private String partnerNote;
     private String endorsedBy;

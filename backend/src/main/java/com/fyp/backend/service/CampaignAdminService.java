@@ -53,23 +53,30 @@ public class CampaignAdminService {
 
         campaignRepository.save(campaign);
 
-        // Sync to blockchain when approving or suspending
-        if (fabricGatewayService.isEnabled() && campaign.getBlockchainTxId() != null) {
-            try {
-                String bcCampaignId = decodeTxId(campaign.getBlockchainTxId());
-                if (bcCampaignId != null) {
-                    String bcStatus = switch (newStatus) {
-                        case "ACTIVE"     -> "ACTIVE";
-                        case "SUSPENDED"  -> "SUSPENDED";
-                        case "COMPLETED"  -> "COMPLETED";
-                        case "CLOSED"     -> "CLOSED";
-                        default -> newStatus;
-                    };
-                    fabricGatewayService.updateCampaignStatus(bcCampaignId, bcStatus);
-                    log.info("Blockchain status updated for campaign {}: {} → {}", campaignId, oldStatus, bcStatus);
+        // Sync to blockchain
+        if (fabricGatewayService.isEnabled()) {
+            String chainId = campaign.getBlockchainCampaignId() != null
+                    ? campaign.getBlockchainCampaignId()
+                    : decodeTxId(campaign.getBlockchainTxId());
+            if (chainId != null) {
+                String ts = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                try {
+                    if ("ACTIVE".equals(newStatus)) {
+                        // ApproveCampaign enforces: latest review must be APPROVED (Org2MSP)
+                        fabricGatewayService.approveCampaign(chainId, "admin", ts);
+                        log.info("ApproveCampaign chaincode called for campaign {}", campaignId);
+                    } else {
+                        String bcStatus = switch (newStatus) {
+                            case "SUSPENDED" -> "SUSPENDED";
+                            case "COMPLETED" -> "COMPLETED";
+                            default          -> newStatus;
+                        };
+                        fabricGatewayService.updateCampaignStatus(chainId, bcStatus);
+                        log.info("Blockchain status updated for campaign {}: {}", campaignId, bcStatus);
+                    }
+                } catch (Exception e) {
+                    log.warn("Blockchain sync failed for campaign {} status={}: {}", campaignId, newStatus, e.getMessage());
                 }
-            } catch (Exception e) {
-                log.warn("Failed to update blockchain status for campaign {}: {}", campaignId, e.getMessage());
             }
         }
 

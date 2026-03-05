@@ -270,6 +270,7 @@ public class CampaignService {
                 .blockchainDonationCount(blockchainDonationCount)
                 .hasTamperingHistory(hasTamperingHistory)
                 .tamperingIncidentCount(tamperingCount)
+                .auditStatus(campaign.getAuditStatus())
                 .partnerEndorsed(Boolean.TRUE.equals(campaign.getPartnerEndorsed()))
                 .partnerNote(campaign.getPartnerNote())
                 .endorsedBy(campaign.getEndorsedBy() != null ? campaign.getEndorsedBy().getDisplayName() : null)

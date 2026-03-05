@@ -16,6 +16,7 @@ import java.util.List;
 public interface DonationRepository extends JpaRepository<Donation, Long> {
     List<Donation> findByUserOrderByDonationDateDesc(User user);
     List<Donation> findByCampaignOrderByDonationDateDesc(Campaign campaign);
+    long countByCampaignId(Long campaignId);
 
     List<Donation> findTop20ByOrderByDonationDateDesc();
     long countByTransactionHashIsNotNull();

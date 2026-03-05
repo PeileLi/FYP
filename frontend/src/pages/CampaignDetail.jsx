@@ -352,10 +352,16 @@ export default function CampaignDetail() {
                       <span>Tampered</span>
                     </div>
                   )}
-                  {campaign.partnerEndorsed && (
+                  {campaign.auditStatus === 'APPROVED' && (
                     <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold" title={`Endorsed by ${campaign.endorsedBy}`}>
                       <Shield size={14} />
-                      <span>Endorsed</span>
+                      <span>Audited</span>
+                    </div>
+                  )}
+                  {campaign.auditStatus === 'RISK_FLAGGED' && (
+                    <div className="flex items-center gap-1 px-2 py-1 bg-rose-100 text-rose-700 rounded-full text-xs font-semibold">
+                      <AlertCircle size={14} />
+                      <span>Risk Flagged</span>
                     </div>
                   )}
                 </div>
@@ -473,19 +479,37 @@ export default function CampaignDetail() {
                 )}
               </div>
 
-              {/* Partner Endorsement Card */}
-              {campaign.partnerEndorsed && (
-                <div className="mb-4 p-4 rounded-xl bg-blue-50 border border-blue-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Shield className="text-blue-600" size={18} />
-                    <h3 className="font-semibold text-blue-900 text-sm">Third-party Endorsed</h3>
+              {/* Third-party Audit Card */}
+              {campaign.auditStatus && campaign.auditStatus !== 'PENDING_AUDIT' && (
+                <div className={`mb-4 p-4 rounded-xl border ${
+                  campaign.auditStatus === 'APPROVED'      ? 'bg-blue-50 border-blue-100' :
+                  campaign.auditStatus === 'RISK_FLAGGED'  ? 'bg-rose-50 border-rose-200' :
+                  campaign.auditStatus === 'REJECTED'      ? 'bg-red-50 border-red-200' :
+                  campaign.auditStatus === 'REQUIRES_INFO' ? 'bg-amber-50 border-amber-200' :
+                  'bg-gray-50 border-gray-100'
+                }`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Shield size={16} className={
+                      campaign.auditStatus === 'APPROVED'     ? 'text-blue-600' :
+                      campaign.auditStatus === 'RISK_FLAGGED' ? 'text-rose-600' :
+                      campaign.auditStatus === 'REJECTED'     ? 'text-red-600' : 'text-amber-600'
+                    } />
+                    <h3 className="font-semibold text-sm text-gray-800">
+                      Third-party Audit: {{
+                        APPROVED: 'Approved', REJECTED: 'Rejected',
+                        REQUIRES_INFO: 'Requires Info', RISK_FLAGGED: 'Risk Flagged',
+                        UNDER_REVIEW: 'Under Review',
+                      }[campaign.auditStatus] || campaign.auditStatus}
+                    </h3>
                   </div>
-                  <p className="text-xs text-blue-700">
-                    Endorsed by <strong>{campaign.endorsedBy}</strong>
-                    {campaign.endorsedAt && <span className="text-blue-400 ml-1">· {new Date(campaign.endorsedAt).toLocaleDateString()}</span>}
-                  </p>
+                  {campaign.endorsedBy && (
+                    <p className="text-xs text-gray-600">
+                      Audited by <strong>{campaign.endorsedBy}</strong>
+                      {campaign.endorsedAt && <span className="text-gray-400 ml-1">· {new Date(campaign.endorsedAt).toLocaleDateString()}</span>}
+                    </p>
+                  )}
                   {campaign.partnerNote && (
-                    <p className="text-xs text-blue-600 italic mt-1.5">"{campaign.partnerNote}"</p>
+                    <p className="text-xs text-gray-500 italic mt-1">"{campaign.partnerNote}"</p>
                   )}
                 </div>
               )}
