@@ -23,13 +23,10 @@ public class PartnerApplication {
     @Column(nullable = false)
     private String organizationName;
 
-    @Column(nullable = false)
     private String contactName;
 
     @Column(nullable = false, unique = true)
     private String email;
-
-    private String phone;
 
     @Column(columnDefinition = "TEXT", nullable = false)
     private String description;

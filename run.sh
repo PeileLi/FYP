@@ -16,11 +16,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
 
 FABRIC_VERSION="2.5.14"
-CA_VERSION="1.5.12"
+CA_VERSION="1.5.15"
 FABRIC_DIR="${SCRIPT_DIR}/fabric/fabric-samples/test-network"
 CHAINCODE_DIR="${SCRIPT_DIR}/chaincode"
 CHANNEL_NAME="mychannel"
-CHAINCODE_NAME="donation"
+CHAINCODE_NAME="smartcontract"
 
 echo ""
 echo -e "${CYAN}================================================================"

@@ -25,6 +25,7 @@ public class DonationService {
     private final CampaignRepository campaignRepository;
     private final CampaignService campaignService;
     private final FabricGatewayService fabricGatewayService;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     @Transactional
     public DonationResponse createDonation(CreateDonationRequest request, String username) {
@@ -69,10 +70,6 @@ public class DonationService {
                 break;
         }
 
-        // Create donation with a temporary transaction hash
-        // Will be updated after blockchain recording
-        String tempTxHash = "TX_" + System.currentTimeMillis();
-        
         Donation donation = Donation.builder()
                 .user(user)
                 .campaign(campaign)
@@ -81,16 +78,15 @@ public class DonationService {
                 .displayName(displayName)
                 .isAnonymous(isAnonymous)
                 .status("COMPLETED")
-                .transactionHash(tempTxHash)
                 .build();
 
         Donation savedDonation = donationRepository.save(donation);
 
-        // Create donation record on blockchain
+        // Create donation record on blockchain — ensure campaign is on chain first
         try {
-            String blockchainCampaignId = CampaignService.resolveBlockchainCampaignId(campaign);
+            String blockchainCampaignId = campaignService.ensureBlockchainRecord(campaign);
             
-            if (fabricGatewayService.isEnabled() && blockchainCampaignId != null) {
+            if (blockchainCampaignId != null) {
                 String donorHash = CampaignService.sha256Hex(user.getUsername());
                 
                 String donationTxId = fabricGatewayService.createDonation(
@@ -146,11 +142,31 @@ public class DonationService {
     }
 
     private DonationResponse mapToDonationResponse(Donation donation) {
-        // Hide real donor name for anonymous donations to protect privacy
         String donorName = Boolean.TRUE.equals(donation.getIsAnonymous()) 
                 ? "Anonymous" 
                 : donation.getUser().getDisplayName();
         
+        boolean onChain = donation.getTransactionHash() != null;
+        String verificationStatus = "NOT_ON_CHAIN";
+
+        if (onChain && fabricGatewayService.isEnabled()) {
+            try {
+                String chainData = fabricGatewayService.readDonation(donation.getTransactionHash());
+                if (chainData != null && !chainData.isBlank()) {
+                    com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(chainData);
+                    double chainAmount = node.path("amount").asDouble(0);
+                    double dbAmount = donation.getAmount().doubleValue();
+                    verificationStatus = Math.abs(chainAmount - dbAmount) < 0.01 ? "VERIFIED" : "AMOUNT_MISMATCH";
+                } else {
+                    verificationStatus = "NOT_FOUND_ON_CHAIN";
+                    onChain = false;
+                }
+            } catch (Exception e) {
+                log.warn("Donation {} blockchain verification failed: {}", donation.getId(), e.getMessage());
+                verificationStatus = "VERIFICATION_FAILED";
+            }
+        }
+
         return DonationResponse.builder()
                 .id(donation.getId())
                 .campaignId(donation.getCampaign().getId())
@@ -163,6 +179,8 @@ public class DonationService {
                 .date(donation.getDonationDate())
                 .status(donation.getStatus())
                 .transactionHash(donation.getTransactionHash())
+                .onChain(onChain)
+                .blockchainVerificationStatus(verificationStatus)
                 .build();
     }
 

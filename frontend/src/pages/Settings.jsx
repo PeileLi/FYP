@@ -268,7 +268,7 @@ export default function Settings() {
 
                                     <div className="sm:col-span-2">
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Username
+                                            Email
                                         </label>
                                         <div className="relative">
                                             <input
@@ -278,7 +278,7 @@ export default function Settings() {
                                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-500 cursor-not-allowed"
                                             />
                                         </div>
-                                        <p className="mt-1 text-xs text-gray-500">Username cannot be changed</p>
+                                        <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
                                     </div>
                                 </div>
 
@@ -310,9 +310,25 @@ export default function Settings() {
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={() => {
-                                                        setIsEditingPassword(false);
-                                                        alert('Password updated (Simulation)');
+                                                    onClick={async () => {
+                                                        if (!formData.newPassword) {
+                                                            setError('Please enter a new password');
+                                                            return;
+                                                        }
+                                                        if (formData.newPassword.length < 6) {
+                                                            setError('New password must be at least 6 characters');
+                                                            return;
+                                                        }
+                                                        try {
+                                                            setError(null);
+                                                            await userAPI.changePassword(formData.newPassword);
+                                                            setIsEditingPassword(false);
+                                                            setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '' }));
+                                                            setSuccess('Password updated successfully');
+                                                            setTimeout(() => setSuccess(null), 3000);
+                                                        } catch (err) {
+                                                            setError(err.message || 'Failed to change password');
+                                                        }
                                                     }}
                                                     className="text-emerald-600 hover:text-emerald-700 text-xs font-medium"
                                                 >

@@ -14,9 +14,7 @@ import java.time.LocalDateTime;
 public class PartnerApplicationResponse {
     private Long id;
     private String organizationName;
-    private String contactName;
     private String email;
-    private String phone;
     private String description;
     private String status;
     private String rejectionReason;

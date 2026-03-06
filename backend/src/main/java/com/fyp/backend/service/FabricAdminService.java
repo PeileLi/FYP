@@ -2,12 +2,13 @@ package com.fyp.backend.service;
 
 import com.fyp.backend.config.FabricConfig;
 import com.fyp.backend.model.DataAuditLog;
+import com.fyp.backend.repository.CampaignAuditRepository;
 import com.fyp.backend.repository.CampaignRepository;
 import com.fyp.backend.repository.DataAuditLogRepository;
 import com.fyp.backend.repository.DonationRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.hyperledger.fabric.protos.common.BlockchainInfo;
-import org.hyperledger.fabric.client.Gateway;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -34,6 +35,9 @@ public class FabricAdminService {
 
     @Autowired
     private DataAuditLogRepository auditLogRepository;
+
+    @Autowired
+    private CampaignAuditRepository campaignAuditRepository;
 
     public Map<String, Object> getNetworkStats() {
         Map<String, Object> stats = new LinkedHashMap<>();
@@ -110,7 +114,7 @@ public class FabricAdminService {
         List<Map<String, Object>> txList = new ArrayList<>();
 
         var campaigns = campaignRepository.findAll(
-            PageRequest.of(page, size / 2 + 1, Sort.by(Sort.Direction.DESC, "createdAt"))
+            PageRequest.of(0, size, Sort.by(Sort.Direction.DESC, "createdAt"))
         );
         for (var c : campaigns) {
             if (c.getBlockchainTxId() == null) continue;
@@ -127,7 +131,7 @@ public class FabricAdminService {
         }
 
         var donations = donationRepository.findAll(
-            PageRequest.of(page, size / 2 + 1, Sort.by(Sort.Direction.DESC, "donationDate"))
+            PageRequest.of(0, size, Sort.by(Sort.Direction.DESC, "donationDate"))
         );
         for (var d : donations) {
             if (d.getTransactionHash() == null) continue;
@@ -138,6 +142,26 @@ public class FabricAdminService {
             tx.put("summary", "Donation by " + (d.getDisplayName() != null ? d.getDisplayName() : "Anonymous"));
             tx.put("amount", d.getAmount());
             tx.put("timestamp", d.getDonationDate() != null ? d.getDonationDate().toString() : "");
+            tx.put("chaincode", fabricConfig.getChaincodeName());
+            tx.put("channel", fabricConfig.getChannelName());
+            txList.add(tx);
+        }
+
+        // Include on-chain audit records
+        var audits = campaignAuditRepository.findAll(
+            PageRequest.of(0, size, Sort.by(Sort.Direction.DESC, "createdAt"))
+        );
+        for (var a : audits) {
+            if (a.getBlockchainAuditId() == null) continue;
+            Map<String, Object> tx = new LinkedHashMap<>();
+            tx.put("txId", a.getBlockchainAuditId());
+            tx.put("type", "AUDIT_REVIEW");
+            tx.put("entityId", "A_" + a.getId());
+            tx.put("summary", "Audit [" + a.getConclusion() + "] by " +
+                    (a.getAuditor() != null ? a.getAuditor().getDisplayName() : "—") +
+                    " for " + (a.getCampaign() != null ? a.getCampaign().getTitle() : "—"));
+            tx.put("amount", null);
+            tx.put("timestamp", a.getCreatedAt() != null ? a.getCreatedAt().toString() : "");
             tx.put("chaincode", fabricConfig.getChaincodeName());
             tx.put("channel", fabricConfig.getChannelName());
             txList.add(tx);
@@ -209,18 +233,8 @@ public class FabricAdminService {
         return blockInfo;
     }
 
-    @SuppressWarnings("resource") // gw is a shared singleton; closing it here would destroy the app-wide connection
     private org.hyperledger.fabric.client.Network getNetwork() {
-        try {
-            var field = FabricGatewayService.class.getDeclaredField("gateway");
-            field.setAccessible(true);
-            Gateway gw = (Gateway) field.get(fabricGatewayService);
-            if (gw == null) return null;
-            return gw.getNetwork(fabricConfig.getChannelName());
-        } catch (Exception e) {
-            log.warn("Failed to access gateway: {}", e.getMessage());
-            return null;
-        }
+        return fabricGatewayService.getNetwork();
     }
 
     private static String bytesToHex(byte[] bytes) {

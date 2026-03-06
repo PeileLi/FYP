@@ -22,6 +22,7 @@ public class PartnerMaterialService {
     private final PartnerScopeService            scopeService;
     private final FabricGatewayService           fabricGatewayService;
     private final CampaignAuditRepository        campaignAuditRepo;
+    private final CampaignService                campaignService;
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -112,12 +113,10 @@ public class PartnerMaterialService {
                                                   String checklistJson,
                                                   String overallNote,
                                                   String overallStatus) {
-        // Only the assigned partner may submit a verification
         scopeService.requireFullAccess(campaignId);
         User partner = scopeService.currentPartner();
         Campaign campaign = getCampaign(campaignId);
 
-        // Validate status
         if (!Set.of("PASS", "PARTIAL", "FAIL").contains(overallStatus)) {
             throw new IllegalArgumentException("Invalid overall status: " + overallStatus);
         }
@@ -129,6 +128,37 @@ public class PartnerMaterialService {
                 .overallNote(overallNote)
                 .overallStatus(overallStatus)
                 .build();
+
+        // Record material verification on blockchain
+        try {
+            String chainId = campaignService.ensureBlockchainRecord(campaign);
+            if (chainId != null && fabricGatewayService.isEnabled()) {
+                String timestamp = java.time.LocalDateTime.now()
+                        .format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                String evidenceHash = CampaignService.sha256Hex(
+                        checklistJson != null ? checklistJson : "");
+                String commentHash = CampaignService.sha256Hex(
+                        "MATERIAL_VERIFICATION|" + overallStatus + "|" +
+                        (overallNote != null ? overallNote : ""));
+
+                String conclusion = switch (overallStatus) {
+                    case "PASS" -> "APPROVED";
+                    case "FAIL" -> "REJECTED";
+                    default     -> "REQUIRES_INFO";
+                };
+
+                String auditId = fabricGatewayService.recordAudit(
+                        chainId, partner.getDisplayName(), conclusion,
+                        evidenceHash, commentHash, timestamp);
+                v.setBlockchainVerificationId(auditId);
+                log.info("Material verification for campaign {} recorded on blockchain: {}",
+                        campaignId, auditId);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to record material verification on blockchain for campaign {}: {}",
+                    campaignId, e.getMessage());
+        }
+
         verificationRepo.save(v);
 
         log.info("Partner {} submitted material verification for campaign {} — {}",
@@ -251,6 +281,14 @@ public class PartnerMaterialService {
         Campaign c = getCampaign(campaignId);
         c.setFundUsagePlan(plan);
         campaignRepo.save(c);
+
+        // Sync updated campaign data to blockchain
+        try {
+            campaignService.syncCampaignDataToBlockchain(c);
+        } catch (Exception e) {
+            log.warn("Failed to sync fund usage plan change to blockchain for campaign {}: {}",
+                    campaignId, e.getMessage());
+        }
     }
 
     // ── Completeness check ────────────────────────────────────────────────────

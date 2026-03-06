@@ -7,9 +7,59 @@ import {
     UserCheck, Ban, ChevronRight, RotateCcw, FolderOpen,
     ExternalLink, Image, CreditCard, BookOpen, Info,
     CheckSquare, MinusSquare, HelpCircle, TrendingUp,
-    ArrowLeft, Activity, ClipboardList
+    ArrowLeft, Activity, ClipboardList, Unlock
 } from 'lucide-react';
-import { partnerAPI } from '@/utils/api';
+import { partnerAPI, userAPI } from '@/utils/api';
+
+// ── Password change inline component ──────────────────────────────────────────
+function PasswordChangeField() {
+    const [open, setOpen] = useState(false);
+    const [nxt, setNxt] = useState('');
+    const [msg, setMsg] = useState('');
+    const [err, setErr] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const submit = async () => {
+        setMsg(''); setErr('');
+        if (!nxt) { setErr('Please enter a new password'); return; }
+        if (nxt.length < 6) { setErr('New password must be at least 6 characters'); return; }
+        setSaving(true);
+        try {
+            await userAPI.changePassword(nxt);
+            setMsg('Password updated');
+            setNxt('');
+            setTimeout(() => { setOpen(false); setMsg(''); }, 1500);
+        } catch (e) { setErr(e.message || 'Failed to change password'); }
+        finally { setSaving(false); }
+    };
+
+    return (
+        <div>
+            <p className="text-xs font-medium text-gray-500 mb-1">Password</p>
+            {!open ? (
+                <button onClick={() => setOpen(true)}
+                    className="text-sm text-blue-600 hover:text-blue-500 font-medium flex items-center gap-1">
+                    <Lock size={13}/> Change Password
+                </button>
+            ) : (
+                <div className="space-y-2">
+                    <input type="password" placeholder="New password" value={nxt} onChange={e => setNxt(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"/>
+                    {err && <p className="text-xs text-red-600">{err}</p>}
+                    {msg && <p className="text-xs text-emerald-600">{msg}</p>}
+                    <div className="flex gap-2">
+                        <button onClick={submit} disabled={saving}
+                            className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50">
+                            {saving ? 'Saving...' : 'Save'}
+                        </button>
+                        <button onClick={() => { setOpen(false); setNxt(''); setErr(''); setMsg(''); }}
+                            className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 // ── Shared metadata ───────────────────────────────────────────────────────────
 
@@ -166,7 +216,18 @@ function HistoryModal({ campaign, onClose }) {
                                             <div className="flex items-center gap-1 mt-1.5">
                                                 <Link2 size={10} className="text-emerald-500"/>
                                                 <code className="text-[10px] font-mono text-emerald-600">{h.blockchainAuditId}</code>
-                                                <span className="text-[10px] text-emerald-500 ml-1">On-chain</span>
+                                                {h.chainVerified === true && (
+                                                    <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-1 font-semibold">✓ Verified</span>
+                                                )}
+                                                {h.chainVerified === false && h.chainConclusion && h.chainConclusion !== 'NOT_FOUND_ON_CHAIN' && (
+                                                    <span className="text-[10px] text-red-600 bg-red-50 px-1.5 py-0.5 rounded ml-1 font-semibold">✗ Mismatch</span>
+                                                )}
+                                                {h.chainVerified === false && h.chainConclusion === 'NOT_FOUND_ON_CHAIN' && (
+                                                    <span className="text-[10px] text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded ml-1 font-semibold">Not Found</span>
+                                                )}
+                                                {h.chainVerified == null && (
+                                                    <span className="text-[10px] text-emerald-500 ml-1">On-chain</span>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -850,19 +911,21 @@ function DeclineModal({ task, onClose, onDone }) {
 
 const TASK_FILTER = [
     { id: 'open',      label: 'Open',      icon: Inbox },
+    { id: 'accepted',  label: 'Accepted',  icon: ClipboardList },
     { id: 'completed', label: 'Completed', icon: CheckCircle },
 ];
 
-function TaskCard({ task, onAudit, onReview, view }) {
+function TaskCard({ task, onAccept, onDecline, onAudit, onReview, view, accepting }) {
     const c = task.campaign || {};
     const progress = c.goalAmount > 0 ? Math.min(100, c.currentAmount / c.goalAmount * 100) : 0;
+
+    const dotColor = view === 'completed' ? 'bg-emerald-400' : view === 'accepted' ? 'bg-blue-400' : 'bg-amber-400';
 
     return (
         <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
             <div className="px-5 py-4">
                 <div className="flex items-start gap-3">
-                    <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${
-                        view === 'completed' ? 'bg-emerald-400' : 'bg-amber-400'}`}/>
+                    <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${dotColor}`}/>
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-sm font-semibold text-gray-800">{c.title}</p>
@@ -882,6 +945,19 @@ function TaskCard({ task, onAudit, onReview, view }) {
                 <div className="mt-3 flex items-center gap-2 flex-wrap">
                     {view === 'open' && (
                         <>
+                            <button onClick={() => onAccept(task)} disabled={accepting}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-500 transition-colors disabled:opacity-50">
+                                {accepting ? <Loader2 size={12} className="animate-spin"/> : <UserCheck size={12}/>}
+                                Accept Task
+                            </button>
+                            <button onClick={() => onDecline(task)}
+                                className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-50 transition-colors">
+                                <Ban size={12}/>Decline
+                            </button>
+                        </>
+                    )}
+                    {view === 'accepted' && (
+                        <>
                             <button onClick={() => onReview(task)}
                                 className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-500 transition-colors">
                                 <FolderOpen size={12}/>Review Materials
@@ -889,6 +965,10 @@ function TaskCard({ task, onAudit, onReview, view }) {
                             <button onClick={() => onAudit(c)}
                                 className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-500 transition-colors">
                                 <Shield size={12}/>Submit Audit
+                            </button>
+                            <button onClick={() => onDecline(task)}
+                                className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-50 transition-colors">
+                                <Ban size={12}/>Decline
                             </button>
                         </>
                     )}
@@ -911,18 +991,30 @@ function TaskInboxTab() {
     const [tasks, setTasks]           = useState([]);
     const [loading, setLoading]       = useState(true);
     const [error, setError]           = useState('');
+    const [accepting, setAccepting]   = useState(null);
     const [auditTarget, setAuditTarget]     = useState(null);
     const [reviewTarget, setReviewTarget]   = useState(null);
+    const [declineTarget, setDeclineTarget] = useState(null);
 
     const load = useCallback(async () => {
         setLoading(true); setError('');
         try {
-            const fn = view === 'open' ? partnerAPI.getOpenTasks : partnerAPI.getCompletedTasks;
-            setTasks(await fn());
+            const loaders = { open: partnerAPI.getOpenTasks, accepted: partnerAPI.getMyTasks, completed: partnerAPI.getCompletedTasks };
+            setTasks(await (loaders[view] || loaders.open)());
         } catch (e) { setError(e.message); } finally { setLoading(false); }
     }, [view]);
 
     useEffect(() => { load(); }, [load]);
+
+    const handleAccept = async (task) => {
+        setAccepting(task.id); setError('');
+        try {
+            await partnerAPI.acceptTask(task.id);
+            setView('accepted');
+        } catch (e) { setError(e.message); } finally { setAccepting(null); }
+    };
+
+    const emptyMsg = { open: 'No open audit tasks at the moment.', accepted: 'No accepted tasks yet.', completed: 'No completed tasks yet.' };
 
     return (
         <div className="space-y-5">
@@ -949,9 +1041,7 @@ function TaskInboxTab() {
             ) : tasks.length === 0 ? (
                 <div className="bg-white border border-gray-100 rounded-xl py-16 text-center">
                     <Inbox size={32} className="text-gray-200 mx-auto mb-3"/>
-                    <p className="text-sm text-gray-400">
-                        {view === 'open' ? 'No open audit tasks at the moment.' : 'No completed tasks yet.'}
-                    </p>
+                    <p className="text-sm text-gray-400">{emptyMsg[view]}</p>
                 </div>
             ) : (
                 <div className="space-y-3">
@@ -961,6 +1051,9 @@ function TaskInboxTab() {
                             key={task.id}
                             task={task}
                             view={view}
+                            accepting={accepting === task.id}
+                            onAccept={handleAccept}
+                            onDecline={setDeclineTarget}
                             onAudit={setAuditTarget}
                             onReview={setReviewTarget}
                         />
@@ -978,6 +1071,9 @@ function TaskInboxTab() {
                     onClose={() => setReviewTarget(null)}
                     onAuditDone={load}
                 />
+            )}
+            {declineTarget && (
+                <DeclineModal task={declineTarget} onClose={() => setDeclineTarget(null)} onDone={load}/>
             )}
         </div>
     );
@@ -1047,8 +1143,7 @@ function ProfileTab() {
                     {[
                         { label: 'Organisation Name', key: 'orgName', placeholder: 'e.g. Global Audit Partners Ltd.' },
                         { label: 'Credential / License Number', key: 'credentialNumber', placeholder: 'e.g. REG-2024-XXXXX' },
-                        { label: 'Username',  key: '_username',  static: profile?.username },
-                        { label: 'Account ID', key: '_id', static: `#${profile?.userId}` },
+                        { label: 'Email',  key: '_username',  static: profile?.username },
                     ].map(field => (
                         <div key={field.key}>
                             <p className="text-xs font-medium text-gray-500 mb-1">{field.label}</p>
@@ -1063,6 +1158,7 @@ function ProfileTab() {
                             )}
                         </div>
                     ))}
+                    <PasswordChangeField />
                 </div>
             </div>
 
@@ -1094,6 +1190,7 @@ function ProfileTab() {
                         </div>
                     )}
                 </div>
+
 
                 {/* Org2 identity status */}
                 <div className="mt-5 pt-5 border-t border-gray-100">
@@ -1166,7 +1263,13 @@ function MyRecordsTab() {
                             )}
                             {r.onChain && r.blockchainAuditId && (
                                 <span className="flex items-center gap-1 text-emerald-500 font-medium">
-                                    <Link2 size={10}/>{r.blockchainAuditId}
+                                    <Link2 size={10}/><span className="font-mono">{r.blockchainAuditId}</span>
+                                    <span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded text-[10px] font-semibold ml-1">On-Chain</span>
+                                </span>
+                            )}
+                            {!r.onChain && (
+                                <span className="flex items-center gap-1 text-gray-400">
+                                    <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">Off-Chain</span>
                                 </span>
                             )}
                         </div>

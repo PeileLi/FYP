@@ -52,7 +52,7 @@ public class CampaignService {
             userRepository.save(user);
         }
         
-        // Save to blockchain if enabled
+        // Save to blockchain — status = PENDING_REVIEW, awaiting third-party audit
         try {
             if (fabricGatewayService.isEnabled()) {
                 String initiator = user.getUsername();
@@ -61,7 +61,7 @@ public class CampaignService {
                 
                 String txId = fabricGatewayService.createCampaign(
                         initiator, goalAmount,
-                        "",
+                        "THIRD_PARTY",
                         "",
                         dataHash);
                 
@@ -130,15 +130,13 @@ public class CampaignService {
         // Check if goal reached
         if (newAmount.compareTo(campaign.getGoalAmount()) >= 0) {
             campaign.setStatus("COMPLETED");
-            // Set completion time when goal is reached
             if (campaign.getCompletedAt() == null) {
                 campaign.setCompletedAt(java.time.LocalDateTime.now());
             }
             
-            // Update status on blockchain using the stored blockchain campaign ID
             try {
-                String bcId = resolveBlockchainCampaignId(campaign);
-                if (fabricGatewayService.isEnabled() && bcId != null) {
+                String bcId = ensureBlockchainRecord(campaign);
+                if (bcId != null) {
                     fabricGatewayService.updateCampaignStatus(bcId, "COMPLETED");
                 }
             } catch (Exception e) {
@@ -184,10 +182,9 @@ public class CampaignService {
             campaign.setCompletedAt(java.time.LocalDateTime.now());
         }
         
-        // Update status on blockchain (SUSPENDED for closed campaigns)
         try {
-            String bcId = resolveBlockchainCampaignId(campaign);
-            if (fabricGatewayService.isEnabled() && bcId != null) {
+            String bcId = ensureBlockchainRecord(campaign);
+            if (bcId != null) {
                 fabricGatewayService.updateCampaignStatus(bcId, "SUSPENDED");
             }
         } catch (Exception e) {
@@ -199,6 +196,30 @@ public class CampaignService {
     }
 
     /**
+     * Syncs the full campaign data (goalAmount, dataHash) to blockchain using
+     * the UpdateCampaign chaincode function, which archives the old version.
+     * Call this whenever campaign detail fields change after initial creation.
+     */
+    @Transactional
+    public void syncCampaignDataToBlockchain(Campaign campaign) {
+        String chainId = resolveBlockchainCampaignId(campaign);
+        if (chainId == null || !fabricGatewayService.isEnabled()) return;
+
+        try {
+            String newDataHash = computeCampaignDataHash(campaign);
+            fabricGatewayService.updateCampaign(
+                    chainId,
+                    campaign.getGoalAmount().doubleValue(),
+                    "THIRD_PARTY",
+                    "",
+                    newDataHash);
+            log.info("Campaign {} data synced to blockchain (dataHash updated)", campaign.getId());
+        } catch (Exception e) {
+            log.warn("Failed to sync campaign {} data to blockchain: {}", campaign.getId(), e.getMessage());
+        }
+    }
+
+    /**
      * Resolve the blockchain campaign ID for a given campaign.
      * Uses the dedicated blockchainCampaignId field.
      */
@@ -206,7 +227,47 @@ public class CampaignService {
         if (campaign.getBlockchainCampaignId() != null && !campaign.getBlockchainCampaignId().isEmpty()) {
             return campaign.getBlockchainCampaignId();
         }
-        return null; // Campaign not recorded on blockchain
+        return null;
+    }
+
+    /**
+     * Ensures a campaign has a blockchain record. If the campaign was created
+     * when blockchain was unavailable, this creates the record retroactively.
+     * Returns the blockchain campaign ID, or null if blockchain is disabled.
+     */
+    @Transactional
+    public String ensureBlockchainRecord(Campaign campaign) {
+        String existing = resolveBlockchainCampaignId(campaign);
+        if (existing != null) {
+            return existing;
+        }
+
+        if (!fabricGatewayService.isEnabled()) {
+            return null;
+        }
+
+        try {
+            String initiator = campaign.getOrganizer() != null
+                    ? campaign.getOrganizer().getUsername() : "unknown";
+            double goalAmount = campaign.getGoalAmount().doubleValue();
+            String dataHash = computeCampaignDataHash(campaign);
+
+            String txId = fabricGatewayService.createCampaign(
+                    initiator, goalAmount, "THIRD_PARTY", "", dataHash);
+
+            if (txId != null && !txId.isEmpty()) {
+                campaign.setBlockchainCampaignId(txId);
+                campaign.setBlockchainTxId(txId);
+                campaignRepository.save(campaign);
+                log.info("Retroactively recorded campaign {} on blockchain: txId={}",
+                        campaign.getId(), txId);
+                return txId;
+            }
+        } catch (Exception e) {
+            log.error("Failed to retroactively record campaign {} on blockchain: {}",
+                    campaign.getId(), e.getMessage());
+        }
+        return null;
     }
 
     /**

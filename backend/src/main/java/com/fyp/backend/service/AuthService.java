@@ -43,7 +43,7 @@ public class AuthService {
         @Transactional
         public AuthResponse register(RegisterRequest request) {
                 if (userRepository.existsByUsername(request.getUsername())) {
-                        throw new RuntimeException("Username already exists");
+                        throw new RuntimeException("Email already exists");
                 }
 
                 String displayName = generateUniqueDisplayName();

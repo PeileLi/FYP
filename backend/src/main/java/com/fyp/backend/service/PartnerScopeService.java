@@ -47,10 +47,11 @@ public class PartnerScopeService {
         if (task.isEmpty()) return ScopeLevel.NONE;
 
         AuditTask t = task.get();
-        if (t.getStatus() == AuditTask.Status.COMPLETED) {
-            return ScopeLevel.NONE;
+        if (t.getStatus() == AuditTask.Status.ACCEPTED
+                && partner != null && partner.equals(t.getAssignedPartner())) {
+            return ScopeLevel.FULL_ACCESS;
         }
-        return ScopeLevel.FULL_ACCESS;
+        return ScopeLevel.NONE;
     }
 
     public void requireFullAccess(Long campaignId) {

@@ -785,6 +785,8 @@ function DonationChainSection({ campaign, donations, formatAmount, formatDate })
       sub: d.message || null,
       amount: d.amount,
       time: d.date,
+      onChain: d.onChain,
+      verificationStatus: d.blockchainVerificationStatus,
     })),
   ];
 
@@ -915,7 +917,7 @@ function DonationChainSection({ campaign, donations, formatAmount, formatDate })
                             </code>
                           </div>
 
-                          {/* Amount + Date row */}
+                          {/* Amount + Date + Verification row */}
                           <div className="px-3 py-2 flex gap-6">
                             {block.amount !== null && (
                               <div>
@@ -927,6 +929,23 @@ function DonationChainSection({ campaign, donations, formatAmount, formatDate })
                               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Date</p>
                               <p className="text-gray-700">{block.time ? formatDate(block.time) : '—'}</p>
                             </div>
+                            {block.type === 'donation' && (
+                              <div>
+                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Chain Status</p>
+                                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${
+                                  block.verificationStatus === 'VERIFIED'
+                                    ? 'bg-emerald-100 text-emerald-600'
+                                    : block.verificationStatus === 'NOT_ON_CHAIN'
+                                      ? 'bg-gray-100 text-gray-500'
+                                      : 'bg-red-100 text-red-600'
+                                }`}>
+                                  {block.verificationStatus === 'VERIFIED' ? '✓ Verified' :
+                                   block.verificationStatus === 'NOT_ON_CHAIN' ? 'Off-Chain' :
+                                   block.verificationStatus === 'AMOUNT_MISMATCH' ? '✗ Mismatch' :
+                                   block.verificationStatus || '—'}
+                                </span>
+                              </div>
+                            )}
                           </div>
 
                           {/* Message (if any) */}

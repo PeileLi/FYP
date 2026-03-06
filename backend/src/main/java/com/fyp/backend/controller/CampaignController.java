@@ -55,11 +55,7 @@ public class CampaignController {
                 return ResponseEntity.ok(campaignService.getCampaignsByCategory(category));
             }
 
-            if ("active".equalsIgnoreCase(status)) {
-                return ResponseEntity.ok(campaignService.getAllActiveCampaigns());
-            }
-
-            return ResponseEntity.ok(campaignService.getAllCampaigns());
+            return ResponseEntity.ok(campaignService.getAllActiveCampaigns());
         } catch (RuntimeException e) {
             log.error("Failed to get campaigns: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

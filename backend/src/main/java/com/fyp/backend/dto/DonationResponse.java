@@ -24,5 +24,7 @@ public class DonationResponse {
     private LocalDateTime date;
     private String status;
     private String transactionHash; // Blockchain transaction ID
+    private Boolean onChain;
+    private String blockchainVerificationStatus; // VERIFIED | NOT_ON_CHAIN | VERIFICATION_FAILED
 }
 

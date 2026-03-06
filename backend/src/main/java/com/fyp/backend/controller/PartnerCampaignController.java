@@ -23,16 +23,4 @@ public class PartnerCampaignController {
         return ResponseEntity.ok(partnerCampaignService.getCampaigns(status));
     }
 
-    @PostMapping("/{id}/endorse")
-    public ResponseEntity<Map<String, Object>> endorse(
-            @PathVariable Long id,
-            @RequestBody(required = false) Map<String, String> body) {
-        String note = body != null ? body.getOrDefault("note", "") : "";
-        return ResponseEntity.ok(partnerCampaignService.endorse(id, note));
-    }
-
-    @PostMapping("/{id}/revoke-endorsement")
-    public ResponseEntity<Map<String, Object>> revokeEndorsement(@PathVariable Long id) {
-        return ResponseEntity.ok(partnerCampaignService.revokeEndorsement(id));
-    }
 }

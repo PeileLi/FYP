@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Calendar, Loader, X, Award, Copy, Check, Shield } from 'lucide-react';
+import { Heart, Calendar, Loader, X, Award, Copy, Check, Shield, ShieldCheck, ShieldAlert, ShieldOff } from 'lucide-react';
 import { donationAPI } from '@/utils/api';
 
 export default function DonationHistory() {
@@ -122,9 +122,36 @@ export default function DonationHistory() {
 
                     {/* Blockchain Footer */}
                     <div className="bg-gray-50 border-t border-gray-100 px-8 py-5">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Shield size={14} className="text-emerald-600" />
-                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Blockchain Record</span>
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <Shield size={14} className="text-emerald-600" />
+                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Blockchain Record</span>
+                            </div>
+                            {donation.blockchainVerificationStatus === 'VERIFIED' && (
+                                <span className="flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full">
+                                    <ShieldCheck size={12} /> Verified
+                                </span>
+                            )}
+                            {donation.blockchainVerificationStatus === 'NOT_ON_CHAIN' && (
+                                <span className="flex items-center gap-1 text-xs font-semibold text-gray-500 bg-gray-200 px-2.5 py-1 rounded-full">
+                                    <ShieldOff size={12} /> Not On-Chain
+                                </span>
+                            )}
+                            {donation.blockchainVerificationStatus === 'AMOUNT_MISMATCH' && (
+                                <span className="flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-100 px-2.5 py-1 rounded-full">
+                                    <ShieldAlert size={12} /> Amount Mismatch
+                                </span>
+                            )}
+                            {donation.blockchainVerificationStatus === 'NOT_FOUND_ON_CHAIN' && (
+                                <span className="flex items-center gap-1 text-xs font-semibold text-orange-600 bg-orange-100 px-2.5 py-1 rounded-full">
+                                    <ShieldAlert size={12} /> Not Found
+                                </span>
+                            )}
+                            {donation.blockchainVerificationStatus === 'VERIFICATION_FAILED' && (
+                                <span className="flex items-center gap-1 text-xs font-semibold text-yellow-700 bg-yellow-100 px-2.5 py-1 rounded-full">
+                                    <ShieldAlert size={12} /> Check Failed
+                                </span>
+                            )}
                         </div>
                         {donation.transactionHash ? (
                             <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2.5">
@@ -204,8 +231,25 @@ export default function DonationHistory() {
                             <div className="flex items-center gap-4 pl-14 sm:pl-0">
                                 <div className="text-right">
                                     <div className="font-bold text-emerald-600">€{donation.amount.toLocaleString()}</div>
-                                    <div className="text-xs text-gray-500 uppercase tracking-wide bg-gray-100 px-2 py-0.5 rounded-full inline-block mt-1">
-                                        {donation.status}
+                                    <div className="flex items-center gap-1.5 mt-1 justify-end">
+                                        <span className="text-xs text-gray-500 uppercase tracking-wide bg-gray-100 px-2 py-0.5 rounded-full">
+                                            {donation.status}
+                                        </span>
+                                        {donation.blockchainVerificationStatus === 'VERIFIED' && (
+                                            <span className="flex items-center gap-0.5 text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                                <ShieldCheck size={12} /> On-Chain
+                                            </span>
+                                        )}
+                                        {donation.blockchainVerificationStatus === 'NOT_ON_CHAIN' && (
+                                            <span className="flex items-center gap-0.5 text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">
+                                                <ShieldOff size={12} /> Off-Chain
+                                            </span>
+                                        )}
+                                        {(donation.blockchainVerificationStatus === 'AMOUNT_MISMATCH' || donation.blockchainVerificationStatus === 'NOT_FOUND_ON_CHAIN') && (
+                                            <span className="flex items-center gap-0.5 text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                                                <ShieldAlert size={12} /> Mismatch
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <Award size={18} className="text-gray-300" />

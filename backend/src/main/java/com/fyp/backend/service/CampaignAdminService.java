@@ -19,6 +19,7 @@ public class CampaignAdminService {
     private final CampaignRepository campaignRepository;
     private final DonationRepository donationRepository;
     private final FabricGatewayService fabricGatewayService;
+    private final CampaignService campaignService;
 
     public List<Map<String, Object>> getAllCampaigns(String status, String keyword) {
         List<Campaign> campaigns;
@@ -53,27 +54,41 @@ public class CampaignAdminService {
 
         campaignRepository.save(campaign);
 
-        // Sync to blockchain
+        // Sync to blockchain — create record retroactively if missing, then update
         if (fabricGatewayService.isEnabled()) {
-            String chainId = campaign.getBlockchainCampaignId() != null
-                    ? campaign.getBlockchainCampaignId()
-                    : campaign.getBlockchainTxId();
+            String chainId = campaignService.ensureBlockchainRecord(campaign);
             if (chainId != null) {
                 String ts = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
                 try {
+                    campaignService.syncCampaignDataToBlockchain(campaign);
+
                     if ("ACTIVE".equals(newStatus)) {
-                        // ApproveCampaign enforces: latest review must be APPROVED (Org2MSP)
-                        fabricGatewayService.approveCampaign(chainId, "admin", ts);
-                        log.info("ApproveCampaign chaincode called for campaign {}", campaignId);
+                        try {
+                            fabricGatewayService.approveCampaign(chainId, "admin", ts);
+                            log.info("ApproveCampaign chaincode called for campaign {}", campaignId);
+                        } catch (Exception approveEx) {
+                            log.error("ApproveCampaign failed — reverting DB status for campaign {}: {}",
+                                    campaignId, approveEx.getMessage());
+                            campaign.setStatus(oldStatus);
+                            campaign.setUpdatedAt(LocalDateTime.now());
+                            campaignRepository.save(campaign);
+                            throw new RuntimeException(
+                                    "Cannot approve campaign: blockchain ApproveCampaign failed (latest audit must be APPROVED). " +
+                                    approveEx.getMessage());
+                        }
                     } else {
                         String bcStatus = switch (newStatus) {
+                            case "PENDING"   -> "PENDING_REVIEW";
                             case "SUSPENDED" -> "SUSPENDED";
                             case "COMPLETED" -> "COMPLETED";
+                            case "CLOSED"    -> "SUSPENDED";
                             default          -> newStatus;
                         };
                         fabricGatewayService.updateCampaignStatus(chainId, bcStatus);
                         log.info("Blockchain status updated for campaign {}: {}", campaignId, bcStatus);
                     }
+                } catch (RuntimeException re) {
+                    throw re;
                 } catch (Exception e) {
                     log.warn("Blockchain sync failed for campaign {} status={}: {}", campaignId, newStatus, e.getMessage());
                 }

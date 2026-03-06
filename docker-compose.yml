@@ -52,12 +52,12 @@ services:
       FABRIC_PEER_ENDPOINT: ${FABRIC_PEER_ENDPOINT:-peer0.org1.example.com:7051}
       FABRIC_PEER_HOST_ALIAS: ${FABRIC_PEER_HOST_ALIAS:-peer0.org1.example.com}
       # Use paths inside container (mounted volumes)
-      FABRIC_CERT_PATH: ${FABRIC_CERT_PATH:-/fabric/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem}
+      FABRIC_CERT_PATH: ${FABRIC_CERT_PATH:-/fabric/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts}
       FABRIC_KEY_PATH: ${FABRIC_KEY_PATH:-/fabric/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore}
       FABRIC_TLS_CERT_PATH: ${FABRIC_TLS_CERT_PATH:-/fabric/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt}
       # Org2 (Third-party auditor) credentials for SubmitReviewResult MSP gate
       FABRIC_ORG2_MSP_ID: ${FABRIC_ORG2_MSP_ID:-Org2MSP}
-      FABRIC_ORG2_CERT_PATH: ${FABRIC_ORG2_CERT_PATH:-/fabric/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp/signcerts/cert.pem}
+      FABRIC_ORG2_CERT_PATH: ${FABRIC_ORG2_CERT_PATH:-/fabric/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp/signcerts}
       FABRIC_ORG2_KEY_PATH: ${FABRIC_ORG2_KEY_PATH:-/fabric/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp/keystore}
       FABRIC_ORG2_TLS_CERT_PATH: ${FABRIC_ORG2_TLS_CERT_PATH:-/fabric/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt}
       FABRIC_ORG2_PEER_ENDPOINT: ${FABRIC_ORG2_PEER_ENDPOINT:-peer0.org2.example.com:9051}

@@ -64,12 +64,12 @@ logging:
 fabric:
   enabled: ${FABRIC_ENABLED:true}
   channel-name: ${FABRIC_CHANNEL_NAME:mychannel}
-  chaincode-name: ${FABRIC_CHAINCODE_NAME:donation}
+  chaincode-name: ${FABRIC_CHAINCODE_NAME:smartcontract}
   # Org1 (Platform)
   msp-id: ${FABRIC_MSP_ID:Org1MSP}
   peer-endpoint: ${FABRIC_PEER_ENDPOINT:peer0.org1.example.com:7051}
   peer-host-alias: ${FABRIC_PEER_HOST_ALIAS:peer0.org1.example.com}
-  cert-path: ${FABRIC_CERT_PATH:/fabric/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem}
+  cert-path: ${FABRIC_CERT_PATH:/fabric/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts}
   key-path: ${FABRIC_KEY_PATH:/fabric/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore}
   tls-cert-path: ${FABRIC_TLS_CERT_PATH:/fabric/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt}
   # Org2 (Third-party auditor) — required for SubmitReviewResult MSP gate

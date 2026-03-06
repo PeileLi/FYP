@@ -219,17 +219,17 @@ const apiRequest = async (endpoint, options = {}) => {
 
 // Auth API
 export const authAPI = {
-    login: async (username, password) => {
+    login: async (email, password) => {
         return publicApiRequest('/auth/login', {
             method: 'POST',
-            body: JSON.stringify({ username, password }),
+            body: JSON.stringify({ username: email, password }),
         });
     },
 
-    register: async (username, password) => {
+    register: async (email, password) => {
         return publicApiRequest('/auth/register', {
             method: 'POST',
-            body: JSON.stringify({ username, password }),
+            body: JSON.stringify({ username: email, password }),
         });
     },
 };
@@ -253,6 +253,13 @@ export const userAPI = {
         return apiRequest('/user/profile', {
             method: 'PUT',
             body: JSON.stringify({ avatarUrl }),
+        });
+    },
+
+    changePassword: async (newPassword) => {
+        return apiRequest('/user/password', {
+            method: 'PUT',
+            body: JSON.stringify({ newPassword }),
         });
     },
 };
@@ -401,11 +408,6 @@ export const partnerAPI = {
         const q = status ? `?status=${status}` : '';
         return apiRequest(`/partner/campaigns${q}`, { method: 'GET' });
     },
-    endorse: (id, note) => apiRequest(`/partner/campaigns/${id}/endorse`, {
-        method: 'POST',
-        body: JSON.stringify({ note }),
-    }),
-    revokeEndorsement: (id) => apiRequest(`/partner/campaigns/${id}/revoke-endorsement`, { method: 'POST' }),
     // Audit API
     getAuditCampaigns: (auditStatus) => {
         const q = auditStatus ? `?auditStatus=${auditStatus}` : '';

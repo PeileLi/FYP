@@ -12,7 +12,7 @@ import {
 import { authAPI, setToken, setUser } from '@/utils/api';
 
 export default function Register() {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -28,14 +28,8 @@ export default function Register() {
         setSuccess('');
         setIsLoading(true);
 
-        if (username.length < 3) {
-            setError('Username must be at least 3 characters');
-            setIsLoading(false);
-            return;
-        }
-
-        if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-            setError('Username can only contain letters, numbers and underscores');
+        if (email.length < 3) {
+            setError('Email must be at least 3 characters');
             setIsLoading(false);
             return;
         }
@@ -53,7 +47,7 @@ export default function Register() {
         }
 
         try {
-            const response = await authAPI.register(username, password);
+            const response = await authAPI.register(email, password);
 
             setToken(response.token);
             setUser({
@@ -108,23 +102,22 @@ export default function Register() {
                     )}
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Username</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
                         <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <User className="h-5 w-5 text-gray-400" />
                             </div>
                             <input
                                 type="text"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                                 required
                                 minLength={3}
-                                maxLength={30}
+                                maxLength={50}
                                 className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:border-transparent transition-all"
-                                placeholder="Choose a username"
+                                placeholder="Enter your email"
                             />
                         </div>
-                        <p className="mt-1 text-xs text-gray-500">3-30 characters, letters, numbers and underscores only</p>
                     </div>
 
                     <div>

@@ -14,4 +14,5 @@ public interface CampaignAuditRepository extends JpaRepository<CampaignAudit, Lo
     List<CampaignAudit> findByCampaignOrderByCreatedAtDesc(Campaign campaign);
     Optional<CampaignAudit> findTopByCampaignOrderByCreatedAtDesc(Campaign campaign);
     List<CampaignAudit> findByAuditorOrderByCreatedAtDesc(User auditor);
+    long countByAuditor(User auditor);
 }

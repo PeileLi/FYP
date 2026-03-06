@@ -120,7 +120,7 @@ export default function PartnerApply() {
                             <div className="relative">
                                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                 <input
-                                    type="email"
+                                    type="text"
                                     name="email"
                                     value={form.email}
                                     onChange={handleChange}

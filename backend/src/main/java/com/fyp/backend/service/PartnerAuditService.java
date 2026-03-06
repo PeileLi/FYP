@@ -34,6 +34,7 @@ public class PartnerAuditService {
     private final UserRepository userRepository;
     private final FabricGatewayService fabricGatewayService;
     private final PartnerFabricGatewayService partnerFabricGatewayService;
+    private final CampaignService campaignService;
     private final AuditTaskService auditTaskService;
     private final AuditTaskRepository auditTaskRepository;
     private final PartnerScopeService scopeService;
@@ -124,9 +125,7 @@ public class PartnerAuditService {
                 .build();
 
         String blockchainAuditId = null;
-        String campaignChainId = campaign.getBlockchainCampaignId() != null
-                ? campaign.getBlockchainCampaignId()
-                : campaign.getBlockchainTxId();
+        String campaignChainId = campaignService.ensureBlockchainRecord(campaign);
         try {
             if (campaignChainId != null) {
                 if (partnerFabricGatewayService.isOrg2Ready()) {
@@ -161,14 +160,18 @@ public class PartnerAuditService {
                 fabricGatewayService.approveCampaign(campaignChainId, partner.getDisplayName(), timestamp);
                 log.info("Campaign {} approved on-chain after partner audit", campaignId);
             } catch (Exception e) {
-                log.warn("Failed to approve campaign on blockchain (DB status already updated): {}", e.getMessage());
+                log.warn("ApproveCampaign failed — reverting DB status for campaign {}: {}", campaignId, e.getMessage());
+                campaign.setStatus("PENDING");
+                campaignRepository.save(campaign);
             }
         }
 
         auditRepository.save(audit);
 
-        try { auditTaskService.completeTaskForCampaign(campaignId, partner); } catch (Exception e) {
-            log.warn("Could not mark audit task as completed: {}", e.getMessage());
+        if (!"REQUIRES_INFO".equals(conclusion)) {
+            try { auditTaskService.completeTaskForCampaign(campaignId, partner); } catch (Exception e) {
+                log.warn("Could not mark audit task as completed: {}", e.getMessage());
+            }
         }
 
         return toAuditMap(audit, campaign);
@@ -177,8 +180,60 @@ public class PartnerAuditService {
     public List<Map<String, Object>> getAuditHistory(Long campaignId) {
         Campaign campaign = campaignRepository.findById(campaignId)
                 .orElseThrow(() -> new RuntimeException("Campaign not found: " + campaignId));
-        return auditRepository.findByCampaignOrderByCreatedAtDesc(campaign)
+
+        List<Map<String, Object>> dbRecords = auditRepository
+                .findByCampaignOrderByCreatedAtDesc(campaign)
                 .stream().map(a -> toAuditMap(a, campaign)).toList();
+
+        // Cross-check with on-chain audit records when available
+        String chainId = CampaignService.resolveBlockchainCampaignId(campaign);
+        if (chainId != null && fabricGatewayService.isEnabled()) {
+            try {
+                String chainReviews = fabricGatewayService.queryReviews(chainId);
+                if (chainReviews != null && !chainReviews.isBlank()) {
+                    var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    var chainNodes = mapper.readTree(chainReviews);
+                    int chainCount = chainNodes.isArray() ? chainNodes.size() : 0;
+
+                    for (Map<String, Object> rec : dbRecords) {
+                        String bcAuditId = (String) rec.get("blockchainAuditId");
+                        if (bcAuditId != null && chainNodes.isArray()) {
+                            boolean foundOnChain = false;
+                            for (var node : chainNodes) {
+                                if (bcAuditId.equals(node.path("auditId").asText(""))) {
+                                    foundOnChain = true;
+                                    String chainConclusion = node.path("conclusion").asText("");
+                                    String dbConclusion = (String) rec.get("conclusion");
+                                    rec.put("chainVerified", chainConclusion.equals(dbConclusion));
+                                    rec.put("chainConclusion", chainConclusion);
+                                    break;
+                                }
+                            }
+                            if (!foundOnChain) {
+                                rec.put("chainVerified", false);
+                                rec.put("chainConclusion", "NOT_FOUND_ON_CHAIN");
+                            }
+                        } else {
+                            rec.put("chainVerified", false);
+                            rec.put("chainConclusion", null);
+                        }
+                    }
+
+                    // Append summary of on-chain count vs DB count
+                    long dbOnChainCount = dbRecords.stream()
+                            .filter(r -> r.get("blockchainAuditId") != null).count();
+                    if (chainCount != dbOnChainCount) {
+                        log.warn("Audit record count mismatch for campaign {}: chain={}, dbOnChain={}",
+                                campaignId, chainCount, dbOnChainCount);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to cross-check audit history with blockchain for campaign {}: {}",
+                        campaignId, e.getMessage());
+            }
+        }
+
+        return dbRecords;
     }
 
     private Map<String, Object> toCampaignMap(Campaign c, CampaignAudit latestAudit) {

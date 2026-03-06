@@ -16,7 +16,7 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-CHAINCODE_NAME="${1:-donation}"
+CHAINCODE_NAME="${1:-smartcontract}"
 CHANNEL_NAME="${2:-mychannel}"
 CHAINCODE_PATH="${SCRIPT_DIR}"
 CHAINCODE_LANGUAGE="golang"

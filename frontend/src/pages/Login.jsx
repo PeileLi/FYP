@@ -11,7 +11,7 @@ import {
 import { authAPI, setToken, setUser } from '@/utils/api';
 
 export default function Login() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +27,7 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const response = await authAPI.login(username, password);
+      const response = await authAPI.login(email, password);
 
       setToken(response.token);
       setUser({
@@ -40,7 +40,7 @@ export default function Login() {
 
       navigate(from, { replace: true });
     } catch (error) {
-      setError(error.message || 'Invalid username or password. Please try again.');
+      setError(error.message || 'Invalid email or password. Please try again.');
       console.error('Login error:', error);
     } finally {
       setIsLoading(false);
@@ -71,18 +71,18 @@ export default function Login() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Username</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <User className="h-5 w-5 text-gray-400" />
               </div>
               <input
                 type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:border-transparent transition-all"
-                placeholder="Enter your username"
+                placeholder="Enter your email"
               />
             </div>
           </div>

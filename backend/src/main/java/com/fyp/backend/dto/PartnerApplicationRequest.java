@@ -1,6 +1,5 @@
 package com.fyp.backend.dto;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
@@ -11,10 +10,7 @@ public class PartnerApplicationRequest {
     private String organizationName;
 
     @NotBlank
-    @Email
     private String email;
-
-    private String phone;
 
     @NotBlank
     private String description;

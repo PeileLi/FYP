@@ -154,7 +154,13 @@ public class AuditTaskService {
     public void completeTaskForCampaign(Long campaignId, User partner) {
         campaignRepo.findById(campaignId).ifPresent(campaign ->
             taskRepo.findByCampaign(campaign).ifPresent(task -> {
-                task.setAssignedPartner(partner);
+                if (task.getStatus() != Status.ACCEPTED) {
+                    throw new IllegalStateException(
+                            "Task must be ACCEPTED before completing (current: " + task.getStatus() + ")");
+                }
+                if (!partner.equals(task.getAssignedPartner())) {
+                    throw new SecurityException("Only the assigned partner can complete this task");
+                }
                 task.setStatus(Status.COMPLETED);
                 taskRepo.save(task);
             })

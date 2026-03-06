@@ -29,6 +29,8 @@ public class PartnerProfileService {
     private final CampaignAuditRepository auditRepository;
     private final UserRepository userRepository;
     private final FabricConfig fabricConfig;
+    private final FabricGatewayService fabricGatewayService;
+    private final PartnerFabricGatewayService partnerFabricGatewayService;
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -91,8 +93,40 @@ public class PartnerProfileService {
 
         Map<String, Object> certInfo = readOrg2CertInfo();
         m.put("systemCert", certInfo);
-
         m.put("partnerCertSerial", profile.getCertSerial());
+
+        // Live blockchain sync: verify connection and get network state
+        Map<String, Object> liveStatus = new LinkedHashMap<>();
+        liveStatus.put("org1Connected", fabricGatewayService.isEnabled());
+        liveStatus.put("org2Connected", partnerFabricGatewayService.isOrg2Ready());
+
+        if (fabricGatewayService.isEnabled()) {
+            try {
+                var network = fabricGatewayService.getNetwork();
+                if (network != null) {
+                    var qscc = network.getContract("qscc");
+                    byte[] info = qscc.evaluateTransaction("GetChainInfo", fabricConfig.getChannelName());
+                    var blockchainInfo = org.hyperledger.fabric.protos.common.BlockchainInfo.parseFrom(info);
+                    liveStatus.put("blockHeight", blockchainInfo.getHeight());
+                    liveStatus.put("networkVerified", true);
+                }
+            } catch (Exception e) {
+                log.warn("Could not query live blockchain info for partner profile: {}", e.getMessage());
+                liveStatus.put("networkVerified", false);
+                liveStatus.put("networkError", e.getMessage());
+            }
+        } else {
+            liveStatus.put("networkVerified", false);
+        }
+
+        // Count partner's on-chain audit records
+        long totalAudits = auditRepository.countByAuditor(partner);
+        long onChainAudits = auditRepository.findByAuditorOrderByCreatedAtDesc(partner).stream()
+                .filter(a -> a.getBlockchainAuditId() != null).count();
+        liveStatus.put("totalAuditRecords", totalAudits);
+        liveStatus.put("onChainAuditRecords", onChainAudits);
+
+        m.put("liveStatus", liveStatus);
 
         return m;
     }
@@ -171,8 +205,7 @@ public class PartnerProfileService {
         try {
             String org2Cert = fabricConfig.getOrg2CertPath();
             if (org2Cert == null || org2Cert.isBlank()) return info;
-            Path certPath = Paths.get(org2Cert);
-            if (!Files.exists(certPath)) return info;
+            Path certPath = FabricGatewayService.resolveCertPath(Paths.get(org2Cert));
 
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
             X509Certificate cert;
