@@ -84,7 +84,7 @@ type CampaignApprovalRecord struct {
 type Donation struct {
 	DonationID     string  `json:"donationId"`     // Unique identifier
 	CampaignID     string  `json:"campaignId"`     // Associated campaign
-	Amount         float64 `json:"amount"`          // Donation amount
+	Amount         float64 `json:"amount"`         // Donation amount
 	DonorHash      string  `json:"donorHash"`      // Anonymized donor identity (SHA-256 of real ID)
 	DonatedAt      string  `json:"donatedAt"`      // Timestamp
 	PaymentRefHash string  `json:"paymentRefHash"` // Optional: SHA-256 of off-chain payment receipt/order
