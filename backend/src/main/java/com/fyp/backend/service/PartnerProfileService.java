@@ -33,8 +33,8 @@ public class PartnerProfileService {
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private User currentPartner() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByEmail(email)
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Partner not found"));
     }
 
@@ -156,7 +156,7 @@ public class PartnerProfileService {
     private Map<String, Object> buildProfileMap(User user, PartnerProfile profile) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("userId",           user.getId());
-        m.put("email",            user.getEmail());
+        m.put("username",         user.getUsername());
         m.put("displayName",      user.getDisplayName());
         m.put("orgName",          profile.getOrgName() != null ? profile.getOrgName() : user.getDisplayName());
         m.put("credentialNumber", profile.getCredentialNumber());

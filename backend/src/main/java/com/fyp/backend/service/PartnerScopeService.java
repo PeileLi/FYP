@@ -29,8 +29,8 @@ public class PartnerScopeService {
     private final UserRepository      userRepo;
 
     public User currentPartner() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepo.findByEmail(email)
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepo.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Partner not found"));
     }
 

@@ -133,7 +133,7 @@ public class AdminDashboardService {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("id",          u.getId());
             entry.put("displayName", u.getDisplayName());
-            entry.put("email",       u.getEmail());
+            entry.put("username",    u.getUsername());
             entry.put("role",        u.getRole() != null ? u.getRole().name() : "USER");
             entry.put("createdAt",   u.getCreatedAt() != null ? u.getCreatedAt().toString() : "");
             recentUserList.add(entry);

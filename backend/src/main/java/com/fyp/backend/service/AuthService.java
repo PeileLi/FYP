@@ -28,9 +28,6 @@ public class AuthService {
         private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         private static final SecureRandom RANDOM = new SecureRandom();
 
-        /**
-         * Generate a unique random display name
-         */
         private String generateUniqueDisplayName() {
                 String displayName;
                 do {
@@ -45,15 +42,14 @@ public class AuthService {
 
         @Transactional
         public AuthResponse register(RegisterRequest request) {
-                if (userRepository.existsByEmail(request.getEmail())) {
-                        throw new RuntimeException("Email already exists");
+                if (userRepository.existsByUsername(request.getUsername())) {
+                        throw new RuntimeException("Username already exists");
                 }
 
-                // Generate a unique random display name
                 String displayName = generateUniqueDisplayName();
 
                 User user = User.builder()
-                                .email(request.getEmail())
+                                .username(request.getUsername())
                                 .displayName(displayName)
                                 .password(passwordEncoder.encode(request.getPassword()))
                                 .role(User.Role.USER)
@@ -67,7 +63,7 @@ public class AuthService {
                 return AuthResponse.builder()
                                 .token(token)
                                 .id(user.getId())
-                                .email(user.getEmail())
+                                .username(user.getUsername())
                                 .displayName(user.getDisplayName())
                                 .avatarUrl(user.getAvatarUrl())
                                 .role(user.getRole().name())
@@ -77,10 +73,10 @@ public class AuthService {
         public AuthResponse login(LoginRequest request) {
                 authenticationManager.authenticate(
                                 new UsernamePasswordAuthenticationToken(
-                                                request.getEmail(),
+                                                request.getUsername(),
                                                 request.getPassword()));
 
-                User user = userRepository.findByEmail(request.getEmail())
+                User user = userRepository.findByUsername(request.getUsername())
                                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
                 String token = jwtUtil.generateToken(user);
@@ -88,7 +84,7 @@ public class AuthService {
                 return AuthResponse.builder()
                                 .token(token)
                                 .id(user.getId())
-                                .email(user.getEmail())
+                                .username(user.getUsername())
                                 .displayName(user.getDisplayName())
                                 .avatarUrl(user.getAvatarUrl())
                                 .role(user.getRole().name())

@@ -101,16 +101,7 @@ public class DonationAdminService {
         }
 
         try {
-            // Try to read the donation from blockchain
-            // Decode donation ID from transaction hash
-            String donationChainId = decodeDonationId(donation.getTransactionHash());
-            if (donationChainId == null) {
-                result.put("status", "HASH_DECODE_ERROR");
-                result.put("message", "Cannot decode blockchain ID from hash");
-                return result;
-            }
-
-            String chainData = fabricGatewayService.readDonation(donationChainId);
+            String chainData = fabricGatewayService.readDonation(donation.getTransactionHash());
             if (chainData != null && !chainData.isBlank()) {
                 result.put("status", "VERIFIED");
                 result.put("message", "Transaction verified on blockchain");
@@ -150,7 +141,7 @@ public class DonationAdminService {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", d.getId());
         m.put("displayName", d.getIsAnonymous() ? "Anonymous" : (d.getDisplayName() != null ? d.getDisplayName() : "—"));
-        m.put("donorEmail", d.getUser() != null ? d.getUser().getEmail() : "—");
+        m.put("donorUsername", d.getUser() != null ? d.getUser().getUsername() : "—");
         m.put("amount", d.getAmount());
         m.put("message", d.getMessage());
         m.put("anonymous", d.getIsAnonymous());
@@ -162,11 +153,6 @@ public class DonationAdminService {
         m.put("onChain", d.getTransactionHash() != null);
         m.put("transactionHash", d.getTransactionHash());
         return m;
-    }
-
-    private String decodeDonationId(String txHash) {
-        if (txHash == null || !txHash.startsWith("DON_")) return txHash;
-        return txHash;
     }
 
     private String csv(Object val) {

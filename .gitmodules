@@ -1,4 +1,4 @@
 [submodule "fabric/fabric-samples"]
 	path = fabric/fabric-samples
 	url = https://github.com/hyperledger/fabric-samples.git
-	branch = v2.5.14
+	branch = main

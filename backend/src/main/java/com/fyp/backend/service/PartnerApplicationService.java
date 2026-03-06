@@ -36,8 +36,8 @@ public class PartnerApplicationService {
         if (applicationRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("An application with this email already exists");
         }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("An account with this email already exists");
+        if (userRepository.existsByUsername(request.getEmail())) {
+            throw new RuntimeException("An account with this username already exists");
         }
 
         PartnerApplication application = PartnerApplication.builder()
@@ -78,8 +78,10 @@ public class PartnerApplicationService {
             throw new RuntimeException("Application has already been processed");
         }
 
-        if (userRepository.existsByEmail(application.getEmail())) {
-            throw new RuntimeException("An account with this email already exists");
+        String partnerUsername = application.getOrganizationName()
+                .toLowerCase().replaceAll("[^a-z0-9_]", "_").replaceAll("_+", "_");
+        if (userRepository.existsByUsername(partnerUsername)) {
+            throw new RuntimeException("Username '" + partnerUsername + "' already exists");
         }
 
         // Generate a temporary password if not provided
@@ -89,7 +91,7 @@ public class PartnerApplicationService {
 
         // Create PARTNER user account
         User partnerUser = User.builder()
-                .email(application.getEmail())
+                .username(partnerUsername)
                 .displayName(application.getOrganizationName())
                 .password(passwordEncoder.encode(rawPassword))
                 .role(User.Role.PARTNER)
@@ -104,7 +106,7 @@ public class PartnerApplicationService {
 
         return Map.of(
                 "message", "Application approved and account created",
-                "email", application.getEmail(),
+                "username", partnerUsername,
                 "tempPassword", rawPassword
         );
     }

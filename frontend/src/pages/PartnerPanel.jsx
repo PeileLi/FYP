@@ -459,7 +459,7 @@ function MaterialReviewPanel({ campaignId, campaignTitle, onClose, onAuditDone }
                                     <div className="border border-gray-100 rounded-xl p-4">
                                         <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Organiser</p>
                                         <p className="font-semibold text-gray-800">{info.organizer?.displayName || '—'}</p>
-                                        <p className="text-xs text-gray-400">{info.organizer?.email}</p>
+                                        <p className="text-xs text-gray-400">{info.organizer?.username}</p>
                                         <p className="text-xs text-gray-400">Role: {info.organizer?.role}</p>
                                     </div>
 
@@ -1047,7 +1047,7 @@ function ProfileTab() {
                     {[
                         { label: 'Organisation Name', key: 'orgName', placeholder: 'e.g. Global Audit Partners Ltd.' },
                         { label: 'Credential / License Number', key: 'credentialNumber', placeholder: 'e.g. REG-2024-XXXXX' },
-                        { label: 'Email',  key: '_email',  static: profile?.email },
+                        { label: 'Username',  key: '_username',  static: profile?.username },
                         { label: 'Account ID', key: '_id', static: `#${profile?.userId}` },
                     ].map(field => (
                         <div key={field.key}>

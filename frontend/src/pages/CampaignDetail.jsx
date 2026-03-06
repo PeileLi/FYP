@@ -39,41 +39,28 @@ export default function CampaignDetail() {
       setIsLoading(true);
       setError('');
 
-      // Check if id looks like a blockchain transaction ID (starts with BC)
-      if (id && id.startsWith('BC')) {
-        console.log('Detected blockchain certificate ID, querying database:', id);
-        // Query database by blockchain transaction ID
-        // Blockchain is only used for evidence storage, not for data recovery
+      const isNumericId = /^\d+$/.test(id);
+
+      if (!isNumericId) {
+        // Non-numeric ID — treat as blockchain transaction ID
         try {
           const campaignData = await campaignAPI.getByTxId(id);
-          console.log('Campaign data received:', campaignData);
-
           if (!campaignData || !campaignData.id) {
-            throw new Error('Campaign not found in database with this blockchain certificate ID');
+            throw new Error('Campaign not found with this transaction ID');
           }
-
           setCampaign(campaignData);
+          navigate(`/campaigns/${campaignData.id}`, { replace: true });
 
-          // Update URL to use database ID instead of blockchain TxId for better UX
-          if (campaignData.id && campaignData.id.toString() !== id) {
-            console.log('Updating URL from', id, 'to', campaignData.id);
-            navigate(`/campaigns/${campaignData.id}`, { replace: true });
-          }
-
-          // Get donations
           try {
             const donationsData = await donationAPI.getCampaignDonations(campaignData.id);
             setDonations(donationsData);
-          } catch (donationError) {
-            console.warn('Failed to fetch donations:', donationError);
+          } catch {
             setDonations([]);
           }
         } catch (queryError) {
-          console.error('Error querying campaign by blockchain certificate ID:', queryError);
-          throw new Error(queryError.message || 'Campaign not found in database. Blockchain is only used for evidence storage.');
+          throw new Error(queryError.message || 'Campaign not found with this transaction ID');
         }
       } else {
-        // Normal ID-based lookup
         const [campaignData, donationsData] = await Promise.all([
           campaignAPI.getById(id),
           donationAPI.getCampaignDonations(id)
@@ -427,8 +414,20 @@ export default function CampaignDetail() {
                   <p className="text-sm text-gray-600">Donors</p>
                 </div>
                 <div className="text-center p-3 bg-gray-50 rounded-xl">
-                  <p className="text-2xl font-bold text-gray-900">
-                    {campaign.status === 'COMPLETED' ? 'Completed' : 'Active'}
+                  <p className={`text-2xl font-bold ${
+                    campaign.status === 'ACTIVE' ? 'text-emerald-600' :
+                    campaign.status === 'COMPLETED' ? 'text-blue-600' :
+                    campaign.status === 'PENDING' ? 'text-amber-600' :
+                    campaign.status === 'SUSPENDED' ? 'text-red-600' :
+                    'text-gray-900'
+                  }`}>
+                    {{
+                      ACTIVE: 'Active',
+                      COMPLETED: 'Completed',
+                      PENDING: 'Pending',
+                      SUSPENDED: 'Suspended',
+                      CLOSED: 'Closed',
+                    }[campaign.status] || campaign.status}
                   </p>
                   <p className="text-sm text-gray-600">Status</p>
                 </div>

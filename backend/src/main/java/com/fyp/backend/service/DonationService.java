@@ -27,8 +27,8 @@ public class DonationService {
     private final FabricGatewayService fabricGatewayService;
 
     @Transactional
-    public DonationResponse createDonation(CreateDonationRequest request, String userEmail) {
-        User user = userRepository.findByEmail(userEmail)
+    public DonationResponse createDonation(CreateDonationRequest request, String username) {
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Campaign campaign = campaignRepository.findById(request.getCampaignId())
@@ -91,26 +91,22 @@ public class DonationService {
             String blockchainCampaignId = CampaignService.resolveBlockchainCampaignId(campaign);
             
             if (fabricGatewayService.isEnabled() && blockchainCampaignId != null) {
-                String donationId = "DON_" + savedDonation.getId() + "_" + System.currentTimeMillis();
-                String donorHash = CampaignService.sha256Hex(user.getEmail());
+                String donorHash = CampaignService.sha256Hex(user.getUsername());
                 
-                fabricGatewayService.createDonation(
-                    donationId,
+                String donationTxId = fabricGatewayService.createDonation(
                     blockchainCampaignId,
                     request.getAmount().doubleValue(),
                     donorHash,
-                    "" // paymentRefHash (empty for now)
+                    ""
                 );
                 
-                String timestamp = String.valueOf(System.currentTimeMillis());
-                String compositeKey = donationId + "::" + timestamp;
-                String certificateId = "BD" + bytesToHex(compositeKey.getBytes());
+                if (donationTxId != null && !donationTxId.isEmpty()) {
+                    savedDonation.setTransactionHash(donationTxId);
+                    donationRepository.save(savedDonation);
+                }
                 
-                savedDonation.setTransactionHash(certificateId);
-                donationRepository.save(savedDonation);
-                
-                log.info("Donation {} recorded on blockchain for campaign {} (bcId={}, cert={})",
-                        donationId, campaign.getId(), blockchainCampaignId, certificateId);
+                log.info("Donation txId={} recorded on blockchain for campaign {} (bcId={})",
+                        donationTxId, campaign.getId(), blockchainCampaignId);
             } else {
                 log.info("Blockchain skipped for donation {} (enabled={}, bcCampaignId={})",
                         savedDonation.getId(), fabricGatewayService.isEnabled(), blockchainCampaignId);
@@ -126,8 +122,8 @@ public class DonationService {
     }
 
     @Transactional(readOnly = true)
-    public List<DonationResponse> getUserDonations(String email) {
-        User user = userRepository.findByEmail(email)
+    public List<DonationResponse> getUserDonations(String username) {
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         List<Donation> donations = donationRepository.findByUserOrderByDonationDateDesc(user);
@@ -170,15 +166,5 @@ public class DonationService {
                 .build();
     }
 
-    /**
-     * Convert byte array to hex string (same as FabricGatewayService.bytesToHex)
-     */
-    private String bytesToHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) {
-            sb.append(String.format("%02x", b));
-        }
-        return sb.toString();
-    }
 }
 

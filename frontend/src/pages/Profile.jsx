@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUser, userAPI } from '@/utils/api';
-import { User, Mail, Calendar, ShieldCheck } from 'lucide-react';
+import { User, Calendar, ShieldCheck } from 'lucide-react';
 
 export default function Profile() {
     const navigate = useNavigate();
@@ -50,8 +50,7 @@ export default function Profile() {
                             <div>
                                 <h2 className="text-3xl font-bold text-gray-900">{user.displayName || 'User'}</h2>
                                 <p className="text-gray-500 flex items-center gap-2 mt-2">
-                                    <Mail size={16} />
-                                    {user.sub || user.email || 'No email provided'}
+                                    @{user.username || 'unknown'}
                                 </p>
                             </div>
                         </div>

@@ -86,18 +86,15 @@ public class BlockchainService {
 
     public BlockchainCertificateResponse searchByTxId(String txId) {
         try {
-            log.info("Searching blockchain for campaign with TxId: {}", txId);
+            log.info("Searching blockchain for campaign with txId: {}", txId);
 
-            String campaignId = decodeCampaignIdFromTxId(txId);
-            log.info("Decoded campaign ID from TxId: {}", campaignId);
-
-            String blockchainData = fabricGatewayService.readCampaign(campaignId);
+            String blockchainData = fabricGatewayService.readCampaign(txId);
 
             if (blockchainData == null || blockchainData.isEmpty()) {
-                log.warn("Campaign {} not found on blockchain", campaignId);
+                log.warn("Campaign {} not found on blockchain", txId);
                 return BlockchainCertificateResponse.builder()
                         .blockchainTxId(txId)
-                        .campaignId(campaignId)
+                        .campaignId(txId)
                         .verified(false)
                         .verificationMessage(
                                 "Campaign not found on blockchain. Please ensure Fabric is running and the campaign exists.")
@@ -107,15 +104,12 @@ public class BlockchainService {
             JsonNode node = objectMapper.readTree(blockchainData);
             log.info("Campaign found on blockchain");
 
-            Optional<Campaign> dbCampaignOpt = campaignRepository.findAll().stream()
-                    .filter(c -> txId.equals(c.getBlockchainTxId()))
-                    .findFirst();
+            Campaign dbCampaign = campaignRepository.findByBlockchainTxId(txId);
 
             BlockchainCertificateResponse.BlockchainCertificateResponseBuilder builder =
                     buildFromChainNode(node).blockchainTxId(txId);
 
-            if (dbCampaignOpt.isPresent()) {
-                Campaign dbCampaign = dbCampaignOpt.get();
+            if (dbCampaign != null) {
                 String computedHash = CampaignService.computeCampaignDataHash(dbCampaign);
                 String onChainHash = safeText(node, "dataHash", "");
                 boolean hashMatch = !onChainHash.isEmpty() && onChainHash.equals(computedHash);
@@ -136,7 +130,7 @@ public class BlockchainService {
             return builder.build();
 
         } catch (Exception e) {
-            log.error("Error searching blockchain by TxID: {}", e.getMessage(), e);
+            log.error("Error searching blockchain by txId: {}", e.getMessage(), e);
             return BlockchainCertificateResponse.builder()
                     .blockchainTxId(txId)
                     .verified(false)
@@ -147,8 +141,7 @@ public class BlockchainService {
 
     public java.util.Map<String, Object> searchDonation(String donationId) {
         try {
-            String rawDonationId = decodeDonationId(donationId);
-            String blockchainData = fabricGatewayService.readDonation(rawDonationId);
+            String blockchainData = fabricGatewayService.readDonation(donationId);
 
             if (blockchainData == null || blockchainData.isEmpty()) {
                 return java.util.Map.of(
@@ -199,39 +192,4 @@ public class BlockchainService {
         return node.has(field) ? node.get(field).asText(fallback) : fallback;
     }
 
-    private String decodeCampaignIdFromTxId(String txId) {
-        try {
-            if (!txId.startsWith("BC")) {
-                throw new IllegalArgumentException("Invalid blockchain certificate ID format");
-            }
-            String hexString = txId.substring(2);
-            byte[] bytes = new byte[hexString.length() / 2];
-            for (int i = 0; i < bytes.length; i++) {
-                bytes[i] = (byte) Integer.parseInt(hexString.substring(i * 2, i * 2 + 2), 16);
-            }
-            String decoded = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
-            return decoded.split("::", 2)[0];
-        } catch (Exception e) {
-            log.error("Failed to decode campaign ID from txId: {}", e.getMessage());
-            throw new RuntimeException("Failed to decode blockchain certificate ID: " + e.getMessage(), e);
-        }
-    }
-
-    private String decodeDonationId(String donationId) {
-        if (!donationId.startsWith("BD")) {
-            throw new IllegalArgumentException("Invalid donation certificate ID format");
-        }
-        try {
-            String hexString = donationId.substring(2);
-            byte[] bytes = new byte[hexString.length() / 2];
-            for (int i = 0; i < bytes.length; i++) {
-                bytes[i] = (byte) Integer.parseInt(hexString.substring(i * 2, i * 2 + 2), 16);
-            }
-            String decoded = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
-            return decoded.split("::", 2)[0];
-        } catch (Exception e) {
-            log.error("Failed to decode donation ID: {}", e.getMessage());
-            throw new RuntimeException("Failed to decode donation certificate ID: " + e.getMessage(), e);
-        }
-    }
 }

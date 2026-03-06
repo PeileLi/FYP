@@ -61,7 +61,7 @@ public class PartnerMaterialService {
             org.put("id",          c.getOrganizer().getId());
             org.put("displayName", c.getOrganizer().getDisplayName());
             if (fullAccess) {
-                org.put("email", c.getOrganizer().getEmail());
+                org.put("username", c.getOrganizer().getUsername());
                 org.put("role",  c.getOrganizer().getRole().name());
             }
         }
@@ -132,7 +132,7 @@ public class PartnerMaterialService {
         verificationRepo.save(v);
 
         log.info("Partner {} submitted material verification for campaign {} — {}",
-                partner.getEmail(), campaignId, overallStatus);
+                partner.getUsername(), campaignId, overallStatus);
         return toVerificationMap(v);
     }
 

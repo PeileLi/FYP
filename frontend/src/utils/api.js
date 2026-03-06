@@ -219,19 +219,17 @@ const apiRequest = async (endpoint, options = {}) => {
 
 // Auth API
 export const authAPI = {
-    login: async (email, password) => {
-        // Use publicApiRequest for login - don't treat 401 as session expired
+    login: async (username, password) => {
         return publicApiRequest('/auth/login', {
             method: 'POST',
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ username, password }),
         });
     },
 
-    register: async (email, password) => {
-        // Use publicApiRequest for register - no authentication required
+    register: async (username, password) => {
         return publicApiRequest('/auth/register', {
             method: 'POST',
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ username, password }),
         });
     },
 };

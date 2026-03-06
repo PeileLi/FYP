@@ -33,7 +33,7 @@ public class UserAdminService {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("id", u.getId());
             entry.put("displayName", u.getDisplayName());
-            entry.put("email", u.getEmail());
+            entry.put("username", u.getUsername());
             entry.put("role", u.getRole().name());
             entry.put("roleLabel", toRoleLabel(u.getRole().name()));
             entry.put("enabled", u.getEnabled());
@@ -57,7 +57,7 @@ public class UserAdminService {
         Map<String, Object> activity = new LinkedHashMap<>();
         activity.put("userId", user.getId());
         activity.put("displayName", user.getDisplayName());
-        activity.put("email", user.getEmail());
+        activity.put("username", user.getUsername());
         activity.put("role", user.getRole().name());
         activity.put("roleLabel", toRoleLabel(user.getRole().name()));
 

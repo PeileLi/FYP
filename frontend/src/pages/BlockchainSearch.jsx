@@ -12,56 +12,68 @@ import {
     Link as LinkIcon,
     Calendar,
     User,
-    FileText,
     AlertCircle,
     Target,
     Hash,
-    DollarSign,
-    Heart
+    Heart,
+    Activity,
+    Layers,
+    Eye
 } from 'lucide-react';
 import { blockchainAPI } from '../utils/api';
+
+const SEARCH_TYPES = [
+    { id: 'campaign', label: 'Campaign', icon: Layers, placeholder: 'Enter campaign ID or blockchain transaction ID' },
+    { id: 'donation', label: 'Donation', icon: Heart, placeholder: 'Enter donation transaction ID' },
+];
+
+const STATUS_STYLE = {
+    IN_PROGRESS: { label: 'In Progress', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+    COMPLETED:   { label: 'Completed',   cls: 'bg-blue-100 text-blue-700 border-blue-200' },
+    SUSPENDED:   { label: 'Suspended',   cls: 'bg-red-100 text-red-700 border-red-200' },
+    PENDING_REVIEW: { label: 'Pending Review', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+};
 
 export default function BlockchainSearch() {
     const navigate = useNavigate();
     const [searchValue, setSearchValue] = useState('');
+    const [searchType, setSearchType] = useState('campaign');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [result, setResult] = useState(null);
-
-    const [searchType, setSearchType] = useState(null); // 'campaign' or 'donation'
     const [donationResult, setDonationResult] = useState(null);
+
+    const activeType = SEARCH_TYPES.find(t => t.id === searchType);
 
     const handleSearch = async (e) => {
         e.preventDefault();
         setError('');
         setResult(null);
         setDonationResult(null);
-        setSearchType(null);
         setIsLoading(true);
 
         try {
             const value = searchValue.trim();
-            if (value.startsWith('BD')) {
-                // Search for donation (BD certificate format)
-                setSearchType('donation');
+            if (!value) { setError('Please enter a search value'); return; }
+
+            if (searchType === 'donation') {
                 const response = await blockchainAPI.searchDonation(value);
                 setDonationResult(response);
             } else {
-                // Search for campaign (BC prefix or raw)
-                setSearchType('campaign');
-                const response = await blockchainAPI.searchByTxId(value);
-                setResult(response);
+                const isNumeric = /^\d+$/.test(value);
+                if (isNumeric) {
+                    const response = await blockchainAPI.verifyCampaign(value);
+                    setResult(response);
+                } else {
+                    const response = await blockchainAPI.searchByTxId(value);
+                    setResult(response);
+                }
             }
         } catch (err) {
-            setError(err.message || 'Failed to search blockchain data');
+            setError(err.message || 'Failed to query blockchain');
         } finally {
             setIsLoading(false);
         }
-    };
-
-    const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text);
-        // You could add a toast notification here
     };
 
     return (
@@ -69,478 +81,269 @@ export default function BlockchainSearch() {
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
                 <div className="mb-8">
-                    <button
-                        onClick={() => navigate('/')}
-                        className="flex items-center text-gray-500 hover:text-gray-700 mb-4 transition-colors"
-                    >
-                        <ArrowLeft size={20} className="mr-2" />
-                        Back to Home
+                    <button onClick={() => navigate('/')}
+                        className="flex items-center text-gray-500 hover:text-gray-700 mb-4 transition-colors">
+                        <ArrowLeft size={20} className="mr-2" />Back to Home
                     </button>
                     <div className="flex items-center gap-3">
-                        <div className="bg-blue-100 p-2 rounded-lg">
-                            <Shield className="text-blue-600" size={32} />
+                        <div className="bg-blue-100 p-2.5 rounded-xl">
+                            <Shield className="text-blue-600" size={28} />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Blockchain Verification</h1>
-                            <p className="text-gray-600 mt-1">Search and verify campaign data on the blockchain</p>
+                            <h1 className="text-3xl font-bold text-gray-900">Blockchain Explorer</h1>
+                            <p className="text-gray-500 mt-1">Query on-chain ledger state for campaigns and donations</p>
                         </div>
                     </div>
                 </div>
 
                 {/* Search Card */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-6">
-                    <div className="p-8">
-                        <form onSubmit={handleSearch} className="space-y-6">
-                            {/* Search Input */}
+                    <div className="p-6 sm:p-8">
+                        {/* Type toggle */}
+                        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit mb-6">
+                            {SEARCH_TYPES.map(t => {
+                                const Icon = t.icon;
+                                return (
+                                    <button key={t.id} onClick={() => { setSearchType(t.id); setResult(null); setDonationResult(null); setError(''); }}
+                                        className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                                            searchType === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                                        }`}>
+                                        <Icon size={15}/>{t.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <form onSubmit={handleSearch} className="space-y-5">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                                    Blockchain Certificate ID
+                                    {searchType === 'campaign' ? 'Campaign ID or Transaction ID' : 'Donation Transaction ID'}
                                 </label>
                                 <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                                         <Search className="h-5 w-5 text-gray-400" />
                                     </div>
-                                    <input
-                                        type="text"
-                                        value={searchValue}
-                                        onChange={(e) => setSearchValue(e.target.value)}
-                                        required
-                                        className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all"
-                                        placeholder="Enter certificate ID (BC... or BD...)"
-                                    />
+                                    <input type="text" value={searchValue}
+                                        onChange={(e) => setSearchValue(e.target.value)} required
+                                        className="block w-full pl-11 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all font-mono text-sm"
+                                        placeholder={activeType.placeholder} />
                                 </div>
+                                {searchType === 'campaign' && (
+                                    <p className="text-xs text-gray-400 mt-1.5">Numeric value queries by database ID; hex string queries by blockchain transaction ID</p>
+                                )}
                             </div>
 
-                            {/* Error Message */}
                             {error && (
-                                <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
-                                    <AlertCircle size={20} />
-                                    <span>{error}</span>
+                                <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                                    <AlertCircle size={18} className="shrink-0" /><span>{error}</span>
                                 </div>
                             )}
 
-                            {/* Search Button */}
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-200 text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-70 disabled:cursor-not-allowed transform active:scale-[0.98]"
-                            >
+                            <button type="submit" disabled={isLoading}
+                                className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-blue-200">
                                 {isLoading ? (
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        <span>Searching...</span>
-                                    </div>
-                                ) : (
                                     <>
-                                        <Shield size={20} className="mr-2" />
-                                        Search Blockchain
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        Querying Ledger...
                                     </>
+                                ) : (
+                                    <><Search size={18} />Query Blockchain</>
                                 )}
                             </button>
                         </form>
                     </div>
                 </div>
 
-                {/* Results Card */}
-                {result && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div className="p-8">
-                            {/* Verification Status */}
-                            <div className={`flex items-center gap-3 p-4 rounded-xl mb-6 ${result.verified
-                                ? 'bg-green-50 border border-green-200'
-                                : 'bg-red-50 border border-red-200'
-                                }`}>
-                                {result.verified ? (
-                                    <>
-                                        <CheckCircle className="text-green-600" size={24} />
-                                        <div>
-                                            <p className="font-semibold text-green-900">Verification Successful</p>
-                                            <p className="text-sm text-green-700">{result.verificationMessage}</p>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <XCircle className="text-red-600" size={24} />
-                                        <div>
-                                            <p className="font-semibold text-red-900">Verification Failed</p>
-                                            <p className="text-sm text-red-700">{result.verificationMessage}</p>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                {/* Campaign Result */}
+                {result && <CampaignResult result={result} navigate={navigate} />}
 
-                            {result.verified && (
-                                <>
-                                    {/* On-chain Trusted State */}
-                                    <div className="mb-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                            <Shield className="mr-2 text-emerald-600" size={20} />
-                                            On-chain Trusted State
-                                        </h3>
-                                        <div className="space-y-3">
-                                            <InfoRow
-                                                icon={<Database size={18} />}
-                                                label="Campaign ID"
-                                                value={result.campaignId}
-                                                copyable
-                                            />
-                                            <InfoRow
-                                                icon={<User size={18} />}
-                                                label="Initiator"
-                                                value={result.initiator}
-                                            />
-                                            <InfoRow
-                                                icon={<Calendar size={18} />}
-                                                label="Created At"
-                                                value={new Date(result.createdAt).toLocaleString()}
-                                            />
-                                            {result.lastUpdated && (
-                                                <InfoRow
-                                                    icon={<Calendar size={18} />}
-                                                    label="Last Updated"
-                                                    value={new Date(result.lastUpdated).toLocaleString()}
-                                                />
-                                            )}
-                                            {result.deadline && (
-                                                <InfoRow
-                                                    icon={<Calendar size={18} />}
-                                                    label="Deadline"
-                                                    value={new Date(result.deadline).toLocaleString()}
-                                                />
-                                            )}
-                                            {result.goalAmount !== null && result.goalAmount !== undefined && (
-                                                <InfoRow
-                                                    icon={<Target size={18} />}
-                                                    label="Goal Amount"
-                                                    value={`€${result.goalAmount.toFixed(2)}`}
-                                                />
-                                            )}
-                                            <InfoRow
-                                                icon={<Shield size={18} />}
-                                                label="Status"
-                                                value={result.status}
-                                                badge
-                                            />
-                                            {result.auditor && (
-                                                <InfoRow
-                                                    icon={<CheckCircle size={18} />}
-                                                    label="Auditor"
-                                                    value={result.auditor}
-                                                />
-                                            )}
-                                            {result.version !== null && result.version !== undefined && (
-                                                <InfoRow
-                                                    icon={<Database size={18} />}
-                                                    label="Version"
-                                                    value={result.version.toString()}
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Hash Verification Box */}
-                                    {result.dataHash && (
-                                        <div className="mb-6">
-                                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                                <Hash className="mr-2 text-purple-600" size={20} />
-                                                Hash Verification
-                                            </h3>
-                                            <HashVerificationBox result={result} />
-                                        </div>
-                                    )}
-
-                                    {/* Technical / Blockchain Fields */}
-                                    <div className="mb-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                            <LinkIcon className="mr-2 text-blue-600" size={20} />
-                                            Blockchain Certificate
-                                        </h3>
-                                        <div className="space-y-3">
-                                            {result.blockchainTxId && (
-                                                <InfoRow
-                                                    icon={<LinkIcon size={18} />}
-                                                    label="Certificate ID"
-                                                    value={result.blockchainTxId}
-                                                    copyable
-                                                    mono
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* View Campaign Button (only if in database) */}
-                                    {result.databaseId && (
-                                        <div className="mt-6 pt-6 border-t border-gray-200">
-                                            <button
-                                                onClick={() => navigate(`/campaigns/${result.databaseId}`)}
-                                                className="w-full flex justify-center items-center py-3 px-4 border border-blue-600 rounded-xl text-blue-600 font-semibold hover:bg-blue-50 transition-colors"
-                                            >
-                                                <ExternalLink size={20} className="mr-2" />
-                                                View Campaign Details
-                                            </button>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Donation Result Card */}
-                {donationResult && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div className="p-8">
-                            {/* Status */}
-                            <div className={`flex items-center gap-3 p-4 rounded-xl mb-6 ${donationResult.found
-                                ? 'bg-green-50 border border-green-200'
-                                : 'bg-red-50 border border-red-200'
-                                }`}>
-                                {donationResult.found ? (
-                                    <>
-                                        <CheckCircle className="text-green-600" size={24} />
-                                        <div>
-                                            <p className="font-semibold text-green-900">Donation Found on Blockchain</p>
-                                            <p className="text-sm text-green-700">{donationResult.message}</p>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <XCircle className="text-red-600" size={24} />
-                                        <div>
-                                            <p className="font-semibold text-red-900">Donation Not Found</p>
-                                            <p className="text-sm text-red-700">{donationResult.message}</p>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-
-                            {donationResult.found && (
-                                <>
-                                    {/* Donation Info */}
-                                    <div className="mb-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                            <Heart className="mr-2 text-emerald-600" size={20} />
-                                            Donation Information
-                                        </h3>
-                                        <div className="space-y-3">
-                                            <InfoRow
-                                                icon={<Database size={18} />}
-                                                label="Donation ID"
-                                                value={donationResult.donationId}
-                                                copyable
-                                                mono
-                                            />
-                                            <InfoRow
-                                                icon={<LinkIcon size={18} />}
-                                                label="Campaign ID"
-                                                value={donationResult.campaignId}
-                                                copyable
-                                                mono
-                                            />
-                                            <InfoRow
-                                                icon={<DollarSign size={18} />}
-                                                label="Amount"
-                                                value={donationResult.amount != null ? `€${donationResult.amount.toFixed(2)}` : 'N/A'}
-                                            />
-                                            {donationResult.donorHash && (
-                                                <InfoRow
-                                                    icon={<Hash size={18} />}
-                                                    label="Donor Hash"
-                                                    value={donationResult.donorHash}
-                                                    mono
-                                                />
-                                            )}
-                                            <InfoRow
-                                                icon={<Calendar size={18} />}
-                                                label="Donated At"
-                                                value={donationResult.donatedAt ? new Date(donationResult.donatedAt).toLocaleString() : 'N/A'}
-                                            />
-                                            {donationResult.paymentRefHash && (
-                                                <InfoRow
-                                                    icon={<Hash size={18} />}
-                                                    label="Payment Ref Hash"
-                                                    value={donationResult.paymentRefHash}
-                                                    mono
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                )}
+                {/* Donation Result */}
+                {donationResult && <DonationResult result={donationResult} />}
             </div>
         </div>
     );
 }
 
-// Hash Verification Box component
-function HashVerificationBox({ result }) {
-    const [copiedBlockchain, setCopiedBlockchain] = useState(false);
-    const [copiedCalculated, setCopiedCalculated] = useState(false);
-
-    // Calculate hash from blockchain data fields
-    const blockchainHash = (result.dataHash || '').toLowerCase();
-    const computedHash = (result.computedDataHash || '').toLowerCase();
-    const isMatch = blockchainHash && computedHash && blockchainHash === computedHash;
-
-    const handleCopyBlockchain = () => {
-        navigator.clipboard.writeText(result.dataHash);
-        setCopiedBlockchain(true);
-        setTimeout(() => setCopiedBlockchain(false), 2000);
-    };
-
-    const handleCopyCalculated = () => {
-        navigator.clipboard.writeText(computedHash);
-        setCopiedCalculated(true);
-        setTimeout(() => setCopiedCalculated(false), 2000);
-    };
+function CampaignResult({ result, navigate }) {
+    const verified = result.verified;
 
     return (
-        <div className={`border rounded-xl overflow-hidden ${
-            isMatch 
-                ? 'border-green-200 bg-gradient-to-br from-green-50 to-emerald-50'
-                : 'border-red-200 bg-gradient-to-br from-red-50 to-orange-50'
-        }`}>
-            {/* Verification Status */}
-            <div className={`p-4 border-b ${isMatch ? 'border-green-200 bg-green-100/50' : 'border-red-200 bg-red-100/50'}`}>
-                <div className="flex items-center gap-3">
-                    {isMatch ? (
-                        <>
-                            <CheckCircle className="text-green-600" size={24} />
-                            <div>
-                                <p className="font-bold text-green-900">✅ Hash Verification Passed</p>
-                                <p className="text-sm text-green-700">Data integrity confirmed - no tampering detected</p>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <AlertCircle className="text-red-600" size={24} />
-                            <div>
-                                <p className="font-bold text-red-900">⚠️ Hash Mismatch Detected</p>
-                                <p className="text-sm text-red-700">Database data differs from blockchain record</p>
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div>
-
-            {/* Hash Comparison */}
-            <div className="p-4 space-y-4">
-                {/* Blockchain Hash (Original) */}
-                <div>
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                            <Shield className="text-blue-600" size={18} />
-                            <span className="font-semibold text-gray-900 text-sm">
-                                Blockchain Hash (Original)
-                            </span>
-                        </div>
-                        <button
-                            onClick={handleCopyBlockchain}
-                            className="p-1.5 hover:bg-white rounded-lg transition-colors"
-                            title="Copy blockchain hash"
-                        >
-                            {copiedBlockchain ? (
-                                <CheckCircle size={16} className="text-green-600" />
-                            ) : (
-                                <Copy size={16} className="text-gray-500" />
-                            )}
-                        </button>
-                    </div>
-                    <div className="bg-white rounded-lg p-3 font-mono text-xs break-all border border-blue-200">
-                        {result.dataHash}
-                    </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-6 sm:p-8">
+                {/* Verification Banner */}
+                <div className={`flex items-center gap-3 p-4 rounded-xl mb-6 ${
+                    verified ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'
+                }`}>
+                    {verified
+                        ? <><CheckCircle className="text-emerald-600 shrink-0" size={22} /><div><p className="font-semibold text-emerald-900">Data Integrity Verified</p><p className="text-sm text-emerald-700">{result.verificationMessage}</p></div></>
+                        : <><XCircle className="text-red-600 shrink-0" size={22} /><div><p className="font-semibold text-red-900">Verification Issue</p><p className="text-sm text-red-700">{result.verificationMessage}</p></div></>
+                    }
                 </div>
 
-                {/* Calculated Hash (Current Database) */}
-                <div>
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                            <Database className={isMatch ? 'text-green-600' : 'text-red-600'} size={18} />
-                            <span className="font-semibold text-gray-900 text-sm">
-                                Calculated Hash (Current)
-                            </span>
+                {/* On-chain Ledger State */}
+                {(result.campaignId || result.status) && (
+                    <div className="mb-6">
+                        <SectionTitle icon={<Layers size={18} />} color="text-blue-600" title="On-chain Ledger State" />
+                        <div className="bg-gray-50 rounded-xl border border-gray-100 divide-y divide-gray-100">
+                            <LedgerRow label="Campaign ID" value={result.campaignId} mono copyable />
+                            {result.status && <LedgerRow label="Status" value={result.status} badge />}
+                            {result.initiator && <LedgerRow label="Initiator" value={result.initiator} />}
+                            {result.goalAmount != null && <LedgerRow label="Goal Amount" value={`€${Number(result.goalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />}
+                            {result.auditor && <LedgerRow label="Auditor" value={result.auditor} />}
+                            {result.version != null && <LedgerRow label="Version" value={String(result.version)} />}
+                            {result.createdAt && <LedgerRow label="Created At" value={formatDate(result.createdAt)} />}
+                            {result.lastUpdated && <LedgerRow label="Last Updated" value={formatDate(result.lastUpdated)} />}
+                            {result.deadline && <LedgerRow label="Deadline" value={formatDate(result.deadline)} />}
                         </div>
-                        <button
-                            onClick={handleCopyCalculated}
-                            className="p-1.5 hover:bg-white rounded-lg transition-colors"
-                            title="Copy calculated hash"
-                        >
-                            {copiedCalculated ? (
-                                <CheckCircle size={16} className="text-green-600" />
-                            ) : (
-                                <Copy size={16} className="text-gray-500" />
-                            )}
-                        </button>
                     </div>
-                    <div className={`bg-white rounded-lg p-3 font-mono text-xs break-all border ${
-                        isMatch ? 'border-green-200' : 'border-red-200'
-                    }`}>
-                        {computedHash || 'N/A'}
+                )}
+
+                {/* Data Hash Integrity */}
+                {result.dataHash && (
+                    <div className="mb-6">
+                        <SectionTitle icon={<Hash size={18} />} color="text-purple-600" title="Data Hash Integrity" />
+                        <HashCompare
+                            chainHash={result.dataHash}
+                            computedHash={result.computedDataHash}
+                        />
                     </div>
-                </div>
+                )}
+
+                {/* Database Cross-reference */}
+                {result.databaseId && (
+                    <div className="mb-6">
+                        <SectionTitle icon={<Database size={18} />} color="text-gray-600" title="Database Cross-reference" />
+                        <div className="bg-gray-50 rounded-xl border border-gray-100 divide-y divide-gray-100">
+                            <LedgerRow label="Database ID" value={String(result.databaseId)} />
+                            {result.databaseStatus && <LedgerRow label="Database Status" value={result.databaseStatus} badge />}
+                            {result.databaseCreatedAt && <LedgerRow label="Database Created" value={formatDate(result.databaseCreatedAt)} />}
+                        </div>
+                    </div>
+                )}
+
+                {/* Blockchain Identity */}
+                {result.blockchainTxId && (
+                    <div className="mb-6">
+                        <SectionTitle icon={<LinkIcon size={18} />} color="text-indigo-600" title="Blockchain Identity" />
+                        <div className="bg-gray-50 rounded-xl border border-gray-100">
+                            <LedgerRow label="Transaction ID" value={result.blockchainTxId} mono copyable />
+                        </div>
+                    </div>
+                )}
+
+                {/* View Campaign Link */}
+                {result.databaseId && (
+                    <button onClick={() => navigate(`/campaigns/${result.databaseId}`)}
+                        className="w-full flex justify-center items-center gap-2 py-3 border-2 border-blue-200 rounded-xl text-blue-600 font-semibold hover:bg-blue-50 transition-colors mt-2">
+                        <ExternalLink size={18} />View Campaign Details
+                    </button>
+                )}
             </div>
         </div>
     );
 }
 
-// Helper component for displaying information rows
-function InfoRow({ icon, label, value, copyable, badge, mono }) {
-    const [copied, setCopied] = useState(false);
+function DonationResult({ result }) {
+    return (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-6 sm:p-8">
+                {/* Status Banner */}
+                <div className={`flex items-center gap-3 p-4 rounded-xl mb-6 ${
+                    result.found ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'
+                }`}>
+                    {result.found
+                        ? <><CheckCircle className="text-emerald-600 shrink-0" size={22} /><div><p className="font-semibold text-emerald-900">Donation Found on Ledger</p><p className="text-sm text-emerald-700">{result.message}</p></div></>
+                        : <><XCircle className="text-red-600 shrink-0" size={22} /><div><p className="font-semibold text-red-900">Donation Not Found</p><p className="text-sm text-red-700">{result.message}</p></div></>
+                    }
+                </div>
 
+                {result.found && (
+                    <div>
+                        <SectionTitle icon={<Layers size={18} />} color="text-blue-600" title="On-chain Ledger State" />
+                        <div className="bg-gray-50 rounded-xl border border-gray-100 divide-y divide-gray-100">
+                            <LedgerRow label="Donation ID" value={result.donationId} mono copyable />
+                            <LedgerRow label="Campaign ID" value={result.campaignId} mono copyable />
+                            {result.amount != null && <LedgerRow label="Amount" value={`€${Number(result.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />}
+                            {result.donorHash && <LedgerRow label="Donor Hash" value={result.donorHash} mono />}
+                            {result.donatedAt && <LedgerRow label="Donated At" value={formatDate(result.donatedAt)} />}
+                            {result.paymentRefHash && <LedgerRow label="Payment Ref Hash" value={result.paymentRefHash} mono />}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function SectionTitle({ icon, color, title }) {
+    return (
+        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <span className={color}>{icon}</span>{title}
+        </h3>
+    );
+}
+
+function LedgerRow({ label, value, mono, copyable, badge }) {
+    const [copied, setCopied] = useState(false);
     const handleCopy = () => {
         navigator.clipboard.writeText(value);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
 
-    // Badge color logic
-    const getBadgeColor = (val) => {
-        if (val === 'IN_PROGRESS' || val === 'ACTIVE') {
-            return 'bg-green-100 text-green-700';
-        } else if (val === 'COMPLETED') {
-            return 'bg-blue-100 text-blue-700';
-        } else if (val === 'SUSPENDED' || val === 'CLOSED') {
-            return 'bg-red-100 text-red-700';
-        } else if (['Medical Aid', 'Education', 'Emergency Relief', 'Community', 'Environment', 'Animal Welfare'].includes(val)) {
-            return 'bg-purple-100 text-purple-700';
-        } else {
-            return 'bg-gray-100 text-gray-700';
-        }
-    };
+    const st = badge && STATUS_STYLE[value];
 
     return (
-        <div className="flex items-start justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-            <div className="flex items-start gap-3 flex-1">
-                <div className="text-gray-400 mt-0.5">{icon}</div>
-                <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-600">{label}</p>
-                    {badge ? (
-                        <span className={`inline-block mt-1 px-3 py-1 rounded-full text-xs font-semibold ${getBadgeColor(value)}`}>
-                            {value}
-                        </span>
-                    ) : (
-                        <p className={`mt-1 text-gray-900 ${mono ? 'font-mono text-sm break-all' : ''}`}>
-                            {value || 'N/A'}
-                        </p>
-                    )}
-                </div>
+        <div className="flex items-start justify-between px-4 py-3 gap-4">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wide shrink-0 w-32 pt-0.5">{label}</span>
+            <div className="flex items-start gap-2 flex-1 min-w-0 justify-end">
+                {badge ? (
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                        st ? st.cls : 'bg-gray-100 text-gray-700 border-gray-200'
+                    }`}>{st ? st.label : value}</span>
+                ) : (
+                    <span className={`text-sm text-gray-900 text-right ${mono ? 'font-mono break-all' : ''}`}>{value || '—'}</span>
+                )}
+                {copyable && value && (
+                    <button onClick={handleCopy} className="p-1 text-gray-300 hover:text-gray-600 rounded transition-colors shrink-0" title="Copy">
+                        {copied ? <CheckCircle size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                    </button>
+                )}
             </div>
-            {copyable && (
-                <button
-                    onClick={handleCopy}
-                    className="ml-2 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-all"
-                    title="Copy to clipboard"
-                >
-                    {copied ? (
-                        <CheckCircle size={18} className="text-green-600" />
-                    ) : (
-                        <Copy size={18} />
-                    )}
-                </button>
-            )}
         </div>
     );
+}
+
+function HashCompare({ chainHash, computedHash }) {
+    const a = (chainHash || '').toLowerCase();
+    const b = (computedHash || '').toLowerCase();
+    const match = a && b && a === b;
+
+    return (
+        <div className={`rounded-xl border overflow-hidden ${match ? 'border-emerald-200' : 'border-red-200'}`}>
+            <div className={`px-4 py-3 flex items-center gap-2 ${match ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                {match
+                    ? <><CheckCircle size={16} className="text-emerald-600" /><span className="text-xs font-semibold text-emerald-800">Hash Match — data integrity confirmed</span></>
+                    : <><AlertCircle size={16} className="text-red-600" /><span className="text-xs font-semibold text-red-800">Hash Mismatch — data may have been modified</span></>
+                }
+            </div>
+            <div className="divide-y divide-gray-100 bg-white">
+                <div className="px-4 py-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">On-chain Hash</p>
+                    <code className="text-xs font-mono text-gray-800 break-all">{chainHash || '—'}</code>
+                </div>
+                {computedHash && (
+                    <div className="px-4 py-3">
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Computed Hash (current database)</p>
+                        <code className={`text-xs font-mono break-all ${match ? 'text-gray-800' : 'text-red-700'}`}>{computedHash}</code>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function formatDate(raw) {
+    if (!raw) return '—';
+    try { return new Date(raw).toLocaleString(); } catch { return raw; }
 }

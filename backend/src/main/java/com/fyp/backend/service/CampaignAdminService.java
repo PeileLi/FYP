@@ -57,7 +57,7 @@ public class CampaignAdminService {
         if (fabricGatewayService.isEnabled()) {
             String chainId = campaign.getBlockchainCampaignId() != null
                     ? campaign.getBlockchainCampaignId()
-                    : decodeTxId(campaign.getBlockchainTxId());
+                    : campaign.getBlockchainTxId();
             if (chainId != null) {
                 String ts = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
                 try {
@@ -102,7 +102,7 @@ public class CampaignAdminService {
                 : java.math.BigDecimal.ZERO);
         m.put("imageUrl", c.getImageUrl());
         m.put("organizerName", c.getOrganizer() != null ? c.getOrganizer().getDisplayName() : "—");
-        m.put("organizerEmail", c.getOrganizer() != null ? c.getOrganizer().getEmail() : "—");
+        m.put("organizerUsername", c.getOrganizer() != null ? c.getOrganizer().getUsername() : "—");
         m.put("organizerId", c.getOrganizer() != null ? c.getOrganizer().getId() : null);
         m.put("createdAt", c.getCreatedAt() != null ? c.getCreatedAt().toString() : "");
         m.put("updatedAt", c.getUpdatedAt() != null ? c.getUpdatedAt().toString() : "");
@@ -127,19 +127,4 @@ public class CampaignAdminService {
         };
     }
 
-    private String decodeTxId(String txId) {
-        if (txId == null || !txId.startsWith("BC")) return null;
-        try {
-            String hex = txId.substring(2);
-            byte[] bytes = new byte[hex.length() / 2];
-            for (int i = 0; i < bytes.length; i++) {
-                bytes[i] = (byte) Integer.parseInt(hex.substring(i * 2, i * 2 + 2), 16);
-            }
-            String decoded = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
-            String[] parts = decoded.split("::");
-            return parts.length >= 1 ? parts[0] : decoded;
-        } catch (Exception e) {
-            return null;
-        }
-    }
 }

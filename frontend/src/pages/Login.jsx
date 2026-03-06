@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Sprout,
-  Mail,
+  User,
   Lock,
   Eye,
   EyeOff,
@@ -11,7 +11,7 @@ import {
 import { authAPI, setToken, setUser } from '@/utils/api';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -19,7 +19,6 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Get the redirect path from location state, default to home
   const from = location.state?.from || '/';
 
   const handleLogin = async (e) => {
@@ -28,22 +27,20 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const response = await authAPI.login(email, password);
+      const response = await authAPI.login(username, password);
 
-      // Store token and user info (displayName comes from backend)
       setToken(response.token);
       setUser({
         id: response.id,
-        email: response.email,
+        username: response.username,
         displayName: response.displayName,
         avatarUrl: response.avatarUrl,
         role: response.role,
       });
 
-      // Redirect to the intended page or home page
       navigate(from, { replace: true });
     } catch (error) {
-      setError(error.message || 'Invalid email or password. Please try again.');
+      setError(error.message || 'Invalid username or password. Please try again.');
       console.error('Login error:', error);
     } finally {
       setIsLoading(false);
@@ -52,7 +49,6 @@ export default function Login() {
 
   return (
     <div className="flex items-center justify-center px-4 py-12 bg-gray-50 min-h-[calc(100vh-64px)]">
-      {/* Form Area */}
       <div className="max-w-sm w-full">
         <div className="mb-10">
           <div className="flex items-center gap-2 mb-6">
@@ -75,18 +71,18 @@ export default function Login() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Username</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-gray-400" />
+                <User className="h-5 w-5 text-gray-400" />
               </div>
               <input
                 type="text"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:border-transparent transition-all"
-                placeholder="name@example.com"
+                placeholder="Enter your username"
               />
             </div>
           </div>

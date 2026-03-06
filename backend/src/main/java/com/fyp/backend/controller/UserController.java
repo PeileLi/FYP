@@ -23,14 +23,14 @@ public class UserController {
     @GetMapping("/profile")
     public ResponseEntity<?> getProfile() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
+        String username = authentication.getName();
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Map<String, Object> profile = new HashMap<>();
         profile.put("id", user.getId());
-        profile.put("email", user.getEmail());
+        profile.put("username", user.getUsername());
         profile.put("displayName", user.getDisplayName());
         profile.put("avatarUrl", user.getAvatarUrl());
         profile.put("role", user.getRole().name());
@@ -42,9 +42,9 @@ public class UserController {
     @PutMapping("/profile")
     public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
+        String username = authentication.getName();
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (request.getDisplayName() != null && !request.getDisplayName().trim().isEmpty()) {
@@ -67,7 +67,7 @@ public class UserController {
         response.put("message", "Profile updated successfully");
         response.put("displayName", user.getDisplayName());
         response.put("avatarUrl", user.getAvatarUrl());
-        response.put("email", user.getEmail());
+        response.put("username", user.getUsername());
         response.put("role", user.getRole().name());
 
         return ResponseEntity.ok(response);

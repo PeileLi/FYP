@@ -24,8 +24,8 @@ public class AuditTaskService {
     // ── Current partner ───────────────────────────────────────────────────────
 
     private User currentPartner() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepo.findByEmail(email)
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepo.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Partner not found"));
     }
 
@@ -98,7 +98,7 @@ public class AuditTaskService {
         campaign.setAuditStatus("UNDER_REVIEW");
         campaignRepo.save(campaign);
 
-        log.info("Partner {} accepted task {} for campaign {}", me.getEmail(), taskId, campaign.getId());
+        log.info("Partner {} accepted task {} for campaign {}", me.getUsername(), taskId, campaign.getId());
         return toMap(task, me);
     }
 
@@ -142,7 +142,7 @@ public class AuditTaskService {
         campaign.setAuditStatus("PENDING_AUDIT");
         campaignRepo.save(campaign);
 
-        log.info("Partner {} declined task {} (reason: {})", me.getEmail(), taskId, reason);
+        log.info("Partner {} declined task {} (reason: {})", me.getUsername(), taskId, reason);
         return toMap(task, me);
     }
 

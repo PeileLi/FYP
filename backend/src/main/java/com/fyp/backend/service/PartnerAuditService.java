@@ -39,8 +39,8 @@ public class PartnerAuditService {
     private final PartnerScopeService scopeService;
 
     private User currentPartner() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByEmail(email)
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Partner not found"));
     }
 
@@ -99,10 +99,10 @@ public class PartnerAuditService {
             campaign.setEndorsedBy(partner);
             campaign.setEndorsedAt(LocalDateTime.now());
             campaign.setPartnerNote(evidenceSummary);
+            campaign.setStatus("ACTIVE");
         } else if ("RISK_FLAGGED".equals(conclusion) || "REJECTED".equals(conclusion)) {
             campaign.setPartnerEndorsed(false);
-        } else if ("REQUIRES_INFO".equals(conclusion)) {
-            campaign.setAuditStatus("REQUIRES_INFO");
+            campaign.setStatus("SUSPENDED");
         }
         campaignRepository.save(campaign);
 
@@ -124,10 +124,10 @@ public class PartnerAuditService {
                 .build();
 
         String blockchainAuditId = null;
+        String campaignChainId = campaign.getBlockchainCampaignId() != null
+                ? campaign.getBlockchainCampaignId()
+                : campaign.getBlockchainTxId();
         try {
-            String campaignChainId = campaign.getBlockchainCampaignId() != null
-                    ? campaign.getBlockchainCampaignId()
-                    : campaign.getBlockchainTxId();
             if (campaignChainId != null) {
                 if (partnerFabricGatewayService.isOrg2Ready()) {
                     blockchainAuditId = partnerFabricGatewayService.submitReviewResult(
@@ -153,6 +153,16 @@ public class PartnerAuditService {
             }
         } catch (Exception e) {
             log.warn("Failed to record audit on blockchain (DB record will still be saved): {}", e.getMessage());
+        }
+
+        // Sync campaign status to blockchain after audit is recorded
+        if ("APPROVED".equals(conclusion) && campaignChainId != null && fabricGatewayService.isEnabled()) {
+            try {
+                fabricGatewayService.approveCampaign(campaignChainId, partner.getDisplayName(), timestamp);
+                log.info("Campaign {} approved on-chain after partner audit", campaignId);
+            } catch (Exception e) {
+                log.warn("Failed to approve campaign on blockchain (DB status already updated): {}", e.getMessage());
+            }
         }
 
         auditRepository.save(audit);
@@ -181,7 +191,7 @@ public class PartnerAuditService {
         m.put("goalAmount", c.getGoalAmount());
         m.put("currentAmount", c.getCurrentAmount());
         m.put("organizer", c.getOrganizer() != null ? c.getOrganizer().getDisplayName() : "—");
-        m.put("organizerEmail", c.getOrganizer() != null ? c.getOrganizer().getEmail() : "—");
+        m.put("organizerUsername", c.getOrganizer() != null ? c.getOrganizer().getUsername() : "—");
         m.put("createdAt", c.getCreatedAt() != null ? c.getCreatedAt().toString() : "");
         m.put("description", c.getDescription());
         m.put("partnerEndorsed", Boolean.TRUE.equals(c.getPartnerEndorsed()));

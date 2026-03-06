@@ -30,8 +30,8 @@ public class PartnerCampaignService {
 
     @Transactional
     public Map<String, Object> endorse(Long campaignId, String note) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        User partner = userRepository.findByEmail(email)
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User partner = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Partner not found"));
 
         Campaign campaign = campaignRepository.findById(campaignId)

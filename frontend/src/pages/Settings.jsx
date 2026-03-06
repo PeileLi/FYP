@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { getUser, setUser, removeToken, removeUser, userAPI } from '@/utils/api';
 import {
     User,
-    Mail,
     Shield,
     Lock,
     Pencil,
@@ -27,7 +26,7 @@ export default function Settings() {
     // Form states
     const [formData, setFormData] = useState({
         displayName: user?.displayName || '',
-        email: user?.sub || user?.email || '', // JWT often stores email in sub
+        username: user?.username || '',
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
@@ -184,8 +183,7 @@ export default function Settings() {
                                 <div>
                                     <h2 className="text-2xl font-bold text-gray-900">{user.displayName || 'User'}</h2>
                                     <p className="text-gray-500 flex items-center gap-2 mt-1">
-                                        <Mail size={16} />
-                                        {user.sub || user.email || 'No email provided'}
+                                        @{user.username || 'unknown'}
                                     </p>
                                     <div className="flex items-center gap-2 mt-3">
                                         <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold uppercase tracking-wide rounded-full">
@@ -270,18 +268,17 @@ export default function Settings() {
 
                                     <div className="sm:col-span-2">
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Email Address
+                                            Username
                                         </label>
                                         <div className="relative">
-                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                             <input
-                                                type="email"
-                                                value={formData.email}
+                                                type="text"
+                                                value={formData.username}
                                                 disabled
-                                                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-500 cursor-not-allowed"
+                                                className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-500 cursor-not-allowed"
                                             />
                                         </div>
-                                        <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
+                                        <p className="mt-1 text-xs text-gray-500">Username cannot be changed</p>
                                     </div>
                                 </div>
 

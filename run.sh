@@ -319,52 +319,72 @@ else
     echo "No Fabric network found"
     
     if [ ! -d "${SCRIPT_DIR}/fabric/fabric-samples" ] || [ ! -d "${SCRIPT_DIR}/fabric/fabric-samples/.git" ]; then
-        echo -e "${YELLOW}⚠️  Initializing Fabric ${FABRIC_VERSION} submodule...${NC}"
+        echo -e "${YELLOW}⚠️  Initializing fabric-samples submodule...${NC}"
         
         cd "${SCRIPT_DIR}"
         
         echo "Initializing git submodule..."
         if git submodule update --init --recursive fabric/fabric-samples; then
             echo -e "${GREEN}✓${NC} Submodule initialized"
-            
-            echo "Checking out Fabric ${FABRIC_VERSION}..."
-            cd "${SCRIPT_DIR}/fabric/fabric-samples"
-            if git checkout v${FABRIC_VERSION}; then
-                echo -e "${GREEN}✓${NC} Checked out Fabric ${FABRIC_VERSION}"
-            else
-                echo -e "${YELLOW}⚠️  Could not checkout v${FABRIC_VERSION}${NC}"
-            fi
-            
-            echo "Downloading Fabric ${FABRIC_VERSION} and CA ${CA_VERSION} binaries..."
-            cd "${SCRIPT_DIR}/fabric/fabric-samples"
-            if curl -sSL https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh | bash -s -- binary ${FABRIC_VERSION} ${CA_VERSION}; then
-                echo -e "${GREEN}✓${NC} Binaries installed"
-            else
-                echo -e "${YELLOW}⚠️  Could not download binaries, will use Docker images${NC}"
-            fi
-            
-            cd "${SCRIPT_DIR}"
         else
             echo -e "${RED}❌ Failed to initialize submodule${NC}"
             exit 1
         fi
     else
-        echo "Verifying Fabric version..."
-        cd "${SCRIPT_DIR}/fabric/fabric-samples"
-        CURRENT_VERSION=$(git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-        if [ "$CURRENT_VERSION" != "v${FABRIC_VERSION}" ]; then
-            echo -e "${YELLOW}⚠️  Current: $CURRENT_VERSION, switching to v${FABRIC_VERSION}${NC}"
-            git fetch --tags 2>/dev/null || true
-            if git checkout v${FABRIC_VERSION}; then
-                echo -e "${GREEN}✓${NC} Switched to Fabric ${FABRIC_VERSION}"
-            else
-                echo -e "${YELLOW}⚠️  Could not switch to v${FABRIC_VERSION}${NC}"
-            fi
-        else
-            echo -e "${GREEN}✓${NC} Already on Fabric ${FABRIC_VERSION}"
-        fi
-        cd "${SCRIPT_DIR}"
+        echo -e "${GREEN}✓${NC} fabric-samples submodule present"
     fi
+
+    cd "${SCRIPT_DIR}/fabric/fabric-samples"
+    SUBMODULE_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    echo "  fabric-samples commit: ${SUBMODULE_COMMIT}"
+
+    if [ ! -f "${SCRIPT_DIR}/fabric/fabric-samples/bin/peer" ]; then
+        echo "Downloading Fabric ${FABRIC_VERSION} and CA ${CA_VERSION} binaries..."
+        if curl -sSL https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh | bash -s -- binary ${FABRIC_VERSION} ${CA_VERSION}; then
+            echo -e "${GREEN}✓${NC} Binaries installed"
+        else
+            echo -e "${YELLOW}⚠️  Could not download binaries, will use Docker images${NC}"
+        fi
+    else
+        PEER_VERSION=$("${SCRIPT_DIR}/fabric/fabric-samples/bin/peer" version 2>&1 | grep "Version:" | awk '{print $2}' || echo "unknown")
+        echo "  Fabric binaries version: ${PEER_VERSION}"
+        echo -e "${GREEN}✓${NC} Binaries already present"
+    fi
+
+    ensure_fabric_docker_images() {
+        local tag="${FABRIC_VERSION}"
+        local missing=false
+
+        for img in hyperledger/fabric-peer hyperledger/fabric-orderer; do
+            if ! docker image inspect "${img}:${tag}" >/dev/null 2>&1; then
+                missing=true
+                break
+            fi
+        done
+
+        if [ "$missing" = true ]; then
+            echo "Pulling Fabric ${tag} Docker images..."
+            cd "${SCRIPT_DIR}/fabric/fabric-samples"
+            if curl -sSL https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh | bash -s -- docker ${FABRIC_VERSION} ${CA_VERSION}; then
+                echo -e "${GREEN}✓${NC} Docker images pulled"
+            else
+                echo -e "${RED}❌ Failed to pull Docker images${NC}"
+                exit 1
+            fi
+        fi
+
+        for img in hyperledger/fabric-peer hyperledger/fabric-orderer; do
+            if ! docker image inspect "${img}:latest" >/dev/null 2>&1; then
+                echo "Tagging ${img}:${tag} as latest"
+                docker tag "${img}:${tag}" "${img}:latest"
+            fi
+        done
+        echo -e "${GREEN}✓${NC} Fabric Docker images ready (${tag})"
+    }
+
+    ensure_fabric_docker_images
+
+    cd "${SCRIPT_DIR}"
     
     FABRIC_NEEDS_DEPLOY=true
 fi

@@ -192,28 +192,25 @@ func requireMSP(ctx contractapi.TransactionContextInterface, required string) er
 }
 
 // CreateCampaign writes the minimal trusted state for a new campaign.
+// The campaign ID is derived from the Fabric transaction ID (GetTxID),
+// guaranteeing uniqueness without relying on the caller to generate one.
 // Detail fields (title, description, …) are stored off-chain; their integrity
 // is anchored by dataHash.
+// Returns the generated campaignID.
 func (s *SmartContract) CreateCampaign(ctx contractapi.TransactionContextInterface,
-	campaignID string, initiator string, createdAt string,
-	goalAmount float64, auditor string, deadline string, dataHash string) error {
+	initiator string, createdAt string,
+	goalAmount float64, auditor string, deadline string, dataHash string) (string, error) {
 
-	exists, err := s.CampaignExists(ctx, campaignID)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return fmt.Errorf("campaign %s already exists", campaignID)
-	}
+	campaignID := ctx.GetStub().GetTxID()
 
 	if goalAmount <= 0 {
-		return fmt.Errorf("goal amount must be positive, got %f", goalAmount)
+		return "", fmt.Errorf("goal amount must be positive, got %f", goalAmount)
 	}
 	if initiator == "" {
-		return fmt.Errorf("initiator is required")
+		return "", fmt.Errorf("initiator is required")
 	}
 	if err := validateDataHash(dataHash); err != nil {
-		return err
+		return "", err
 	}
 
 	if auditor == "" {
@@ -225,7 +222,7 @@ func (s *SmartContract) CreateCampaign(ctx contractapi.TransactionContextInterfa
 		Initiator:   initiator,
 		CreatedAt:   createdAt,
 		LastUpdated: createdAt,
-		Deadline:    deadline, // empty string = no deadline
+		Deadline:    deadline,
 		GoalAmount:  goalAmount,
 		Status:      StatusInProgress,
 		Auditor:     auditor,
@@ -235,10 +232,14 @@ func (s *SmartContract) CreateCampaign(ctx contractapi.TransactionContextInterfa
 
 	data, err := json.Marshal(campaign)
 	if err != nil {
-		return fmt.Errorf("failed to marshal campaign: %v", err)
+		return "", fmt.Errorf("failed to marshal campaign: %v", err)
 	}
 
-	return ctx.GetStub().PutState(campaignKey(campaignID), data)
+	if err := ctx.GetStub().PutState(campaignKey(campaignID), data); err != nil {
+		return "", fmt.Errorf("failed to save campaign: %v", err)
+	}
+
+	return campaignID, nil
 }
 
 // ReadCampaign retrieves a campaign by ID
@@ -407,36 +408,32 @@ func (s *SmartContract) CampaignExists(ctx contractapi.TransactionContextInterfa
 }
 
 // CreateDonation records the minimal donation evidence on-chain.
+// The donation ID is derived from the Fabric transaction ID (GetTxID).
 // donorHash must be an anonymized identifier (e.g. SHA-256 of the real
 // donor ID); the chaincode never receives PII.
+// Returns the generated donationID.
 func (s *SmartContract) CreateDonation(ctx contractapi.TransactionContextInterface,
-	donationID string, campaignID string, amount float64,
-	donorHash string, donatedAt string, paymentRefHash string) error {
+	campaignID string, amount float64,
+	donorHash string, donatedAt string, paymentRefHash string) (string, error) {
 
-	exists, err := s.DonationExists(ctx, donationID)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return fmt.Errorf("donation %s already exists", donationID)
-	}
+	donationID := ctx.GetStub().GetTxID()
 
 	campaign, err := s.ReadCampaign(ctx, campaignID)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if campaign.Status != StatusInProgress {
-		return fmt.Errorf("campaign %s is not accepting donations (status: %s)", campaignID, campaign.Status)
+		return "", fmt.Errorf("campaign %s is not accepting donations (status: %s)", campaignID, campaign.Status)
 	}
 	if campaign.Deadline != "" && donatedAt > campaign.Deadline {
-		return fmt.Errorf("campaign %s has expired (deadline: %s)", campaignID, campaign.Deadline)
+		return "", fmt.Errorf("campaign %s has expired (deadline: %s)", campaignID, campaign.Deadline)
 	}
 
 	if amount <= 0 {
-		return fmt.Errorf("donation amount must be positive")
+		return "", fmt.Errorf("donation amount must be positive")
 	}
 	if donorHash == "" {
-		return fmt.Errorf("donorHash is required")
+		return "", fmt.Errorf("donorHash is required")
 	}
 
 	donation := Donation{
@@ -450,10 +447,14 @@ func (s *SmartContract) CreateDonation(ctx contractapi.TransactionContextInterfa
 
 	data, err := json.Marshal(donation)
 	if err != nil {
-		return fmt.Errorf("failed to marshal donation: %v", err)
+		return "", fmt.Errorf("failed to marshal donation: %v", err)
 	}
 
-	return ctx.GetStub().PutState(donationKey(donationID), data)
+	if err := ctx.GetStub().PutState(donationKey(donationID), data); err != nil {
+		return "", fmt.Errorf("failed to save donation: %v", err)
+	}
+
+	return donationID, nil
 }
 
 // ReadDonation retrieves a donation by ID
@@ -697,6 +698,7 @@ func (s *SmartContract) ApproveCampaign(ctx contractapi.TransactionContextInterf
 
 	// ── Transition status ──────────────────────────────────────────────────
 	campaign.Status = StatusInProgress
+	campaign.Auditor = approvedBy
 	campaign.LastUpdated = timestamp
 
 	data, err := json.Marshal(campaign)

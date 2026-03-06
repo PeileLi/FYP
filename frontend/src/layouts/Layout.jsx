@@ -59,14 +59,14 @@ export default function Layout({ children }) {
                     // Update localStorage with latest data
                     setUser({
                         id: userData.id,
-                        email: userData.email,
+                        username: userData.username,
                         displayName: userData.displayName,
                         avatarUrl: userData.avatarUrl,
                         role: userData.role,
                     });
                     setUserState({
                         id: userData.id,
-                        email: userData.email,
+                        username: userData.username,
                         displayName: userData.displayName,
                         avatarUrl: userData.avatarUrl,
                         role: userData.role,

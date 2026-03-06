@@ -15,7 +15,6 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,8 +29,8 @@ public class CampaignService {
     private final DataAuditService dataAuditService;
 
     @Transactional
-    public CampaignResponse createCampaign(CreateCampaignRequest request, String userEmail) {
-        User user = userRepository.findByEmail(userEmail)
+    public CampaignResponse createCampaign(CreateCampaignRequest request, String username) {
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Campaign campaign = Campaign.builder()
@@ -56,23 +55,21 @@ public class CampaignService {
         // Save to blockchain if enabled
         try {
             if (fabricGatewayService.isEnabled()) {
-                String blockchainCampaignId = "C_" + savedCampaign.getId() + "_" + System.currentTimeMillis();
-                
-                String initiator = user.getEmail();
+                String initiator = user.getUsername();
                 double goalAmount = savedCampaign.getGoalAmount().doubleValue();
                 String dataHash = computeCampaignDataHash(savedCampaign);
                 
                 String txId = fabricGatewayService.createCampaign(
-                        blockchainCampaignId, initiator, goalAmount,
-                        "", // auditor (empty = AUTO_APPROVED)
-                        "", // deadline (empty = no deadline)
+                        initiator, goalAmount,
+                        "",
+                        "",
                         dataHash);
                 
-                savedCampaign.setBlockchainCampaignId(blockchainCampaignId);
                 if (txId != null && !txId.isEmpty()) {
+                    savedCampaign.setBlockchainCampaignId(txId);
                     savedCampaign.setBlockchainTxId(txId);
+                    savedCampaign = campaignRepository.save(savedCampaign);
                 }
-                savedCampaign = campaignRepository.save(savedCampaign);
             }
         } catch (Exception e) {
             log.error("Failed to save campaign to blockchain (campaign still saved in DB): {}", e.getMessage());
@@ -104,21 +101,14 @@ public class CampaignService {
 
     /**
      * Get campaign by blockchain transaction ID (database lookup only).
-     * Blockchain is for evidence/verification only; data is not restored from chain.
-     * 通过区块链交易ID查询项目（仅查库）。区块链仅作存证与校验，不用于数据恢复。
+     * 通过区块链交易ID查询项目（仅查库）。
      */
     @Transactional(readOnly = true)
     public CampaignResponse getCampaignByBlockchainTxId(String txId) {
-        // Find campaign in database by blockchain transaction ID
-        Optional<Campaign> campaign = campaignRepository.findAll().stream()
-                .filter(c -> txId.equals(c.getBlockchainTxId()))
-                .findFirst();
-        
-        if (campaign.isPresent()) {
-            return mapToResponse(campaign.get());
+        Campaign campaign = campaignRepository.findByBlockchainTxId(txId);
+        if (campaign != null) {
+            return mapToResponse(campaign);
         }
-        
-        // Campaign not found in database
         throw new RuntimeException("Campaign not found in database with blockchain transaction ID: " + txId);
     }
 
@@ -160,8 +150,8 @@ public class CampaignService {
     }
 
     @Transactional(readOnly = true)
-    public List<CampaignResponse> getUserCampaigns(String userEmail) {
-        User user = userRepository.findByEmail(userEmail)
+    public List<CampaignResponse> getUserCampaigns(String username) {
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
         return campaignRepository.findAll().stream()
@@ -171,11 +161,11 @@ public class CampaignService {
     }
 
     @Transactional
-    public CampaignResponse closeCampaign(Long campaignId, String userEmail) {
+    public CampaignResponse closeCampaign(Long campaignId, String username) {
         Campaign campaign = campaignRepository.findById(campaignId)
                 .orElseThrow(() -> new RuntimeException("Campaign not found"));
         
-        User user = userRepository.findByEmail(userEmail)
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
         // Check if user is the organizer
