@@ -5,7 +5,6 @@ import com.fyp.backend.model.AuditTask.Status;
 import com.fyp.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,14 +19,7 @@ public class AuditTaskService {
     private final AuditTaskDeclineLogRepository  declineLogRepo;
     private final CampaignRepository            campaignRepo;
     private final UserRepository                userRepo;
-
-    // ── Current partner ───────────────────────────────────────────────────────
-
-    private User currentPartner() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepo.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Partner not found"));
-    }
+    private final PartnerScopeService           scopeService;
 
     // ── Sync: create tasks for PENDING_AUDIT campaigns ────────────────────────
 
@@ -51,14 +43,14 @@ public class AuditTaskService {
 
     /** Tasks accepted by the current partner (status = ACCEPTED). */
     public List<Map<String, Object>> getMyAcceptedTasks() {
-        User me = currentPartner();
+        User me = scopeService.currentPartner();
         return taskRepo.findByAssignedPartnerAndStatusOrderByUpdatedAtDesc(me, Status.ACCEPTED)
                 .stream().map(t -> toMap(t, me)).toList();
     }
 
     /** Completed tasks where current partner was assignee. */
     public List<Map<String, Object>> getMyCompletedTasks() {
-        User me = currentPartner();
+        User me = scopeService.currentPartner();
         return taskRepo.findByAssignedPartner(me).stream()
                 .filter(t -> t.getStatus() == Status.COMPLETED)
                 .sorted(Comparator.comparing(AuditTask::getUpdatedAt).reversed())
@@ -82,7 +74,7 @@ public class AuditTaskService {
      */
     @Transactional
     public Map<String, Object> acceptTask(Long taskId) {
-        User me = currentPartner();
+        User me = scopeService.currentPartner();
         AuditTask task = taskRepo.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found: " + taskId));
 
@@ -112,7 +104,7 @@ public class AuditTaskService {
         if (reason == null || reason.isBlank()) {
             throw new IllegalArgumentException("Decline reason is required");
         }
-        User me = currentPartner();
+        User me = scopeService.currentPartner();
         AuditTask task = taskRepo.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found: " + taskId));
 

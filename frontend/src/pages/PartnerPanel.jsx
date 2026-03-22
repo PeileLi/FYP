@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Shield, CheckCircle, XCircle, Loader2, AlertCircle,
-    ChevronDown, ChevronUp, Clock, AlertTriangle, RefreshCw,
+    Clock, AlertTriangle, RefreshCw,
     FileText, Hash, MessageSquare, Link2, Building2, Key,
     Lock, BarChart3, Edit3, Save, X, Inbox,
-    UserCheck, Ban, ChevronRight, RotateCcw, FolderOpen,
+    UserCheck, Ban, ChevronRight, FolderOpen,
     ExternalLink, Image, CreditCard, BookOpen, Info,
-    CheckSquare, MinusSquare, HelpCircle, TrendingUp,
+    CheckSquare, MinusSquare,
     ArrowLeft, Activity, ClipboardList, Unlock
 } from 'lucide-react';
-import { partnerAPI, userAPI } from '@/utils/api';
+import { partnerAPI, userAPI, campaignAPI } from '@/utils/api';
+import { CAMPAIGN_STATUS, getStatusClasses } from '@/utils/constants';
 
 // ── Password change inline component ──────────────────────────────────────────
 function PasswordChangeField() {
@@ -79,13 +80,9 @@ const CONCLUSION_OPTIONS = [
     { value: 'RISK_FLAGGED',  label: 'Flag Risk',         cls: 'bg-rose-700 hover:bg-rose-600 text-white',      desc: 'Suspected fraud — campaign will be suspended.' },
 ];
 
-const CAMPAIGN_STATUS_META = {
-    PENDING:   'bg-amber-100 text-amber-700',
-    ACTIVE:    'bg-emerald-100 text-emerald-700',
-    SUSPENDED: 'bg-red-100 text-red-700',
-    COMPLETED: 'bg-blue-100 text-blue-700',
-    CLOSED:    'bg-gray-100 text-gray-500',
-};
+const CAMPAIGN_STATUS_META = Object.fromEntries(
+    Object.entries(CAMPAIGN_STATUS).map(([k, v]) => [k, `${v.bg} ${v.text}`])
+);
 
 
 // ── Audit submission modal ────────────────────────────────────────────────────
@@ -319,15 +316,17 @@ function MaterialReviewPanel({ campaignId, campaignTitle, onClose, onAuditDone }
     const [saving, setSaving]           = useState(false);
     const [saveMsg, setSaveMsg]         = useState('');
     const [chainLoading, setChainLoading] = useState(false);
-    // Audit modal triggered from here
     const [showAudit, setShowAudit]     = useState(false);
+    const [settingCover, setSettingCover] = useState(null);
+
+    const [loadError, setLoadError] = useState(null);
 
     useEffect(() => {
         Promise.all([
             partnerAPI.getCampaignDetail(campaignId),
             partnerAPI.getVerifications(campaignId),
         ]).then(([d, v]) => { setDetail(d); setVers(v); })
-          .catch(() => {})
+          .catch(e => setLoadError(e.message || 'Failed to load campaign details'))
           .finally(() => setLoading(false));
     }, [campaignId]);
 
@@ -396,68 +395,116 @@ function MaterialReviewPanel({ campaignId, campaignTitle, onClose, onAuditDone }
     ];
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-stretch justify-end">
-            <div className="bg-white w-full max-w-3xl flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-right">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-stretch justify-end" onClick={onClose}>
+            <div className="bg-white w-full max-w-3xl flex flex-col shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                 {/* Header */}
-                <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50 shrink-0">
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-700 flex items-center gap-1.5 text-sm">
-                        <ArrowLeft size={16}/>Back
-                    </button>
-                    <div className="flex-1 min-w-0">
-                        <h2 className="font-semibold text-gray-900 truncate">{campaignTitle}</h2>
-                        <div className="flex items-center gap-2 mt-0.5">
-                            <p className="text-xs text-gray-400">Material Review</p>
+                <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-indigo-50 via-white to-white shrink-0">
+                    <div className="flex items-center gap-4">
+                        <button onClick={onClose} className="p-2 -ml-2 text-gray-400 hover:text-gray-700 hover:bg-white rounded-xl transition-all" title="Close">
+                            <ArrowLeft size={18}/>
+                        </button>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                                <FileText size={12}/>
+                                <span>Material Review</span>
+                                <ChevronRight size={12}/>
+                                <span>Campaign #{campaignId}</span>
+                            </div>
+                            <h2 className="text-lg font-bold text-gray-900 truncate leading-snug">{campaignTitle}</h2>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
                             {!loading && (() => {
                                 const BadgeIcon = badge.icon;
                                 return (
-                                    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badge.cls}`}>
-                                        <BadgeIcon size={9}/>{badge.label}
+                                    <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${badge.cls}`}>
+                                        <BadgeIcon size={12}/>{badge.label}
                                     </span>
                                 );
                             })()}
+                            {isFullAccess && (
+                                <>
+                                    <button onClick={() => setShowAudit(true)}
+                                        className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-500 shadow-sm shadow-indigo-200 transition-all">
+                                        <Shield size={13}/>Submit Audit
+                                    </button>
+                                    {detail?.basicInfo?.status === 'ACTIVE' && (
+                                        <>
+                                            <button onClick={async () => {
+                                                const reason = prompt('Reason for freezing this campaign:');
+                                                if (reason === null) return;
+                                                try { await partnerAPI.freezeCampaign(campaignId, reason); if (onAuditDone) onAuditDone(); onClose(); } catch(e) { alert(e.message); }
+                                            }} className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500 text-white rounded-xl text-xs font-semibold hover:bg-indigo-400 transition-all">
+                                                <Lock size={13}/>Freeze
+                                            </button>
+                                            <button onClick={async () => {
+                                                const reason = prompt('Reason for closing this campaign:');
+                                                if (reason === null) return;
+                                                try { await partnerAPI.closeCampaignByPartner(campaignId, reason); if (onAuditDone) onAuditDone(); onClose(); } catch(e) { alert(e.message); }
+                                            }} className="flex items-center gap-1.5 px-3 py-2 bg-red-600 text-white rounded-xl text-xs font-semibold hover:bg-red-500 transition-all">
+                                                <Ban size={13}/>Close
+                                            </button>
+                                        </>
+                                    )}
+                                    {detail?.basicInfo?.status === 'FROZEN' && detail?.basicInfo?.unfreezeRequested && (
+                                        <button onClick={async () => {
+                                            const approved = confirm('Approve unfreeze request?');
+                                            try { await partnerAPI.reviewUnfreeze(campaignId, approved); if (onAuditDone) onAuditDone(); onClose(); } catch(e) { alert(e.message); }
+                                        }} className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-500 transition-all">
+                                            <Unlock size={13}/>Review Unfreeze
+                                        </button>
+                                    )}
+                                </>
+                            )}
                         </div>
                     </div>
-                    {isFullAccess && (
-                        <button onClick={() => setShowAudit(true)}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-500 shrink-0">
-                            <Shield size={12}/>Submit Audit
-                        </button>
-                    )}
                 </div>
 
                 {loading ? (
                     <div className="flex-1 flex items-center justify-center">
                         <Loader2 size={28} className="text-gray-300 animate-spin"/>
                     </div>
+                ) : loadError ? (
+                    <div className="flex-1 flex items-center justify-center">
+                        <div className="text-center space-y-3 max-w-sm">
+                            <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mx-auto">
+                                <XCircle size={24} className="text-red-400"/>
+                            </div>
+                            <p className="text-sm font-semibold text-gray-700">Unable to Load Details</p>
+                            <p className="text-xs text-gray-400 leading-relaxed">{loadError}</p>
+                            <button onClick={onClose} className="mt-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-200 transition-colors">Close</button>
+                        </div>
+                    </div>
                 ) : (
                     <div className="flex flex-1 overflow-hidden">
                         {/* Sidebar nav */}
-                        <nav className="w-48 shrink-0 border-r border-gray-100 py-4 bg-gray-50">
-                            {SECTIONS.map(s => {
-                                const Icon = s.icon;
-                                const locked = s.restricted;
-                                return (
-                                    <button key={s.id}
-                                        onClick={() => !locked && setSection(s.id)}
-                                        title={locked ? 'Accept the task to access this section' : undefined}
-                                        className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors text-left ${
-                                            locked
-                                                ? 'text-gray-300 cursor-not-allowed'
-                                                : activeSection === s.id
-                                                    ? 'text-blue-600 bg-blue-50 border-r-2 border-blue-500'
-                                                    : 'text-gray-500 hover:text-gray-800 hover:bg-white'
-                                        }`}>
-                                        <Icon size={14}/>
-                                        <span className="flex-1">{s.label}</span>
-                                        {locked && <Lock size={10} className="text-gray-300"/>}
-                                    </button>
-                                );
-                            })}
-                            {/* Scope note */}
+                        <nav className="w-52 shrink-0 border-r border-gray-100 py-5 bg-gray-50/80 flex flex-col">
+                            <div className="space-y-0.5 px-3 flex-1">
+                                {SECTIONS.map(s => {
+                                    const Icon = s.icon;
+                                    const locked = s.restricted;
+                                    const active = activeSection === s.id;
+                                    return (
+                                        <button key={s.id}
+                                            onClick={() => !locked && setSection(s.id)}
+                                            title={locked ? 'Accept the task to access this section' : undefined}
+                                            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
+                                                locked
+                                                    ? 'text-gray-300 cursor-not-allowed'
+                                                    : active
+                                                        ? 'text-indigo-700 bg-indigo-50 shadow-sm'
+                                                        : 'text-gray-500 hover:text-gray-800 hover:bg-white'
+                                            }`}>
+                                            <Icon size={15} className={active ? 'text-indigo-500' : ''}/>
+                                            <span className="flex-1">{s.label}</span>
+                                            {locked && <Lock size={11} className="text-gray-300"/>}
+                                        </button>
+                                    );
+                                })}
+                            </div>
                             {!isFullAccess && (
-                                <div className="mx-3 mt-4 p-2.5 bg-amber-50 rounded-lg border border-amber-100 text-[10px] text-amber-700 leading-snug">
-                                    <Lock size={10} className="inline mr-1"/>
-                                    Accept the task to unlock materials, documents and verification.
+                                <div className="mx-3 mt-3 p-3 bg-amber-50 rounded-xl border border-amber-100 text-[11px] text-amber-700 leading-relaxed">
+                                    <Lock size={11} className="inline mr-1 -mt-0.5"/>
+                                    Accept this task to unlock full materials, documents, and verification tools.
                                 </div>
                             )}
                         </nav>
@@ -467,82 +514,108 @@ function MaterialReviewPanel({ campaignId, campaignTitle, onClose, onAuditDone }
 
                             {/* ── Overview ── */}
                             {activeSection === 'overview' && (
-                                <div className="space-y-5">
-                                    {/* Completeness gauge */}
-                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <p className="text-sm font-semibold text-gray-700">Material Completeness</p>
-                                            <span className={`text-sm font-bold ${flagPct >= 80 ? 'text-emerald-600' : flagPct >= 50 ? 'text-amber-600' : 'text-red-600'}`}>{flagPct}%</span>
+                                <div className="space-y-6">
+                                    {/* Key stats row */}
+                                    <div className="grid grid-cols-4 gap-3">
+                                        {[
+                                            { label: 'Goal', value: `€${Number(info.goalAmount||0).toLocaleString()}`, color: 'text-gray-800' },
+                                            { label: 'Raised', value: `€${Number(info.currentAmount||0).toLocaleString()}`, color: 'text-emerald-600' },
+                                            { label: 'Donations', value: detail?.donationCount ?? '0', color: 'text-blue-600' },
+                                            { label: 'Completeness', value: flagPct != null ? `${flagPct}%` : '—', color: flagPct >= 80 ? 'text-emerald-600' : flagPct >= 50 ? 'text-amber-600' : 'text-red-600' },
+                                        ].map(s => (
+                                            <div key={s.label} className="bg-white border border-gray-100 rounded-xl p-3.5 text-center">
+                                                <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
+                                                <p className="text-[11px] text-gray-400 font-medium mt-0.5">{s.label}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Funding progress */}
+                                    <div className="bg-white border border-gray-100 rounded-xl p-4">
+                                        <div className="flex justify-between text-xs mb-2">
+                                            <span className="font-semibold text-gray-700">Funding Progress</span>
+                                            <span className={`font-bold ${progress >= 80 ? 'text-emerald-600' : progress >= 40 ? 'text-blue-600' : 'text-amber-600'}`}>{progress.toFixed(1)}%</span>
                                         </div>
-                                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden mb-3">
-                                            <div className={`h-full rounded-full ${flagPct >= 80 ? 'bg-emerald-500' : flagPct >= 50 ? 'bg-amber-400' : 'bg-red-500'}`} style={{ width: `${flagPct}%` }}/>
+                                        <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                                            <div className={`h-full rounded-full transition-all ${progress >= 80 ? 'bg-emerald-500' : progress >= 40 ? 'bg-blue-400' : 'bg-amber-400'}`} style={{ width: `${progress}%` }}/>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-2 text-xs">
-                                            {Object.entries(flags).filter(([k]) => k !== 'score' && k !== 'total').map(([k, v]) => (
-                                                <div key={k} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg ${v ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-                                                    {v ? <CheckCircle size={11}/> : <XCircle size={11}/>}
-                                                    <span>{k.replace(/^HAS_|^IS_/,'').replace(/_/g,' ').toLowerCase()}</span>
+                                    </div>
+
+                                    {/* Completeness checklist */}
+                                    {flagPct != null && (
+                                        <div className="bg-white border border-gray-100 rounded-xl p-4">
+                                            <p className="text-xs font-semibold text-gray-700 mb-3">Material Completeness</p>
+                                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                                {Object.entries(flags).filter(([k]) => k !== 'score' && k !== 'total').map(([k, v]) => (
+                                                    <div key={k} className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${v ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50/60 text-red-500'}`}>
+                                                        {v ? <CheckCircle size={13}/> : <XCircle size={13}/>}
+                                                        <span className="capitalize">{k.replace(/^HAS_|^IS_/,'').replace(/_/g,' ').toLowerCase()}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Campaign details grid */}
+                                    <div className="bg-white border border-gray-100 rounded-xl p-4">
+                                        <p className="text-xs font-semibold text-gray-700 mb-3">Campaign Details</p>
+                                        <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
+                                            {[
+                                                { label: 'Status',       value: info.status,     badge: true },
+                                                { label: 'Audit Status', value: info.auditStatus, badge: true },
+                                                { label: 'Category',     value: info.category },
+                                                { label: 'Created',      value: info.createdAt ? new Date(info.createdAt).toLocaleDateString() : '—' },
+                                                { label: 'On-chain',     value: info.onChain ? 'Yes' : 'No' },
+                                            ].map(row => (
+                                                <div key={row.label} className="flex items-center justify-between">
+                                                    <span className="text-xs text-gray-400">{row.label}</span>
+                                                    {row.badge ? (
+                                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${CAMPAIGN_STATUS_META[row.value] || AUDIT_META[row.value]?.cls || 'bg-gray-100 text-gray-600'}`}>{row.value || '—'}</span>
+                                                    ) : (
+                                                        <span className="text-sm font-medium text-gray-800">{row.value || '—'}</span>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
 
-                                    {/* Basic info grid */}
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                        {[
-                                            { label: 'Status',         value: info.status },
-                                            { label: 'Audit Status',   value: info.auditStatus },
-                                            { label: 'Category',       value: info.category },
-                                            { label: 'Created',        value: info.createdAt ? new Date(info.createdAt).toLocaleDateString() : '—' },
-                                            { label: 'Goal',           value: `€${Number(info.goalAmount||0).toLocaleString()}` },
-                                            { label: 'Raised',         value: `€${Number(info.currentAmount||0).toLocaleString()}` },
-                                            { label: 'Donations',      value: detail?.donationCount ?? '—' },
-                                            { label: 'On-chain',       value: info.onChain ? '✓ Yes' : '✗ No' },
-                                        ].map(row => (
-                                            <div key={row.label}>
-                                                <p className="text-xs text-gray-400 font-medium">{row.label}</p>
-                                                <p className="font-semibold text-gray-800 mt-0.5">{row.value}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* Funding bar */}
-                                    <div>
-                                        <div className="flex justify-between text-xs text-gray-500 mb-1">
-                                            <span>Funding Progress</span><span>{progress.toFixed(1)}%</span>
-                                        </div>
-                                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                            <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${progress}%` }}/>
-                                        </div>
-                                    </div>
-
                                     {/* Organiser */}
-                                    <div className="border border-gray-100 rounded-xl p-4">
-                                        <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Organiser</p>
-                                        <p className="font-semibold text-gray-800">{info.organizer?.displayName || '—'}</p>
-                                        <p className="text-xs text-gray-400">{info.organizer?.username}</p>
-                                        <p className="text-xs text-gray-400">Role: {info.organizer?.role}</p>
+                                    <div className="bg-white border border-gray-100 rounded-xl p-4">
+                                        <p className="text-xs font-semibold text-gray-700 mb-3">Organiser</p>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-sm">
+                                                {(info.organizer?.displayName || '?')[0].toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-semibold text-gray-800">{info.organizer?.displayName || '—'}</p>
+                                                <p className="text-xs text-gray-400">{info.organizer?.username} · {info.organizer?.role}</p>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Description */}
-                                    <div>
-                                        <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Description</p>
-                                        <p className="text-sm text-gray-700 leading-relaxed">{info.description || <span className="italic text-gray-400">No description</span>}</p>
+                                    <div className="bg-white border border-gray-100 rounded-xl p-4">
+                                        <p className="text-xs font-semibold text-gray-700 mb-2">Description</p>
+                                        <p className="text-sm text-gray-600 leading-relaxed">{info.description || <span className="italic text-gray-400">No description provided</span>}</p>
                                     </div>
 
                                     {/* Fund usage plan */}
-                                    <div>
-                                        <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Fund Usage Plan</p>
+                                    <div className="bg-white border border-gray-100 rounded-xl p-4">
+                                        <p className="text-xs font-semibold text-gray-700 mb-2">Fund Usage Plan</p>
                                         {detail?.fundUsagePlan
-                                            ? <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{detail.fundUsagePlan}</p>
-                                            : <p className="text-xs italic text-red-400">⚠ No fund usage plan submitted</p>}
+                                            ? <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{detail.fundUsagePlan}</p>
+                                            : (
+                                                <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2.5">
+                                                    <AlertTriangle size={13}/>No fund usage plan submitted
+                                                </div>
+                                            )}
                                     </div>
 
                                     {/* Blockchain tx */}
                                     {info.blockchainTxId && (
-                                        <div>
-                                            <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Blockchain Transaction</p>
-                                            <code className="text-xs font-mono text-emerald-600 break-all bg-emerald-50 px-2 py-1 rounded">{info.blockchainTxId}</code>
+                                        <div className="bg-white border border-gray-100 rounded-xl p-4">
+                                            <p className="text-xs font-semibold text-gray-700 mb-2">Blockchain Transaction</p>
+                                            <code className="text-xs font-mono text-emerald-600 break-all bg-emerald-50 px-3 py-2 rounded-lg block">{info.blockchainTxId}</code>
                                         </div>
                                     )}
                                 </div>
@@ -550,42 +623,75 @@ function MaterialReviewPanel({ campaignId, campaignTitle, onClose, onAuditDone }
 
                             {/* ── Documents ── */}
                             {activeSection === 'documents' && !isFullAccess && (
-                                <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-                                    <Lock size={32} className="text-gray-200"/>
-                                    <p className="text-sm font-semibold text-gray-600">Documents Restricted</p>
-                                    <p className="text-xs text-gray-400 max-w-xs">Accept the task to view proof documents submitted by the campaign organiser.</p>
+                                <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+                                    <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center">
+                                        <Lock size={24} className="text-gray-300"/>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-700">Documents Restricted</p>
+                                        <p className="text-xs text-gray-400 max-w-xs mt-1 leading-relaxed">Accept the audit task to view proof documents submitted by the campaign organiser.</p>
+                                    </div>
                                 </div>
                             )}
                             {activeSection === 'documents' && isFullAccess && (
                                 <div className="space-y-3">
                                     {docs.length === 0 ? (
-                                        <div className="py-12 text-center text-gray-400">
-                                            <FolderOpen size={32} className="mx-auto mb-3 text-gray-200"/>
-                                            <p className="text-sm">No documents submitted yet</p>
-                                            <p className="text-xs mt-1 text-red-400">⚠ Missing proof documents</p>
+                                        <div className="py-16 text-center">
+                                            <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
+                                                <FolderOpen size={24} className="text-amber-400"/>
+                                            </div>
+                                            <p className="text-sm font-semibold text-gray-700">No Documents Submitted</p>
+                                            <p className="text-xs text-gray-400 mt-1">The campaign organiser has not uploaded any proof documents yet.</p>
                                         </div>
                                     ) : docs.map(d => {
                                         const meta = DOC_TYPE_META[d.docType] || DOC_TYPE_META.OTHER;
                                         const Icon = meta.icon;
+                                        const isDocImage = d.docType === 'PHOTO' || d.url?.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i);
+                                        const isCurrent = info.imageUrl && d.url === info.imageUrl;
                                         return (
-                                            <div key={d.id} className="border border-gray-100 rounded-xl p-4 flex items-start gap-3">
-                                                <div className={`p-2 rounded-lg shrink-0 ${meta.color}`}>
-                                                    <Icon size={16}/>
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="text-sm font-semibold text-gray-800">{d.name}</p>
-                                                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${meta.color}`}>{meta.label}</span>
-                                                    </div>
-                                                    {d.description && <p className="text-xs text-gray-500 mt-0.5">{d.description}</p>}
-                                                    <p className="text-[11px] text-gray-400 mt-1">{d.uploadedAt ? new Date(d.uploadedAt).toLocaleString() : ''}</p>
-                                                </div>
-                                                {d.url && (
-                                                    <a href={d.url} target="_blank" rel="noopener noreferrer"
-                                                        className="text-blue-500 hover:text-blue-700 shrink-0" title="Open link">
-                                                        <ExternalLink size={14}/>
-                                                    </a>
+                                            <div key={d.id} className={`border rounded-xl overflow-hidden ${isCurrent ? 'border-emerald-300 bg-emerald-50/30' : 'border-gray-100'}`}>
+                                                {isDocImage && d.url && (
+                                                    <img src={d.url} alt={d.name} className="w-full h-40 object-cover"/>
                                                 )}
+                                                <div className="p-4 flex items-start gap-3">
+                                                    <div className={`p-2 rounded-lg shrink-0 ${meta.color}`}>
+                                                        <Icon size={16}/>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <p className="text-sm font-semibold text-gray-800">{d.name}</p>
+                                                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${meta.color}`}>{meta.label}</span>
+                                                            {isCurrent && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Current Cover</span>}
+                                                        </div>
+                                                        {d.description && <p className="text-xs text-gray-500 mt-0.5">{d.description}</p>}
+                                                        <p className="text-[11px] text-gray-400 mt-1">{d.uploadedAt ? new Date(d.uploadedAt).toLocaleString() : ''}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        {isDocImage && !isCurrent && (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    setSettingCover(d.id);
+                                                                    try {
+                                                                        await campaignAPI.setCoverImage(campaignId, d.url);
+                                                                        setDetail(prev => ({ ...prev, basicInfo: { ...prev.basicInfo, imageUrl: d.url } }));
+                                                                    } catch (e) { setSaveMsg(e.message); }
+                                                                    finally { setSettingCover(null); }
+                                                                }}
+                                                                disabled={settingCover === d.id}
+                                                                className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 text-white rounded-lg text-[11px] font-semibold hover:bg-emerald-500 disabled:opacity-50 transition-all"
+                                                                title="Set this image as campaign cover">
+                                                                {settingCover === d.id ? <Loader2 size={11} className="animate-spin"/> : <Image size={11}/>}
+                                                                Set Cover
+                                                            </button>
+                                                        )}
+                                                        {d.url && (
+                                                            <a href={d.url} target="_blank" rel="noopener noreferrer"
+                                                                className="text-blue-500 hover:text-blue-700" title="Open">
+                                                                <ExternalLink size={14}/>
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                         );
                                     })}
@@ -594,18 +700,25 @@ function MaterialReviewPanel({ campaignId, campaignTitle, onClose, onAuditDone }
 
                             {/* ── Updates ── */}
                             {activeSection === 'updates' && !isFullAccess && (
-                                <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-                                    <Lock size={32} className="text-gray-200"/>
-                                    <p className="text-sm font-semibold text-gray-600">Updates Restricted</p>
-                                    <p className="text-xs text-gray-400 max-w-xs">Accept the task to view the organiser's progress updates.</p>
+                                <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+                                    <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center">
+                                        <Lock size={24} className="text-gray-300"/>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-700">Updates Restricted</p>
+                                        <p className="text-xs text-gray-400 max-w-xs mt-1 leading-relaxed">Accept the audit task to view the organiser's progress updates.</p>
+                                    </div>
                                 </div>
                             )}
                             {activeSection === 'updates' && isFullAccess && (
                                 <div className="space-y-3">
                                     {updates.length === 0 ? (
-                                        <div className="py-12 text-center text-gray-400">
-                                            <Activity size={32} className="mx-auto mb-3 text-gray-200"/>
-                                            <p className="text-sm">No progress updates from the organiser</p>
+                                        <div className="py-16 text-center">
+                                            <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-4">
+                                                <Activity size={24} className="text-blue-300"/>
+                                            </div>
+                                            <p className="text-sm font-semibold text-gray-700">No Updates Yet</p>
+                                            <p className="text-xs text-gray-400 mt-1">The organiser hasn't posted any progress updates.</p>
                                         </div>
                                     ) : updates.map(u => (
                                         <div key={u.id} className="border border-gray-100 rounded-xl p-4">
@@ -731,10 +844,14 @@ function MaterialReviewPanel({ campaignId, campaignTitle, onClose, onAuditDone }
 
                             {/* ── Verification Checklist ── */}
                             {activeSection === 'verification' && !isFullAccess && (
-                                <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-                                    <Lock size={32} className="text-gray-200"/>
-                                    <p className="text-sm font-semibold text-gray-600">Verification Restricted</p>
-                                    <p className="text-xs text-gray-400 max-w-xs">Accept the task to submit a material verification record.</p>
+                                <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+                                    <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center">
+                                        <Lock size={24} className="text-gray-300"/>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-700">Verification Restricted</p>
+                                        <p className="text-xs text-gray-400 max-w-xs mt-1 leading-relaxed">Accept the audit task to submit a material verification record.</p>
+                                    </div>
                                 </div>
                             )}
                             {activeSection === 'verification' && isFullAccess && (
@@ -919,66 +1036,89 @@ function TaskCard({ task, onAccept, onDecline, onAudit, onReview, view, acceptin
     const c = task.campaign || {};
     const progress = c.goalAmount > 0 ? Math.min(100, c.currentAmount / c.goalAmount * 100) : 0;
 
-    const dotColor = view === 'completed' ? 'bg-emerald-400' : view === 'accepted' ? 'bg-blue-400' : 'bg-amber-400';
+    const borderColor = view === 'completed' ? 'border-l-emerald-400' : view === 'accepted' ? 'border-l-blue-500' : 'border-l-amber-400';
+    const initial = (c.title || '?')[0].toUpperCase();
+    const categoryColors = {
+        MEDICAL: 'bg-rose-50 text-rose-600', EDUCATION: 'bg-blue-50 text-blue-600',
+        DISASTER: 'bg-orange-50 text-orange-600', COMMUNITY: 'bg-teal-50 text-teal-600',
+    };
+    const catCls = categoryColors[c.category?.toUpperCase()] || 'bg-gray-50 text-gray-500';
 
     return (
-        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-            <div className="px-5 py-4">
-                <div className="flex items-start gap-3">
-                    <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${dotColor}`}/>
+        <div className={`bg-white border border-gray-100 rounded-xl overflow-hidden border-l-4 ${borderColor} hover:shadow-md transition-shadow`}>
+            <div className="px-5 py-5">
+                <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-100 to-blue-50 flex items-center justify-center text-indigo-600 font-bold text-sm shrink-0">
+                        {initial}
+                    </div>
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-semibold text-gray-800">{c.title}</p>
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${CAMPAIGN_STATUS_META[c.status] || 'bg-gray-100 text-gray-500'}`}>{c.status}</span>
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <p className="text-[15px] font-semibold text-gray-900 leading-snug">{c.title}</p>
                         </div>
-                        <p className="text-xs text-gray-400 mt-0.5">{c.organizer} · {c.category}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${progress}%` }}/>
+                        <div className="flex items-center gap-2 flex-wrap text-xs">
+                            <span className={`font-medium px-2 py-0.5 rounded-full ${CAMPAIGN_STATUS_META[c.status] || 'bg-gray-100 text-gray-500'}`}>{c.status}</span>
+                            {c.category && <span className={`px-2 py-0.5 rounded-full font-medium ${catCls}`}>{c.category}</span>}
+                            <span className="text-gray-400">{c.organizer}</span>
+                        </div>
+
+                        {c.description && <p className="text-sm text-gray-500 mt-2.5 line-clamp-2 leading-relaxed">{c.description}</p>}
+
+                        <div className="flex items-center gap-3 mt-3">
+                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full transition-all ${progress >= 80 ? 'bg-emerald-500' : progress >= 40 ? 'bg-blue-400' : 'bg-amber-400'}`} style={{ width: `${progress}%` }}/>
                             </div>
-                            <span className="text-xs text-gray-500 shrink-0">€{Number(c.currentAmount||0).toFixed(0)} / €{Number(c.goalAmount||0).toFixed(0)}</span>
+                            <span className="text-xs font-semibold text-gray-600 shrink-0 tabular-nums">
+                                €{Number(c.currentAmount||0).toLocaleString()} <span className="text-gray-300 font-normal">/</span> €{Number(c.goalAmount||0).toLocaleString()}
+                            </span>
                         </div>
-                        {c.description && <p className="text-xs text-gray-500 mt-2 line-clamp-2">{c.description}</p>}
                     </div>
                 </div>
 
-                <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <div className="mt-4 pt-4 border-t border-gray-50 flex items-center gap-2.5 flex-wrap">
                     {view === 'open' && (
                         <>
                             <button onClick={() => onAccept(task)} disabled={accepting}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-500 transition-colors disabled:opacity-50">
-                                {accepting ? <Loader2 size={12} className="animate-spin"/> : <UserCheck size={12}/>}
+                                className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-500 transition-all disabled:opacity-50 shadow-sm shadow-indigo-200">
+                                {accepting ? <Loader2 size={13} className="animate-spin"/> : <UserCheck size={13}/>}
                                 Accept Task
                             </button>
                             <button onClick={() => onDecline(task)}
-                                className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-50 transition-colors">
-                                <Ban size={12}/>Decline
+                                className="flex items-center gap-1.5 px-4 py-2.5 border border-gray-200 text-gray-500 rounded-xl text-xs font-medium hover:bg-gray-50 hover:text-gray-700 transition-all">
+                                <Ban size={13}/>Decline
                             </button>
                         </>
                     )}
                     {view === 'accepted' && (
                         <>
                             <button onClick={() => onReview(task)}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-500 transition-colors">
-                                <FolderOpen size={12}/>Review Materials
+                                className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-500 transition-all shadow-sm shadow-indigo-200">
+                                <FolderOpen size={13}/>Review Materials
                             </button>
                             <button onClick={() => onAudit(c)}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-500 transition-colors">
-                                <Shield size={12}/>Submit Audit
+                                className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-500 transition-all shadow-sm shadow-emerald-200">
+                                <Shield size={13}/>Submit Audit
                             </button>
                             <button onClick={() => onDecline(task)}
-                                className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs font-semibold hover:bg-gray-50 transition-colors">
-                                <Ban size={12}/>Decline
+                                className="flex items-center gap-1.5 px-4 py-2.5 border border-gray-200 text-gray-500 rounded-xl text-xs font-medium hover:bg-gray-50 hover:text-gray-700 transition-all">
+                                <Ban size={13}/>Decline
                             </button>
                         </>
                     )}
-                    {view === 'completed' && task.assignedPartner && (
-                        <span className="text-[11px] text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg font-medium">
-                            Audited by {task.assignedPartner}
-                        </span>
+                    {view === 'completed' && (
+                        <>
+                            <button onClick={() => onReview(task)}
+                                className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-500 transition-all shadow-sm shadow-indigo-200">
+                                <FolderOpen size={13}/>Review Materials
+                            </button>
+                            {task.assignedPartner && (
+                                <span className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-3 py-2 rounded-xl font-medium">
+                                    <CheckCircle size={13}/>Audited by {task.assignedPartner}
+                                </span>
+                            )}
+                        </>
                     )}
-                    <span className="ml-auto text-[11px] text-gray-300">
-                        Task #{task.id} · {task.createdAt ? new Date(task.createdAt).toLocaleDateString() : ''}
+                    <span className="ml-auto text-[11px] text-gray-300 tabular-nums">
+                        #{task.id} · {task.createdAt ? new Date(task.createdAt).toLocaleDateString() : ''}
                     </span>
                 </div>
             </div>
@@ -1037,15 +1177,18 @@ function TaskInboxTab() {
             )}
 
             {loading ? (
-                <div className="flex justify-center py-16"><Loader2 size={24} className="text-gray-300 animate-spin"/></div>
+                <div className="flex justify-center py-20"><Loader2 size={28} className="text-indigo-300 animate-spin"/></div>
             ) : tasks.length === 0 ? (
-                <div className="bg-white border border-gray-100 rounded-xl py-16 text-center">
-                    <Inbox size={32} className="text-gray-200 mx-auto mb-3"/>
-                    <p className="text-sm text-gray-400">{emptyMsg[view]}</p>
+                <div className="bg-white border border-gray-100 rounded-2xl py-20 text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
+                        <Inbox size={28} className="text-gray-300"/>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-600">{emptyMsg[view]}</p>
+                    <p className="text-xs text-gray-400 mt-1">Check back later for new tasks.</p>
                 </div>
             ) : (
                 <div className="space-y-3">
-                    <p className="text-xs text-gray-400">{tasks.length} task{tasks.length !== 1 ? 's' : ''}</p>
+                    <p className="text-xs text-gray-400 font-medium">{tasks.length} task{tasks.length !== 1 ? 's' : ''}</p>
                     {tasks.map(task => (
                         <TaskCard
                             key={task.id}
@@ -1296,24 +1439,28 @@ export default function PartnerPanel() {
         <div className="min-h-[calc(100vh-64px)] bg-gray-50 py-10 px-4">
             <div className="max-w-4xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 p-2.5 rounded-xl">
-                        <Shield className="text-blue-600" size={24}/>
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Partner Panel</h1>
-                        <p className="text-sm text-gray-500">Third-party audit workspace — manage audits and profile</p>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-gradient-to-br from-indigo-100 to-blue-50 p-3 rounded-2xl">
+                            <Shield className="text-indigo-600" size={26}/>
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900">Partner Panel</h1>
+                            <p className="text-sm text-gray-400 mt-0.5">Third-party audit workspace</p>
+                        </div>
                     </div>
                 </div>
 
                 {/* Tab nav */}
-                <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+                <div className="flex gap-1 bg-gray-100/80 p-1 rounded-xl w-fit">
                     {MAIN_TABS.map(t => {
                         const Icon = t.icon;
+                        const active = activeTab === t.id;
                         return (
                             <button key={t.id} onClick={() => setActiveTab(t.id)}
-                                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-                                <Icon size={14}/>{t.label}
+                                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                                <Icon size={15} className={active ? 'text-indigo-500' : ''}/>
+                                {t.label}
                             </button>
                         );
                     })}

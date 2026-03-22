@@ -34,10 +34,10 @@ public class BlockchainVerificationService {
      */
     public CompleteVerificationResult verifyComplete(Campaign campaign) {
         if (!fabricGatewayService.isEnabled()) {
-            return new CompleteVerificationResult(true, "NOT_RECORDED");
+            return new CompleteVerificationResult(false, "NOT_RECORDED");
         }
         if (campaign.getBlockchainTxId() == null) {
-            return new CompleteVerificationResult(true, "NOT_RECORDED");
+            return new CompleteVerificationResult(false, "NOT_RECORDED");
         }
 
         try {

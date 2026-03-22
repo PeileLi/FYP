@@ -61,6 +61,7 @@ export default function Layout({ children }) {
                         id: userData.id,
                         username: userData.username,
                         displayName: userData.displayName,
+                        orgName: userData.orgName,
                         avatarUrl: userData.avatarUrl,
                         role: userData.role,
                     });
@@ -68,6 +69,7 @@ export default function Layout({ children }) {
                         id: userData.id,
                         username: userData.username,
                         displayName: userData.displayName,
+                        orgName: userData.orgName,
                         avatarUrl: userData.avatarUrl,
                         role: userData.role,
                     });

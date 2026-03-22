@@ -23,7 +23,6 @@ public class CampaignResponse {
     private String status;
     private String imageUrl;
     private String organizerName;
-    private Long organizerId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime completedAt; // Optional: set when campaign completes or is interrupted
@@ -43,6 +42,10 @@ public class CampaignResponse {
     private String partnerNote;
     private String endorsedBy;
     private LocalDateTime endorsedAt;
+
+    // Freeze info
+    private String freezeReason;
+    private Boolean unfreezeRequested;
     
     // Progress percentage
     public double getProgress() {

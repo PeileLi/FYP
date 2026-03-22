@@ -13,6 +13,8 @@ import {
   Check
 } from 'lucide-react';
 import { campaignAPI } from '../utils/api';
+import { formatAmount, getProgress } from '@/utils/format';
+import { getStatusClasses } from '@/utils/constants';
 
 export default function MyCampaigns() {
   const navigate = useNavigate();
@@ -38,31 +40,14 @@ export default function MyCampaigns() {
     }
   };
 
-  const formatAmount = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
-
-  const getProgress = (current, goal) => {
-    return Math.min((current / goal) * 100, 100);
-  };
-
   const [copiedId, setCopiedId] = useState(null);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'COMPLETED':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+  const handleRequestUnfreeze = async (campaignId) => {
+    try {
+      await campaignAPI.requestUnfreeze(campaignId);
+      fetchMyCampaigns();
+    } catch (error) {
+      alert(error.message || 'Failed to request unfreeze');
     }
   };
 
@@ -246,7 +231,7 @@ export default function MyCampaigns() {
                         e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23e5e7eb' width='400' height='300'/%3E%3Ctext fill='%239ca3af' font-family='sans-serif' font-size='16' x='200' y='150' text-anchor='middle' dy='.35em'%3ECampaign%3C/text%3E%3C/svg%3E";
                       }}
                     />
-                    <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(campaign.status)}`}>
+                    <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold border ${getStatusClasses(campaign.status)}`}>
                       {campaign.status}
                     </div>
                   </div>
@@ -315,14 +300,32 @@ export default function MyCampaigns() {
                         <p className="text-xs text-gray-400 italic">No blockchain record</p>
                       )}
 
-                      {/* Blockchain Amount & Donation Count */}
-                      {campaign.blockchainAmount != null && (
-                        <div className="flex gap-4 mt-2 text-xs text-gray-500">
-                          <span>On-chain: <strong className="text-gray-700">{formatAmount(campaign.blockchainAmount)}</strong></span>
-                          <span>Donations: <strong className="text-gray-700">{campaign.blockchainDonationCount || 0}</strong></span>
-                        </div>
-                      )}
+                      
                     </div>
+
+                    {/* Freeze / REQUIRES_INFO notice */}
+                    {campaign.status === 'FROZEN' && (
+                      <div className="mb-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                        <p className="text-xs text-indigo-700 font-semibold mb-1">Campaign Frozen</p>
+                        {campaign.freezeReason && <p className="text-xs text-indigo-600 mb-2">{campaign.freezeReason}</p>}
+                        {!campaign.unfreezeRequested ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleRequestUnfreeze(campaign.id); }}
+                            className="text-xs font-medium px-3 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500"
+                          >
+                            Request Unfreeze
+                          </button>
+                        ) : (
+                          <span className="text-xs text-indigo-500 italic">Unfreeze requested — awaiting partner review</span>
+                        )}
+                      </div>
+                    )}
+                    {campaign.auditStatus === 'REQUIRES_INFO' && (
+                      <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-xs text-amber-700 font-semibold">Auditor requires additional information</p>
+                        <p className="text-xs text-amber-600 mt-1">Please provide supplementary materials for the audit.</p>
+                      </div>
+                    )}
 
                     {/* Actions */}
                     <div className="flex gap-2">

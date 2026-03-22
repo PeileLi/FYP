@@ -30,6 +30,9 @@ public class User implements UserDetails {
     @Column(unique = true)
     private String displayName;
 
+    @Column
+    private String orgName;
+
     @Column(columnDefinition = "TEXT")
     private String avatarUrl;
 

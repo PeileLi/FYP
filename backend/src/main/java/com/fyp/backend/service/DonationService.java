@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -43,6 +44,12 @@ public class DonationService {
         // Validate amount
         if (request.getAmount() == null || request.getAmount().doubleValue() <= 0) {
             throw new RuntimeException("Invalid donation amount");
+        }
+
+        // Server-side cap: donation cannot exceed remaining goal
+        BigDecimal remaining = campaign.getGoalAmount().subtract(campaign.getCurrentAmount());
+        if (request.getAmount().compareTo(remaining) > 0) {
+            throw new RuntimeException("Donation amount exceeds remaining goal of " + remaining);
         }
 
         // Determine display name based on display type
@@ -137,8 +144,14 @@ public class DonationService {
         List<Donation> donations = donationRepository.findByCampaignOrderByDonationDateDesc(campaign);
 
         return donations.stream()
-                .map(this::mapToDonationResponse)
+                .map(this::mapToPublicDonationResponse)
                 .collect(Collectors.toList());
+    }
+
+    private DonationResponse mapToPublicDonationResponse(Donation donation) {
+        DonationResponse response = mapToDonationResponse(donation);
+        response.setDonorName(null);
+        return response;
     }
 
     private DonationResponse mapToDonationResponse(Donation donation) {

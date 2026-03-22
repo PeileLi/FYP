@@ -65,6 +65,7 @@ public class AuthService {
                                 .id(user.getId())
                                 .username(user.getUsername())
                                 .displayName(user.getDisplayName())
+                                .orgName(user.getOrgName())
                                 .avatarUrl(user.getAvatarUrl())
                                 .role(user.getRole().name())
                                 .build();
@@ -86,6 +87,7 @@ public class AuthService {
                                 .id(user.getId())
                                 .username(user.getUsername())
                                 .displayName(user.getDisplayName())
+                                .orgName(user.getOrgName())
                                 .avatarUrl(user.getAvatarUrl())
                                 .role(user.getRole().name())
                                 .build();

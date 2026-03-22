@@ -34,6 +34,7 @@ export default function Login() {
         id: response.id,
         username: response.username,
         displayName: response.displayName,
+        orgName: response.orgName,
         avatarUrl: response.avatarUrl,
         role: response.role,
       });
@@ -108,14 +109,6 @@ export default function Login() {
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end">
-            <div className="text-sm">
-              <a href="#" className="font-medium text-emerald-600 hover:text-emerald-500 hover:underline">
-                Forgot password?
-              </a>
             </div>
           </div>
 

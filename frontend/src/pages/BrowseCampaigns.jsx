@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { campaignAPI } from '@/utils/api';
+import { formatAmount, getProgress } from '@/utils/format';
+import { CATEGORIES } from '@/utils/constants';
 import {
     ShieldCheck,
     ShieldAlert,
@@ -11,22 +13,8 @@ import {
     X
 } from 'lucide-react';
 
-const CATEGORIES = [
-    { id: 'all', name: 'All Categories' },
-    { id: 'disaster_relief', name: 'Disaster Relief' },
-    { id: 'medical_assistance', name: 'Medical Aid' },
-    { id: 'education_support', name: 'Education' },
-    { id: 'environmental', name: 'Environment' },
-    { id: 'poverty_alleviation', name: 'Poverty Alleviation' },
-    { id: 'community_development', name: 'Community' },
-    { id: 'children_welfare', name: 'Children' },
-    { id: 'elderly_care', name: 'Elderly' },
-    { id: 'animal_welfare', name: 'Animals' },
-    { id: 'other', name: 'Other' },
-];
-
 const ProgressBar = ({ current, total }) => {
-    const percentage = Math.min((current / total) * 100, 100);
+    const percentage = getProgress(current, total);
     return (
         <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
             <div
@@ -38,16 +26,7 @@ const ProgressBar = ({ current, total }) => {
 };
 
 const CampaignCard = ({ data, onClick }) => {
-    const percent = Math.round((data.currentAmount / data.goalAmount) * 100);
-
-    const formatAmount = (amount) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'EUR',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(amount);
-    };
+    const percent = Math.round(getProgress(data.currentAmount, data.goalAmount));
 
     return (
         <div
@@ -91,20 +70,9 @@ const CampaignCard = ({ data, onClick }) => {
                 <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1 group-hover:text-emerald-600 transition-colors">{data.title}</h3>
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2 flex-grow">{data.description}</p>
 
-                {/* Show tampering warning */}
-                {data.verificationStatus === 'TAMPERED' && data.blockchainAmount != null && (
+                {data.verificationStatus === 'TAMPERED' && (
                     <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-xs text-red-700 font-semibold mb-1">⚠️ Amount Mismatch</p>
-                        <div className="text-xs space-y-0.5">
-                            <div className="flex justify-between">
-                                <span className="text-red-600">DB:</span>
-                                <span className="font-semibold">{formatAmount(data.currentAmount)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-green-600">Blockchain:</span>
-                                <span className="font-semibold">{formatAmount(data.blockchainAmount)}</span>
-                            </div>
-                        </div>
+                        <p className="text-xs text-red-700 font-semibold">⚠️ Data Integrity Issue Detected</p>
                     </div>
                 )}
 

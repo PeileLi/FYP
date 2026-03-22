@@ -3,7 +3,9 @@ package com.fyp.backend.service;
 import com.fyp.backend.dto.CampaignResponse;
 import com.fyp.backend.dto.CreateCampaignRequest;
 import com.fyp.backend.model.Campaign;
+import com.fyp.backend.model.CampaignDocument;
 import com.fyp.backend.model.User;
+import com.fyp.backend.repository.CampaignDocumentRepository;
 import com.fyp.backend.repository.CampaignRepository;
 import com.fyp.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,18 +25,34 @@ import java.util.stream.Collectors;
 public class CampaignService {
 
     private final CampaignRepository campaignRepository;
+    private final CampaignDocumentRepository documentRepository;
     private final UserRepository userRepository;
     private final FabricGatewayService fabricGatewayService;
     private final BlockchainVerificationService verificationService;
     private final DataAuditService dataAuditService;
+
+    private void syncStatusToBlockchain(Campaign campaign, String chainStatus) {
+        try {
+            String bcId = ensureBlockchainRecord(campaign);
+            if (bcId != null) {
+                fabricGatewayService.updateCampaignStatus(bcId, chainStatus);
+            }
+        } catch (Exception e) {
+            log.error("Failed to update campaign status on blockchain: {}", e.getMessage());
+        }
+    }
 
     @Transactional
     public CampaignResponse createCampaign(CreateCampaignRequest request, String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        String title = (request.getTitle() != null && !request.getTitle().isBlank())
+                ? request.getTitle().trim()
+                : "Campaign #" + System.currentTimeMillis();
+
         Campaign campaign = Campaign.builder()
-                .title("Campaign #" + System.currentTimeMillis()) // Auto-generated title
+                .title(title)
                 .category(request.getCategory())
                 .description(request.getDescription())
                 .goalAmount(request.getGoalAmount())
@@ -45,6 +63,24 @@ public class CampaignService {
                 .build();
 
         Campaign savedCampaign = campaignRepository.save(campaign);
+
+        if (request.getDocuments() != null) {
+            for (CreateCampaignRequest.DocumentItem doc : request.getDocuments()) {
+                CampaignDocument.DocType docType;
+                try {
+                    docType = CampaignDocument.DocType.valueOf(doc.getDocType());
+                } catch (Exception e) {
+                    docType = doc.isImage() ? CampaignDocument.DocType.PHOTO : CampaignDocument.DocType.OTHER;
+                }
+                CampaignDocument document = CampaignDocument.builder()
+                        .campaign(savedCampaign)
+                        .name(doc.getName())
+                        .url(doc.getUrl())
+                        .docType(docType)
+                        .build();
+                documentRepository.save(document);
+            }
+        }
 
         // Auto-upgrade regular USER to INITIATOR on first campaign creation
         if (user.getRole() == User.Role.USER) {
@@ -78,6 +114,25 @@ public class CampaignService {
         return mapToResponse(savedCampaign);
     }
 
+    @Transactional
+    public CampaignResponse setCoverImage(Long campaignId, String imageUrl, String username) {
+        Campaign campaign = campaignRepository.findById(campaignId)
+                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+
+        User caller = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        boolean isOrganizer = campaign.getOrganizer().getId().equals(caller.getId());
+        boolean isAdmin = caller.getRole() == User.Role.ADMIN;
+        if (!isOrganizer && !isAdmin) {
+            throw new SecurityException("Only the campaign organizer or admin can set the cover image");
+        }
+
+        campaign.setImageUrl(imageUrl);
+        Campaign saved = campaignRepository.save(campaign);
+        return mapToResponse(saved);
+    }
+
     @Transactional(readOnly = true)
     public List<CampaignResponse> getAllActiveCampaigns() {
         return campaignRepository.findByStatus("ACTIVE").stream()
@@ -86,16 +141,26 @@ public class CampaignService {
     }
 
     @Transactional(readOnly = true)
-    public List<CampaignResponse> getAllCampaigns() {
-        return campaignRepository.findAll().stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public CampaignResponse getCampaignById(Long id) {
+    public CampaignResponse getCampaignById(Long id, String callerUsername) {
         Campaign campaign = campaignRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Campaign not found"));
+
+        boolean isPublicVisible = "ACTIVE".equals(campaign.getStatus())
+                || "COMPLETED".equals(campaign.getStatus());
+        if (!isPublicVisible && callerUsername != null) {
+            User caller = userRepository.findByUsername(callerUsername).orElse(null);
+            if (caller != null) {
+                boolean isOrganizer = campaign.getOrganizer().getId().equals(caller.getId());
+                boolean isAdmin = caller.getRole() == User.Role.ADMIN;
+                boolean isPartner = caller.getRole() == User.Role.PARTNER;
+                if (isOrganizer || isAdmin || isPartner) {
+                    isPublicVisible = true;
+                }
+            }
+        }
+        if (!isPublicVisible) {
+            throw new RuntimeException("Campaign not found");
+        }
         return mapToResponse(campaign);
     }
 
@@ -134,14 +199,7 @@ public class CampaignService {
                 campaign.setCompletedAt(java.time.LocalDateTime.now());
             }
             
-            try {
-                String bcId = ensureBlockchainRecord(campaign);
-                if (bcId != null) {
-                    fabricGatewayService.updateCampaignStatus(bcId, "COMPLETED");
-                }
-            } catch (Exception e) {
-                log.error("Failed to update campaign status on blockchain: {}", e.getMessage());
-            }
+            syncStatusToBlockchain(campaign, "COMPLETED");
         }
 
         campaignRepository.save(campaign);
@@ -182,17 +240,147 @@ public class CampaignService {
             campaign.setCompletedAt(java.time.LocalDateTime.now());
         }
         
-        try {
-            String bcId = ensureBlockchainRecord(campaign);
-            if (bcId != null) {
-                fabricGatewayService.updateCampaignStatus(bcId, "SUSPENDED");
-            }
-        } catch (Exception e) {
-            log.error("Failed to update campaign status on blockchain: {}", e.getMessage());
-        }
+        syncStatusToBlockchain(campaign, "SUSPENDED");
         
         Campaign savedCampaign = campaignRepository.save(campaign);
         return mapToResponse(savedCampaign);
+    }
+
+    @Transactional
+    public CampaignResponse updateCampaign(Long campaignId, CreateCampaignRequest request, String username) {
+        Campaign campaign = campaignRepository.findById(campaignId)
+                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!campaign.getOrganizer().getId().equals(user.getId())) {
+            throw new SecurityException("Only the campaign organizer can edit the campaign");
+        }
+
+        boolean hasDonations = campaign.getCurrentAmount().compareTo(BigDecimal.ZERO) > 0;
+        boolean canEditGoal = "PENDING".equals(campaign.getStatus())
+                || ("ACTIVE".equals(campaign.getStatus()) && !hasDonations);
+
+        if (request.getTitle() != null && !request.getTitle().isBlank()) {
+            campaign.setTitle(request.getTitle().trim());
+        }
+        if (request.getDescription() != null) {
+            campaign.setDescription(request.getDescription());
+        }
+        if (request.getCategory() != null && !request.getCategory().isBlank()) {
+            campaign.setCategory(request.getCategory());
+        }
+        if (request.getGoalAmount() != null && canEditGoal) {
+            campaign.setGoalAmount(request.getGoalAmount());
+        }
+        if (request.getImageUrl() != null) {
+            campaign.setImageUrl(request.getImageUrl());
+        }
+
+        Campaign saved = campaignRepository.save(campaign);
+
+        try {
+            syncCampaignDataToBlockchain(saved);
+        } catch (Exception e) {
+            log.warn("Failed to sync campaign edit to blockchain: {}", e.getMessage());
+        }
+
+        return mapToResponse(saved);
+    }
+
+    @Transactional
+    public void addDocumentsToCampaign(Long campaignId, java.util.List<CreateCampaignRequest.DocumentItem> documents, String username) {
+        Campaign campaign = campaignRepository.findById(campaignId)
+                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!campaign.getOrganizer().getId().equals(user.getId())) {
+            throw new SecurityException("Only the campaign organizer can add documents");
+        }
+        if (documents == null) return;
+
+        for (CreateCampaignRequest.DocumentItem doc : documents) {
+            CampaignDocument.DocType docType;
+            try {
+                docType = CampaignDocument.DocType.valueOf(doc.getDocType());
+            } catch (Exception e) {
+                docType = doc.isImage() ? CampaignDocument.DocType.PHOTO : CampaignDocument.DocType.OTHER;
+            }
+            CampaignDocument document = CampaignDocument.builder()
+                    .campaign(campaign)
+                    .name(doc.getName())
+                    .url(doc.getUrl())
+                    .docType(docType)
+                    .build();
+            documentRepository.save(document);
+        }
+    }
+
+    @Transactional
+    public CampaignResponse freezeCampaign(Long campaignId, String reason) {
+        Campaign campaign = campaignRepository.findById(campaignId)
+                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+        if (!"ACTIVE".equals(campaign.getStatus())) {
+            throw new RuntimeException("Only ACTIVE campaigns can be frozen");
+        }
+        campaign.setStatus("FROZEN");
+        campaign.setFreezeReason(reason);
+        campaign.setUnfreezeRequested(false);
+        campaignRepository.save(campaign);
+        syncStatusToBlockchain(campaign, "FROZEN");
+        return mapToResponse(campaign);
+    }
+
+    @Transactional
+    public CampaignResponse closeCampaignByPartner(Long campaignId, String reason) {
+        Campaign campaign = campaignRepository.findById(campaignId)
+                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+        if ("COMPLETED".equals(campaign.getStatus()) || "CLOSED".equals(campaign.getStatus())) {
+            throw new RuntimeException("Campaign is already closed or completed");
+        }
+        campaign.setStatus("CLOSED");
+        campaign.setFreezeReason(reason);
+        if (campaign.getCompletedAt() == null) {
+            campaign.setCompletedAt(java.time.LocalDateTime.now());
+        }
+        campaignRepository.save(campaign);
+        syncStatusToBlockchain(campaign, "SUSPENDED");
+        return mapToResponse(campaign);
+    }
+
+    @Transactional
+    public CampaignResponse requestUnfreeze(Long campaignId, String username) {
+        Campaign campaign = campaignRepository.findById(campaignId)
+                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!campaign.getOrganizer().getId().equals(user.getId())) {
+            throw new RuntimeException("Only the campaign organizer can request unfreeze");
+        }
+        if (!"FROZEN".equals(campaign.getStatus())) {
+            throw new RuntimeException("Campaign is not frozen");
+        }
+        campaign.setUnfreezeRequested(true);
+        campaignRepository.save(campaign);
+        return mapToResponse(campaign);
+    }
+
+    @Transactional
+    public CampaignResponse reviewUnfreeze(Long campaignId, boolean approved) {
+        Campaign campaign = campaignRepository.findById(campaignId)
+                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+        if (!"FROZEN".equals(campaign.getStatus())) {
+            throw new RuntimeException("Campaign is not frozen");
+        }
+        if (approved) {
+            campaign.setStatus("ACTIVE");
+            campaign.setFreezeReason(null);
+            campaign.setUnfreezeRequested(false);
+            syncStatusToBlockchain(campaign, "ACTIVE");
+        } else {
+            campaign.setUnfreezeRequested(false);
+        }
+        campaignRepository.save(campaign);
+        return mapToResponse(campaign);
     }
 
     /**
@@ -278,7 +466,8 @@ public class CampaignService {
         String data = nullSafe(campaign.getTitle()) + "|" +
                       nullSafe(campaign.getDescription()) + "|" +
                       nullSafe(campaign.getCategory()) + "|" +
-                      nullSafe(campaign.getImageUrl());
+                      nullSafe(campaign.getImageUrl()) + "|" +
+                      (campaign.getGoalAmount() != null ? campaign.getGoalAmount().toPlainString() : "0");
         return sha256Hex(data);
     }
 
@@ -333,7 +522,6 @@ public class CampaignService {
                 .status(campaign.getStatus())
                 .imageUrl(campaign.getImageUrl())
                 .organizerName(campaign.getOrganizer().getDisplayName())
-                .organizerId(campaign.getOrganizer().getId())
                 .createdAt(campaign.getCreatedAt())
                 .updatedAt(campaign.getUpdatedAt())
                 .completedAt(campaign.getCompletedAt())
@@ -347,6 +535,8 @@ public class CampaignService {
                 .partnerNote(campaign.getPartnerNote())
                 .endorsedBy(campaign.getEndorsedBy() != null ? campaign.getEndorsedBy().getDisplayName() : null)
                 .endorsedAt(campaign.getEndorsedAt())
+                .freezeReason(campaign.getFreezeReason())
+                .unfreezeRequested(Boolean.TRUE.equals(campaign.getUnfreezeRequested()))
                 .build();
     }
 }

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getToken, statsAPI, campaignAPI } from '@/utils/api';
+import { formatAmount, timeAgo } from '@/utils/format';
+import { CATEGORIES } from '@/utils/constants';
 import {
     ArrowRight,
     Shield,
@@ -14,38 +16,6 @@ import {
     Leaf,
 } from 'lucide-react';
 import heroBg from '@/image/index.png';
-
-const CATEGORIES = [
-    { id: 'all', name: 'All' },
-    { id: 'disaster_relief', name: 'Disaster Relief' },
-    { id: 'medical_assistance', name: 'Medical Aid' },
-    { id: 'education_support', name: 'Education' },
-    { id: 'environmental', name: 'Environment' },
-    { id: 'poverty_alleviation', name: 'Poverty Alleviation' },
-    { id: 'community_development', name: 'Community' },
-    { id: 'children_welfare', name: 'Children' },
-    { id: 'elderly_care', name: 'Elderly' },
-    { id: 'animal_welfare', name: 'Animals' },
-    { id: 'other', name: 'Other' },
-];
-
-const formatAmount = (amount) =>
-    new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'EUR',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    }).format(amount);
-
-const timeAgo = (dateStr) => {
-    if (!dateStr) return '';
-    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-    if (diff < 60) return `${diff}s ago`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
-    return `${Math.floor(diff / 2592000)}mo ago`;
-};
 
 const CampaignCard = ({ data, onClick }) => {
     const percent = Math.min(Math.round((data.currentAmount / data.goalAmount) * 100), 100);
@@ -109,8 +79,8 @@ export default function Home() {
                 ]);
                 setStats(statsData);
                 setRecentDonations(donationsData || []);
-                const shuffled = [...campaignsData].sort(() => 0.5 - Math.random());
-                setCampaigns(shuffled.slice(0, Math.min(3, campaignsData.length)));
+                const sorted = [...campaignsData].sort((a, b) => b.currentAmount - a.currentAmount);
+                setCampaigns(sorted.slice(0, Math.min(3, campaignsData.length)));
             } catch (error) {
                 console.error('Failed to fetch data:', error);
             } finally {
@@ -197,7 +167,9 @@ export default function Home() {
                                             <div className="text-sm font-semibold text-gray-800 truncate">
                                                 {d.displayName || 'Anonymous'}
                                             </div>
-                                            <div className="text-xs text-gray-400 truncate">{timeAgo(d.date)}</div>
+                                            <div className="text-xs text-gray-400 truncate">
+                                                {d.campaignTitle ? `to ${d.campaignTitle} · ` : ''}{timeAgo(d.date)}
+                                            </div>
                                         </div>
                                                     </div>
                                                     <div className="text-sm font-bold text-emerald-600 flex-shrink-0 ml-3 bg-emerald-50 px-2.5 py-1 rounded-lg">
@@ -220,6 +192,16 @@ export default function Home() {
                                 <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-1">Total Raised</div>
                                 <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-emerald-600">
                                     {formatAmount(stats.totalRaised)}
+                                </div>
+                                <div className="flex gap-6 mt-3">
+                                    <div>
+                                        <span className="text-lg font-bold text-gray-800">{stats.donorCount || 0}</span>
+                                        <span className="text-xs text-gray-400 ml-1">Donors</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-lg font-bold text-gray-800">{stats.totalCampaigns || 0}</span>
+                                        <span className="text-xs text-gray-400 ml-1">Campaigns</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

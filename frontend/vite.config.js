@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 // https://vitejs.dev/config/
-export default defineConfig(({ command }) => ({
+export default defineConfig(() => ({
   plugins: [react()],
   // Use "/FYP/" for GitHub Pages deployment, "/" for local/Docker
   // Set VITE_BASE_PATH=FYP for GitHub Pages build
@@ -34,7 +34,4 @@ export default defineConfig(({ command }) => ({
     }
   }
 }))
-
-
-
 

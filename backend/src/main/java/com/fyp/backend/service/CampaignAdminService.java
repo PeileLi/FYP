@@ -138,6 +138,7 @@ public class CampaignAdminService {
             case "SUSPENDED" -> "Suspended";
             case "COMPLETED" -> "Completed";
             case "CLOSED"    -> "Closed";
+            case "FROZEN"    -> "Frozen";
             default          -> status;
         };
     }

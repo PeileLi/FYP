@@ -3,15 +3,16 @@ package com.fyp.backend.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "campaign_audits")
+@Table(name = "withdrawals")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CampaignAudit {
+public class Withdrawal {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -21,36 +22,30 @@ public class CampaignAudit {
     @JoinColumn(name = "campaign_id", nullable = false)
     private Campaign campaign;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "auditor_id", nullable = false)
-    private User auditor;
+    @Column(nullable = false)
+    private BigDecimal amount;
 
     @Column(nullable = false)
-    private String conclusion; // APPROVED | REJECTED | REQUIRES_INFO | RISK_FLAGGED
+    private String status; // PENDING_EVIDENCE, SUBMITTED, VERIFIED
 
     @Column(columnDefinition = "TEXT")
-    private String evidenceSummary;
-
-    @Column
-    private String evidenceHash;
+    private String description;
 
     @Column(columnDefinition = "TEXT")
-    private String notes;
+    private String evidenceUrls; // JSON array of file URLs
 
     @Column
-    private String blockchainAuditId; // Audit ID returned from chaincode
-
-    @Builder.Default
-    private Boolean pendingOrg2Resubmit = false;
-
-    @Column
-    private String signedBy; // ORG1_TEMPORARY or ORG2_VERIFIED
+    private String blockchainTxId;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    @Column
+    private LocalDateTime submittedAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        if (status == null) status = "PENDING_EVIDENCE";
     }
 }

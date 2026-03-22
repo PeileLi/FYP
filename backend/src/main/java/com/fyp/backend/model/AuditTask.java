@@ -28,6 +28,9 @@ public class AuditTask {
     @JoinColumn(name = "assigned_partner_id")
     private User assignedPartner;
 
+    @Version
+    private Long version;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     @Builder.Default

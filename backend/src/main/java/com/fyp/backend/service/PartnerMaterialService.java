@@ -56,6 +56,8 @@ public class PartnerMaterialService {
         info.put("createdAt",       c.getCreatedAt() != null ? c.getCreatedAt().toString() : "");
         info.put("blockchainTxId",  c.getBlockchainTxId());
         info.put("onChain",         c.getBlockchainTxId() != null);
+        info.put("freezeReason",    c.getFreezeReason());
+        info.put("unfreezeRequested", Boolean.TRUE.equals(c.getUnfreezeRequested()));
         // Organiser: display name visible to all; contact details only on full access
         Map<String, Object> org = new LinkedHashMap<>();
         if (c.getOrganizer() != null) {
@@ -259,6 +261,7 @@ public class PartnerMaterialService {
     @Transactional
     public Map<String, Object> addDocument(Long campaignId, String docType,
                                            String name, String url, String description) {
+        scopeService.requireFullAccess(campaignId);
         Campaign c = getCampaign(campaignId);
         CampaignDocument.DocType type;
         try { type = CampaignDocument.DocType.valueOf(docType); }
@@ -271,6 +274,7 @@ public class PartnerMaterialService {
 
     @Transactional
     public Map<String, Object> addUpdate(Long campaignId, String content) {
+        scopeService.requireFullAccess(campaignId);
         Campaign c = getCampaign(campaignId);
         CampaignUpdate u = CampaignUpdate.builder().campaign(c).content(content).build();
         return toUpdateMap(updateRepo.save(u));
@@ -278,6 +282,7 @@ public class PartnerMaterialService {
 
     @Transactional
     public void updateFundUsagePlan(Long campaignId, String plan) {
+        scopeService.requireFullAccess(campaignId);
         Campaign c = getCampaign(campaignId);
         c.setFundUsagePlan(plan);
         campaignRepo.save(c);

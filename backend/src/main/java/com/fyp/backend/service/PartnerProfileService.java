@@ -9,7 +9,6 @@ import com.fyp.backend.repository.PartnerProfileRepository;
 import com.fyp.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,20 +30,14 @@ public class PartnerProfileService {
     private final FabricConfig fabricConfig;
     private final FabricGatewayService fabricGatewayService;
     private final PartnerFabricGatewayService partnerFabricGatewayService;
-
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
-    private User currentPartner() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Partner not found"));
-    }
+    private final PartnerScopeService scopeService;
 
     private PartnerProfile getOrCreateProfile(User user) {
         return profileRepository.findByUser(user).orElseGet(() -> {
+            String org = user.getOrgName() != null ? user.getOrgName() : user.getDisplayName();
             PartnerProfile p = PartnerProfile.builder()
                     .user(user)
-                    .orgName(user.getDisplayName())
+                    .orgName(org)
                     .fabricMspId(fabricConfig.getOrg2MspId())
                     .build();
             return profileRepository.save(p);
@@ -54,7 +47,7 @@ public class PartnerProfileService {
     // ── Profile ──────────────────────────────────────────────────────────────
 
     public Map<String, Object> getProfile() {
-        User partner = currentPartner();
+        User partner = scopeService.currentPartner();
         PartnerProfile profile = getOrCreateProfile(partner);
         return buildProfileMap(partner, profile);
     }
@@ -62,12 +55,12 @@ public class PartnerProfileService {
     @Transactional
     public Map<String, Object> updateProfile(String orgName, String credentialNumber,
                                              String fabricMspId, String certSerial) {
-        User partner = currentPartner();
+        User partner = scopeService.currentPartner();
         PartnerProfile profile = getOrCreateProfile(partner);
 
         if (orgName != null && !orgName.isBlank()) {
             profile.setOrgName(orgName);
-            partner.setDisplayName(orgName);
+            partner.setOrgName(orgName);
             userRepository.save(partner);
         }
         if (credentialNumber != null) profile.setCredentialNumber(credentialNumber);
@@ -81,7 +74,7 @@ public class PartnerProfileService {
     // ── Fabric identity info ──────────────────────────────────────────────────
 
     public Map<String, Object> getFabricIdentity() {
-        User partner = currentPartner();
+        User partner = scopeService.currentPartner();
         PartnerProfile profile = getOrCreateProfile(partner);
 
         Map<String, Object> m = new LinkedHashMap<>();
@@ -134,12 +127,12 @@ public class PartnerProfileService {
     // ── Permissions ───────────────────────────────────────────────────────────
 
     public Map<String, Object> getPermissions() {
-        User partner = currentPartner();
+        User partner = scopeService.currentPartner();
         PartnerProfile profile = getOrCreateProfile(partner);
 
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("role", "PARTNER");
-        m.put("orgName", profile.getOrgName() != null ? profile.getOrgName() : partner.getDisplayName());
+        m.put("orgName", profile.getOrgName() != null ? profile.getOrgName() : partner.getOrgName());
 
         List<Map<String, Object>> allowed = new ArrayList<>();
         for (String[] entry : new String[][]{
@@ -180,7 +173,7 @@ public class PartnerProfileService {
     // ── My Audit Records ──────────────────────────────────────────────────────
 
     public List<Map<String, Object>> getMyAuditRecords() {
-        User partner = currentPartner();
+        User partner = scopeService.currentPartner();
         return auditRepository.findByAuditorOrderByCreatedAtDesc(partner)
                 .stream().map(this::toAuditMap).toList();
     }
@@ -192,7 +185,7 @@ public class PartnerProfileService {
         m.put("userId",           user.getId());
         m.put("username",         user.getUsername());
         m.put("displayName",      user.getDisplayName());
-        m.put("orgName",          profile.getOrgName() != null ? profile.getOrgName() : user.getDisplayName());
+        m.put("orgName",          profile.getOrgName() != null ? profile.getOrgName() : user.getOrgName());
         m.put("credentialNumber", profile.getCredentialNumber());
         m.put("fabricMspId",      profile.getFabricMspId() != null ? profile.getFabricMspId() : fabricConfig.getOrg2MspId());
         m.put("certSerial",       profile.getCertSerial());

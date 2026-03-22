@@ -16,6 +16,7 @@ public class AuthResponse {
     private Long id;
     private String username;
     private String displayName;
+    private String orgName;
     private String avatarUrl;
     private String role;
 }

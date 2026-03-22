@@ -78,21 +78,20 @@ public class PartnerApplicationService {
             throw new RuntimeException("Application has already been processed");
         }
 
-        String partnerUsername = application.getOrganizationName()
-                .toLowerCase().replaceAll("[^a-z0-9_]", "_").replaceAll("_+", "_");
+        String partnerUsername = application.getEmail();
         if (userRepository.existsByUsername(partnerUsername)) {
-            throw new RuntimeException("Username '" + partnerUsername + "' already exists");
+            throw new RuntimeException("An account with this email already exists");
         }
 
-        // Generate a temporary password if not provided
-        String rawPassword = (request != null && request.getTempPassword() != null && !request.getTempPassword().isBlank())
-                ? request.getTempPassword()
-                : generateTempPassword();
+        String rawPassword = (request != null && request.getTempPassword() != null
+                && !request.getTempPassword().isBlank())
+                        ? request.getTempPassword()
+                        : generateTempPassword();
 
-        // Create PARTNER user account
         User partnerUser = User.builder()
                 .username(partnerUsername)
                 .displayName(application.getOrganizationName())
+                .orgName(application.getOrganizationName())
                 .password(passwordEncoder.encode(rawPassword))
                 .role(User.Role.PARTNER)
                 .enabled(true)
@@ -102,13 +101,13 @@ public class PartnerApplicationService {
         application.setStatus(PartnerApplication.Status.APPROVED);
         applicationRepository.save(application);
 
-        log.info("Partner application approved: {} ({}), account created", application.getOrganizationName(), application.getEmail());
+        log.info("Partner application approved: {} ({}), account created", application.getOrganizationName(),
+                application.getEmail());
 
         return Map.of(
                 "message", "Application approved and account created",
                 "username", partnerUsername,
-                "tempPassword", rawPassword
-        );
+                "tempPassword", rawPassword);
     }
 
     @Transactional

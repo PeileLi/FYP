@@ -54,6 +54,7 @@ export default function Register() {
                 id: response.id,
                 username: response.username,
                 displayName: response.displayName,
+                orgName: response.orgName,
                 avatarUrl: response.avatarUrl,
                 role: response.role,
             });

@@ -10,7 +10,6 @@ import com.fyp.backend.repository.CampaignRepository;
 import com.fyp.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,12 +38,6 @@ public class PartnerAuditService {
     private final AuditTaskRepository auditTaskRepository;
     private final PartnerScopeService scopeService;
 
-    private User currentPartner() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Partner not found"));
-    }
-
     /**
      * Returns only campaigns that have a task scoped to the current partner:
      *  - OPEN tasks (any partner may see, with basic info)
@@ -52,7 +45,7 @@ public class PartnerAuditService {
      * Filtered further by auditStatus if provided.
      */
     public List<Map<String, Object>> getCampaigns(String auditStatus) {
-        User me = currentPartner();
+        User me = scopeService.currentPartner();
 
         // Collect OPEN task campaigns
         List<Campaign> openCampaigns = auditTaskRepository
@@ -90,7 +83,7 @@ public class PartnerAuditService {
             throw new RuntimeException("Invalid conclusion: " + conclusion);
         }
         scopeService.requireFullAccess(campaignId);
-        User partner = currentPartner();
+        User partner = scopeService.currentPartner();
         Campaign campaign = campaignRepository.findById(campaignId)
                 .orElseThrow(() -> new RuntimeException("Campaign not found: " + campaignId));
 
@@ -137,6 +130,7 @@ public class PartnerAuditService {
                             commentHash,
                             timestamp);
                     log.info("SubmitReviewResult [Org2MSP] OK: {} for campaign {}", blockchainAuditId, campaignId);
+                    audit.setSignedBy("ORG2_VERIFIED");
                 } else {
                     log.warn("Org2 gateway not ready — falling back to RecordAudit via Org1MSP for campaign {}", campaignId);
                     blockchainAuditId = fabricGatewayService.recordAudit(
@@ -147,6 +141,8 @@ public class PartnerAuditService {
                             commentHash,
                             timestamp);
                     log.info("RecordAudit [Org1MSP fallback] OK: {} for campaign {}", blockchainAuditId, campaignId);
+                    audit.setSignedBy("ORG1_TEMPORARY");
+                    audit.setPendingOrg2Resubmit(true);
                 }
                 audit.setBlockchainAuditId(blockchainAuditId);
             }
@@ -178,6 +174,7 @@ public class PartnerAuditService {
     }
 
     public List<Map<String, Object>> getAuditHistory(Long campaignId) {
+        scopeService.requireFullAccess(campaignId);
         Campaign campaign = campaignRepository.findById(campaignId)
                 .orElseThrow(() -> new RuntimeException("Campaign not found: " + campaignId));
 
@@ -270,6 +267,8 @@ public class PartnerAuditService {
         m.put("createdAt", a.getCreatedAt() != null ? a.getCreatedAt().toString() : "");
         m.put("blockchainAuditId", a.getBlockchainAuditId());
         m.put("onChain", a.getBlockchainAuditId() != null);
+        m.put("signedBy", a.getSignedBy());
+        m.put("pendingOrg2Resubmit", Boolean.TRUE.equals(a.getPendingOrg2Resubmit()));
         return m;
     }
 }

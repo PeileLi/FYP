@@ -80,40 +80,6 @@ const parseErrorResponse = async (response) => {
     }
 };
 
-/**
- * Get user-friendly error message
- */
-export const getUserFriendlyErrorMessage = (error) => {
-    const message = error?.message || 'An unexpected error occurred';
-
-    // Network errors
-    if (message.includes('fetch') || message.includes('timeout')) {
-        return 'Unable to connect to server. Please check your internet connection.';
-    }
-
-    // Authentication errors
-    if (message.includes('401') || message.includes('Unauthorized')) {
-        return 'Your session has expired. Please log in again.';
-    }
-
-    if (message.includes('403') || message.includes('Forbidden')) {
-        return 'You don\'t have permission to perform this action.';
-    }
-
-    // Not found
-    if (message.includes('404') || message.includes('not found')) {
-        return 'The requested resource was not found.';
-    }
-
-    // Server errors
-    if (message.includes('500') || message.includes('502') || message.includes('503')) {
-        return 'Server error. Please try again later.';
-    }
-
-    // Return original message for other errors
-    return message;
-};
-
 // ============================================================================
 // Core Request Functions
 // ============================================================================
@@ -181,15 +147,18 @@ const apiRequest = async (endpoint, options = {}) => {
         if (!response.ok) {
             const errorMessage = await parseErrorResponse(response);
 
-            // 401 or 403: only clear session when we actually sent a token (avoid clear when proxy stripped header)
-            if (response.status === 401 || response.status === 403) {
+            if (response.status === 401) {
                 if (token) {
-                    console.warn('[apiRequest] Auth failed (%s) for %s, clearing session', response.status, url);
+                    console.warn('[apiRequest] Auth failed (401) for %s, clearing session', url);
                     removeToken();
                     removeUser();
                     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
                 }
                 throw new Error('Your session has expired. Please log in again.');
+            }
+
+            if (response.status === 403) {
+                throw new Error(errorMessage || 'You do not have permission to perform this action.');
             }
 
             throw new Error(`${response.status} ${errorMessage}`);
@@ -332,6 +301,20 @@ export const campaignAPI = {
             method: 'GET',
         });
     },
+
+    setCoverImage: async (id, imageUrl) => {
+        return apiRequest(`/campaigns/${id}/cover`, {
+            method: 'PUT',
+            body: JSON.stringify({ imageUrl }),
+        });
+    },
+
+    requestUnfreeze: async (id) => {
+        return apiRequest(`/campaigns/${id}/request-unfreeze`, {
+            method: 'PUT',
+        });
+    },
+
 };
 
 // Donation API
@@ -358,7 +341,10 @@ export const donationAPI = {
 
 // File Upload API
 export const uploadAPI = {
-    uploadImage: async (file) => {
+    uploadFile: async (file) => {
+        return uploadAPI._upload(file, '/upload/file');
+    },
+    _upload: async (file, endpoint) => {
         const formData = new FormData();
         formData.append('file', file);
 
@@ -370,28 +356,24 @@ export const uploadAPI = {
         }
 
         try {
-            const response = await fetchWithTimeout(`${API_BASE_URL}/upload/image`, {
+            const response = await fetchWithTimeout(`${API_BASE_URL}${endpoint}`, {
                 method: 'POST',
                 headers,
-                body: formData, // Don't set Content-Type, browser will set it with boundary
+                body: formData,
             });
 
             if (!response.ok) {
                 const errorMessage = await parseErrorResponse(response);
-
                 if (response.status === 413) {
-                    throw new Error('File too large. Maximum size is 50MB');
+                    throw new Error('File too large. Maximum size is 10MB');
                 }
-
-                throw new Error(errorMessage || 'Failed to upload image');
+                throw new Error(errorMessage || 'Failed to upload file');
             }
 
             return response.json();
         } catch (error) {
-            if (error.message) {
-                throw error;
-            }
-            throw new Error('Failed to upload image. Please try again.');
+            if (error.message) throw error;
+            throw new Error('Failed to upload file. Please try again.');
         }
     },
 };
@@ -404,15 +386,6 @@ export const partnerAPI = {
             body: JSON.stringify(data),
         });
     },
-    getCampaigns: (status) => {
-        const q = status ? `?status=${status}` : '';
-        return apiRequest(`/partner/campaigns${q}`, { method: 'GET' });
-    },
-    // Audit API
-    getAuditCampaigns: (auditStatus) => {
-        const q = auditStatus ? `?auditStatus=${auditStatus}` : '';
-        return apiRequest(`/partner/audit/campaigns${q}`, { method: 'GET' });
-    },
     submitAudit: (id, body) => apiRequest(`/partner/audit/campaigns/${id}/submit`, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -422,7 +395,6 @@ export const partnerAPI = {
     getOpenTasks:      () => apiRequest('/partner/tasks/open',      { method: 'GET' }),
     getMyTasks:        () => apiRequest('/partner/tasks/mine',      { method: 'GET' }),
     getCompletedTasks: () => apiRequest('/partner/tasks/completed', { method: 'GET' }),
-    getDeclineLogs:    (id) => apiRequest(`/partner/tasks/${id}/decline-logs`, { method: 'GET' }),
     acceptTask:        (id) => apiRequest(`/partner/tasks/${id}/accept`,  { method: 'POST', body: '{}' }),
     declineTask:       (id, reason) => apiRequest(`/partner/tasks/${id}/decline`, {
         method: 'POST',
@@ -432,15 +404,14 @@ export const partnerAPI = {
     getCampaignDetail:    (id) => apiRequest(`/partner/campaigns/${id}/detail`, { method: 'GET' }),
     submitVerification:   (id, body) => apiRequest(`/partner/campaigns/${id}/verification`, { method: 'POST', body: JSON.stringify(body) }),
     getVerifications:     (id) => apiRequest(`/partner/campaigns/${id}/verifications`, { method: 'GET' }),
-    addDocument:          (id, body) => apiRequest(`/partner/campaigns/${id}/documents`, { method: 'POST', body: JSON.stringify(body) }),
-    addUpdate:            (id, body) => apiRequest(`/partner/campaigns/${id}/updates`, { method: 'POST', body: JSON.stringify(body) }),
-    updateFundUsagePlan:  (id, plan) => apiRequest(`/partner/campaigns/${id}/fund-usage-plan`, { method: 'PUT', body: JSON.stringify({ plan }) }),
     getChainRecords:      (id) => apiRequest(`/partner/campaigns/${id}/chain-records`, { method: 'GET' }),
+    freezeCampaign:       (id, reason) => apiRequest(`/partner/audit/campaigns/${id}/freeze`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    closeCampaignByPartner: (id, reason) => apiRequest(`/partner/audit/campaigns/${id}/close`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    reviewUnfreeze:       (id, approved) => apiRequest(`/partner/audit/campaigns/${id}/review-unfreeze`, { method: 'POST', body: JSON.stringify({ approved }) }),
     // Profile
     getProfile: () => apiRequest('/partner/profile', { method: 'GET' }),
     updateProfile: (body) => apiRequest('/partner/profile', { method: 'PUT', body: JSON.stringify(body) }),
     getFabricIdentity: () => apiRequest('/partner/profile/fabric-identity', { method: 'GET' }),
-    getPermissions: () => apiRequest('/partner/profile/permissions', { method: 'GET' }),
     getMyAudits: () => apiRequest('/partner/profile/my-audits', { method: 'GET' }),
 };
 
@@ -499,11 +470,8 @@ export const adminAPI = {
     getUserActivity: (id) => apiRequest(`/admin/users/${id}/activity`, { method: 'GET' }),
     toggleUserEnabled: (id) => apiRequest(`/admin/users/${id}/toggle-enabled`, { method: 'POST' }),
     getBlockchainStats: () => apiRequest('/admin/blockchain/stats', { method: 'GET' }),
-    getBlockchainNodes: () => apiRequest('/admin/blockchain/nodes', { method: 'GET' }),
     getBlockchainTransactions: (page = 0, size = 50) =>
         apiRequest(`/admin/blockchain/transactions?page=${page}&size=${size}`, { method: 'GET' }),
-    getBlockchainAuditLogs: (page = 0, size = 50) =>
-        apiRequest(`/admin/blockchain/audit-logs?page=${page}&size=${size}`, { method: 'GET' }),
     getBlock: (blockNum) => apiRequest(`/admin/blockchain/block/${blockNum}`, { method: 'GET' }),
 };
 

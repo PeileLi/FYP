@@ -34,6 +34,7 @@ public class UserController {
         profile.put("id", user.getId());
         profile.put("username", user.getUsername());
         profile.put("displayName", user.getDisplayName());
+        profile.put("orgName", user.getOrgName());
         profile.put("avatarUrl", user.getAvatarUrl());
         profile.put("role", user.getRole().name());
         profile.put("createdAt", user.getCreatedAt());
@@ -68,6 +69,7 @@ public class UserController {
         Map<String, Object> response = new HashMap<>();
         response.put("message", "Profile updated successfully");
         response.put("displayName", user.getDisplayName());
+        response.put("orgName", user.getOrgName());
         response.put("avatarUrl", user.getAvatarUrl());
         response.put("username", user.getUsername());
         response.put("role", user.getRole().name());

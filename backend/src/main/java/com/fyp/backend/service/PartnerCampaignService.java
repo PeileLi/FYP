@@ -1,6 +1,9 @@
 package com.fyp.backend.service;
 
+import com.fyp.backend.model.AuditTask;
 import com.fyp.backend.model.Campaign;
+import com.fyp.backend.model.User;
+import com.fyp.backend.repository.AuditTaskRepository;
 import com.fyp.backend.repository.CampaignRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,12 +17,18 @@ import java.util.Map;
 public class PartnerCampaignService {
 
     private final CampaignRepository campaignRepository;
+    private final AuditTaskRepository auditTaskRepository;
+    private final PartnerScopeService scopeService;
 
     public List<Map<String, Object>> getCampaigns(String status) {
-        List<Campaign> campaigns = (status != null && !status.isBlank())
-                ? campaignRepository.findByStatusOrderByCreatedAtDesc(status)
-                : campaignRepository.findAllByOrderByCreatedAtDesc();
-        return campaigns.stream().map(this::toMap).toList();
+        User partner = scopeService.currentPartner();
+
+        List<Campaign> campaigns = auditTaskRepository.findByAssignedPartner(partner)
+                .stream().map(AuditTask::getCampaign).toList();
+
+        return campaigns.stream()
+                .filter(c -> status == null || status.isBlank() || status.equals(c.getStatus()))
+                .map(this::toMap).toList();
     }
 
     private Map<String, Object> toMap(Campaign c) {

@@ -118,47 +118,6 @@ public class PartnerFabricGatewayService {
         }
     }
 
-    /**
-     * Calls QueryReviews() (open to any MSP — uses Org2 identity here as it is
-     * available; could equally be called via Org1 gateway).
-     */
-    public String queryReviews(String campaignID) {
-        if (!org2Ready) return null;
-        try {
-            byte[] result = contract.evaluateTransaction("QueryReviews", campaignID);
-            return new String(result, java.nio.charset.StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            log.warn("[PartnerFabric] QueryReviews failed for {}: {}", campaignID, e.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Calls AuditDisbursement() on chaincode, which enforces Org2MSP.
-     * Audits a previously recorded disbursement (AUDIT_PASSED or AUDIT_FLAGGED).
-     */
-    public void auditDisbursement(String campaignID, int disbSeq, boolean approved,
-                                  String auditCommentHash, String timestamp) {
-        if (!org2Ready) {
-            log.warn("[PartnerFabric] Org2 gateway not ready — cannot call AuditDisbursement for campaign {}", campaignID);
-            return;
-        }
-        try {
-            contract.submitTransaction("AuditDisbursement",
-                    campaignID,
-                    String.valueOf(disbSeq),
-                    String.valueOf(approved),
-                    auditCommentHash != null ? auditCommentHash : "",
-                    timestamp);
-            log.info("[PartnerFabric] AuditDisbursement OK — campaign={}, seq={}, approved={}",
-                     campaignID, disbSeq, approved);
-        } catch (Exception e) {
-            log.error("[PartnerFabric] AuditDisbursement failed for campaign {} seq {}: {}",
-                     campaignID, disbSeq, e.getMessage());
-            throw new RuntimeException("Blockchain AuditDisbursement failed: " + e.getMessage(), e);
-        }
-    }
-
     // ── Internal connection helpers ───────────────────────────────────────────
 
     private ManagedChannel buildGrpcChannel() throws IOException {

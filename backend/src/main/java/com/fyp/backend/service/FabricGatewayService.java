@@ -457,20 +457,6 @@ public class FabricGatewayService {
         }
     }
 
-    /**
-     * Retrieve all version history snapshots for a campaign from blockchain.
-     */
-    public String getAllCampaignHistory(String campaignID) {
-        if (!isEnabled()) return null;
-        try {
-            byte[] result = contract.evaluateTransaction("GetAllCampaignHistory", campaignID);
-            return new String(result, StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            log.warn("Failed to get campaign history from blockchain: {}", e.getMessage());
-            return null;
-        }
-    }
-
     // ==================== Disbursement Functions ====================
 
     /**
@@ -494,20 +480,6 @@ public class FabricGatewayService {
         } catch (Exception e) {
             log.error("Failed to record disbursement on blockchain: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to record disbursement: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Query all disbursement records for a campaign from blockchain.
-     */
-    public String queryDisbursements(String campaignID) {
-        if (!isEnabled()) return null;
-        try {
-            byte[] result = contract.evaluateTransaction("QueryDisbursements", campaignID);
-            return new String(result, StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            log.warn("Failed to query disbursements from blockchain: {}", e.getMessage());
-            return null;
         }
     }
 

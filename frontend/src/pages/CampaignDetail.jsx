@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   Euro,
   Users,
   Calendar,
@@ -12,7 +11,9 @@ import {
   Copy,
   CheckCircle
 } from 'lucide-react';
-import { campaignAPI, donationAPI, userAPI, blockchainAPI, getUser, getToken } from '../utils/api';
+import { campaignAPI, donationAPI, userAPI, getUser, getToken } from '../utils/api';
+import { formatAmount, formatDate, getProgress } from '@/utils/format';
+import { getStatusLabel, CAMPAIGN_STATUS } from '@/utils/constants';
 
 export default function CampaignDetail() {
   const { id } = useParams();
@@ -28,6 +29,7 @@ export default function CampaignDetail() {
   const [isDonating, setIsDonating] = useState(false);
   const [donationSuccess, setDonationSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [shareToast, setShareToast] = useState(false);
   const user = getUser();
 
   useEffect(() => {
@@ -179,27 +181,6 @@ export default function CampaignDetail() {
     }
   };
 
-  const getProgress = () => {
-    if (!campaign) return 0;
-    return Math.min((campaign.currentAmount / campaign.goalAmount) * 100, 100);
-  };
-
-  const formatAmount = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
 
   if (isLoading) {
     return (
@@ -269,6 +250,7 @@ export default function CampaignDetail() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Campaign Image */}
+            {campaign.imageUrl && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
               <img
                 src={campaign.imageUrl}
@@ -279,12 +261,13 @@ export default function CampaignDetail() {
                 }}
               />
             </div>
+            )}
 
             {/* Campaign Info */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
               <div className="mb-4">
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  {campaign.category.replace('_', ' ')}
+                  {campaign.category.replaceAll('_', ' ')}
                 </span>
               </div>
 
@@ -353,24 +336,13 @@ export default function CampaignDetail() {
                   )}
                 </div>
 
-                {/* Show blockchain amount if tampering detected */}
-                {campaign.verificationStatus === 'TAMPERED' && campaign.blockchainAmount != null && (
+                {campaign.verificationStatus === 'TAMPERED' && (
                   <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl">
                     <p className="text-sm text-red-800 font-semibold mb-1">
-                      ⚠️ Data Mismatch Detected
+                      ⚠️ Data Integrity Issue Detected
                     </p>
-                    <div className="text-sm space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-red-700">Database shows:</span>
-                        <span className="font-semibold text-red-900">{formatAmount(campaign.currentAmount)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-green-700">Blockchain record:</span>
-                        <span className="font-semibold text-green-900">{formatAmount(campaign.blockchainAmount)}</span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-red-600 mt-2">
-                      The blockchain record is the authoritative source. This campaign's data may have been tampered with.
+                    <p className="text-xs text-red-600 mt-1">
+                      The blockchain data hash does not match the current database record. This campaign's data may have been tampered with.
                     </p>
                   </div>
                 )}
@@ -399,11 +371,11 @@ export default function CampaignDetail() {
                 <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
                   <div
                     className="bg-gradient-to-r from-emerald-500 to-teal-500 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${getProgress()}%` }}
+                    style={{ width: `${getProgress(campaign.currentAmount, campaign.goalAmount)}%` }}
                   />
                 </div>
                 <p className="text-sm text-gray-600">
-                  {getProgress().toFixed(1)}% funded
+                  {getProgress(campaign.currentAmount, campaign.goalAmount).toFixed(1)}% funded
                 </p>
               </div>
 
@@ -414,20 +386,8 @@ export default function CampaignDetail() {
                   <p className="text-sm text-gray-600">Donors</p>
                 </div>
                 <div className="text-center p-3 bg-gray-50 rounded-xl">
-                  <p className={`text-2xl font-bold ${
-                    campaign.status === 'ACTIVE' ? 'text-emerald-600' :
-                    campaign.status === 'COMPLETED' ? 'text-blue-600' :
-                    campaign.status === 'PENDING' ? 'text-amber-600' :
-                    campaign.status === 'SUSPENDED' ? 'text-red-600' :
-                    'text-gray-900'
-                  }`}>
-                    {{
-                      ACTIVE: 'Active',
-                      COMPLETED: 'Completed',
-                      PENDING: 'Pending',
-                      SUSPENDED: 'Suspended',
-                      CLOSED: 'Closed',
-                    }[campaign.status] || campaign.status}
+                  <p className={`text-2xl font-bold ${CAMPAIGN_STATUS[campaign.status]?.text || 'text-gray-900'}`}>
+                    {getStatusLabel(campaign.status)}
                   </p>
                   <p className="text-sm text-gray-600">Status</p>
                 </div>
@@ -524,16 +484,25 @@ export default function CampaignDetail() {
               )}
 
               {/* Share Button */}
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(window.location.href);
-                  alert('Link copied to clipboard!');
-                }}
-                className="w-full py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-              >
-                <Share2 size={20} />
-                Share Campaign
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.href).then(() => {
+                      setShareToast(true);
+                      setTimeout(() => setShareToast(false), 2000);
+                    }).catch(() => {});
+                  }}
+                  className="w-full py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Share2 size={20} />
+                  {shareToast ? 'Link Copied!' : 'Share Campaign'}
+                </button>
+                {shareToast && (
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap">
+                    Link copied to clipboard
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -760,7 +729,6 @@ const CHAIN_PREVIEW = 5; // blocks shown before "show more"
 function DonationChainSection({ campaign, donations, formatAmount, formatDate }) {
   const [selectedIdx, setSelectedIdx] = useState(null);
   const [expanded, setExpanded] = useState(false);
-  const [tamperedIdx, setTamperedIdx] = useState(null);
 
   const truncHash = (h) => (h ? h.slice(0, 10) + '…' : '—');
 
@@ -790,35 +758,8 @@ function DonationChainSection({ campaign, donations, formatAmount, formatDate })
     })),
   ];
 
-  // Apply simulated tampering: corrupt the hash of one block so the next block's prevHash won't match
-  const displayBlocks = blocks.map((block, i) => {
-    if (tamperedIdx !== null && i === tamperedIdx && block.hash) {
-      const corrupted = block.hash.slice(0, 4) + 'XXXX' + block.hash.slice(8);
-      return { ...block, hash: corrupted, tampered: true };
-    }
-    return block;
-  });
-
-  const visibleBlocks = expanded ? displayBlocks : displayBlocks.slice(0, CHAIN_PREVIEW);
+  const visibleBlocks = expanded ? blocks : blocks.slice(0, CHAIN_PREVIEW);
   const hiddenCount = blocks.length - CHAIN_PREVIEW;
-
-  const handleSimulateTamper = () => {
-    // Pick a random donation block (not genesis, not the last one so the break is visible)
-    const candidates = blocks.slice(1, blocks.length - 1);
-    if (candidates.length === 0) {
-      setTamperedIdx(1); // only one donation, tamper it anyway
-      return;
-    }
-    const pick = 1 + Math.floor(Math.random() * candidates.length);
-    setTamperedIdx(pick);
-    setExpanded(true);
-    setSelectedIdx(null);
-  };
-
-  const handleReset = () => {
-    setTamperedIdx(null);
-    setSelectedIdx(null);
-  };
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, Calendar, Loader, X, Award, Copy, Check, Shield, ShieldCheck, ShieldAlert, ShieldOff } from 'lucide-react';
 import { donationAPI } from '@/utils/api';
+import { formatDateTime, formatShortDate } from '@/utils/format';
 
 export default function DonationHistory() {
     const navigate = useNavigate();
@@ -27,23 +28,6 @@ export default function DonationHistory() {
         fetchDonations();
     }, []);
 
-    const formatDate = (dateString) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
-
-    const formatShortDate = (dateString) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
-    };
 
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text).then(() => {
@@ -224,7 +208,7 @@ export default function DonationHistory() {
                                     <h3 className="font-bold text-gray-900">{donation.campaignTitle}</h3>
                                     <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
                                         <Calendar size={14} />
-                                        {formatDate(donation.date)}
+                                        {formatDateTime(donation.date)}
                                     </div>
                                 </div>
                             </div>

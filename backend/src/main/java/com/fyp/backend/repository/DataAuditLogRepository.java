@@ -16,12 +16,6 @@ public interface DataAuditLogRepository extends JpaRepository<DataAuditLog, Long
     List<DataAuditLog> findByEntityTypeAndEntityIdOrderByModifiedAtDesc(String entityType, Long entityId);
     
     /**
-     * Find audit logs for a specific field
-     */
-    List<DataAuditLog> findByEntityTypeAndEntityIdAndFieldNameOrderByModifiedAtDesc(
-        String entityType, Long entityId, String fieldName);
-    
-    /**
      * Find suspicious modifications (tampering detected)
      */
     List<DataAuditLog> findByVerificationStatusOrderByModifiedAtDesc(String verificationStatus);

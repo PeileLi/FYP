@@ -29,6 +29,7 @@ import {
     UserCheck,
 } from 'lucide-react';
 import { adminAPI } from '@/utils/api';
+import { CAMPAIGN_STATUS } from '@/utils/constants';
 
 const STATUS_TABS = [
     { id: '', label: 'All' },
@@ -672,7 +673,7 @@ function FundFlowPanel() {
             <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-gray-700">
-                        Donation Records
+                        Donation Records <span className="text-xs text-gray-400 font-normal">(from database)</span>
                         <span className="ml-2 text-xs text-gray-400 font-normal">{donations.length} records</span>
                     </h3>
                 </div>
@@ -761,13 +762,7 @@ function FundFlowPanel() {
 
 // ─── Campaign Management Panel ───────────────────────────────────────────────
 
-const CAMPAIGN_STATUS_META = {
-    PENDING:   { label: 'Pending Review', bg: 'bg-yellow-100', text: 'text-yellow-700', dot: 'bg-yellow-400' },
-    ACTIVE:    { label: 'Approved',       bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-400' },
-    SUSPENDED: { label: 'Suspended',      bg: 'bg-red-100',    text: 'text-red-700',    dot: 'bg-red-400' },
-    COMPLETED: { label: 'Completed',      bg: 'bg-blue-100',   text: 'text-blue-700',   dot: 'bg-blue-400' },
-    CLOSED:    { label: 'Closed',         bg: 'bg-gray-200',   text: 'text-gray-600',   dot: 'bg-gray-400' },
-};
+const CAMPAIGN_STATUS_META = CAMPAIGN_STATUS;
 
 function CampaignStatusBadge({ status }) {
     const m = CAMPAIGN_STATUS_META[status] || { label: status, bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
@@ -779,10 +774,24 @@ function CampaignStatusBadge({ status }) {
     );
 }
 
-function CampaignAdminRow({ campaign }) {
+function CampaignAdminRow({ campaign, onStatusChange }) {
     const [expanded, setExpanded] = useState(false);
+    const [updating, setUpdating] = useState(false);
     const currentStatus = campaign.status;
     const progressPct = Math.min(Number(campaign.progress || 0), 100);
+
+    const handleStatusChange = async (newStatus) => {
+        if (updating) return;
+        setUpdating(true);
+        try {
+            await adminAPI.updateCampaignStatus(campaign.id, newStatus);
+            if (onStatusChange) onStatusChange();
+        } catch (e) {
+            alert(e.message || 'Failed to update status');
+        } finally {
+            setUpdating(false);
+        }
+    };
 
     return (
         <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
@@ -839,7 +848,7 @@ function CampaignAdminRow({ campaign }) {
                             <div>
                                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Organizer</p>
                                 <p className="text-gray-700">{campaign.organizerName}</p>
-                                <p className="text-xs text-gray-400">{campaign.organizerEmail}</p>
+                                <p className="text-xs text-gray-400">{campaign.organizerUsername}</p>
                             </div>
                             <div>
                                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Funding</p>
@@ -854,6 +863,28 @@ function CampaignAdminRow({ campaign }) {
                         </div>
                     </div>
 
+                    {/* Status actions */}
+                    <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-2">
+                        {currentStatus !== 'ACTIVE' && currentStatus !== 'COMPLETED' && (
+                            <button onClick={() => handleStatusChange('ACTIVE')} disabled={updating}
+                                className="px-3 py-1.5 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 disabled:opacity-50">
+                                Approve
+                            </button>
+                        )}
+                        {currentStatus !== 'SUSPENDED' && currentStatus !== 'COMPLETED' && (
+                            <button onClick={() => handleStatusChange('SUSPENDED')} disabled={updating}
+                                className="px-3 py-1.5 text-xs font-semibold bg-red-600 text-white rounded-lg hover:bg-red-500 disabled:opacity-50">
+                                Suspend
+                            </button>
+                        )}
+                        {currentStatus !== 'COMPLETED' && (
+                            <button onClick={() => handleStatusChange('COMPLETED')} disabled={updating}
+                                className="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50">
+                                Complete
+                            </button>
+                        )}
+                        {updating && <span className="text-xs text-gray-400 self-center">Updating...</span>}
+                    </div>
                 </div>
             )}
         </div>
@@ -937,7 +968,7 @@ function CampaignManagementPanel() {
             ) : (
                 <div className="space-y-3">
                     {campaigns.map(c => (
-                        <CampaignAdminRow key={c.id} campaign={c} />
+                        <CampaignAdminRow key={c.id} campaign={c} onStatusChange={() => load(filterStatus, keyword)} />
                     ))}
                 </div>
             )}
@@ -1017,6 +1048,7 @@ function UserRow({ user }) {
                         {!enabled && <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold">Disabled</span>}
                     </div>
                     <p className="text-xs text-gray-400 truncate">{user.username}</p>
+                    {user.orgName && <p className="text-xs text-blue-500 truncate">{user.orgName}</p>}
                 </div>
 
                 {/* Stats */}
@@ -1142,7 +1174,8 @@ function UserManagementPanel() {
     const filtered = users.filter(u => {
         const matchSearch = !search ||
             u.username?.toLowerCase().includes(search.toLowerCase()) ||
-            u.displayName?.toLowerCase().includes(search.toLowerCase());
+            u.displayName?.toLowerCase().includes(search.toLowerCase()) ||
+            u.orgName?.toLowerCase().includes(search.toLowerCase());
         const matchRole = !filterRole || u.role === filterRole;
         return matchSearch && matchRole;
     });

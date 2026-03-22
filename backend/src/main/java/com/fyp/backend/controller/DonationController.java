@@ -53,7 +53,7 @@ public class DonationController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(java.util.Map.of("message", message));
             }
-            if (message.contains("Invalid")) {
+            if (message.contains("Invalid") || message.contains("exceeds")) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(java.util.Map.of("message", message));
             }
