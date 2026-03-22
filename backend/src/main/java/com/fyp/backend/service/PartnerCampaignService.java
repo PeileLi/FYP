@@ -4,7 +4,6 @@ import com.fyp.backend.model.AuditTask;
 import com.fyp.backend.model.Campaign;
 import com.fyp.backend.model.User;
 import com.fyp.backend.repository.AuditTaskRepository;
-import com.fyp.backend.repository.CampaignRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,7 +15,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PartnerCampaignService {
 
-    private final CampaignRepository campaignRepository;
     private final AuditTaskRepository auditTaskRepository;
     private final PartnerScopeService scopeService;
 

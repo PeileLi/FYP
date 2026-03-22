@@ -7,7 +7,6 @@ import com.fyp.backend.model.User;
 import com.fyp.backend.repository.AuditTaskRepository;
 import com.fyp.backend.repository.CampaignAuditRepository;
 import com.fyp.backend.repository.CampaignRepository;
-import com.fyp.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,7 +29,6 @@ public class PartnerAuditService {
 
     private final CampaignRepository campaignRepository;
     private final CampaignAuditRepository auditRepository;
-    private final UserRepository userRepository;
     private final FabricGatewayService fabricGatewayService;
     private final PartnerFabricGatewayService partnerFabricGatewayService;
     private final CampaignService campaignService;

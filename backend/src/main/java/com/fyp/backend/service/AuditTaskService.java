@@ -18,7 +18,6 @@ public class AuditTaskService {
     private final AuditTaskRepository           taskRepo;
     private final AuditTaskDeclineLogRepository  declineLogRepo;
     private final CampaignRepository            campaignRepo;
-    private final UserRepository                userRepo;
     private final PartnerScopeService           scopeService;
 
     // ── Sync: create tasks for PENDING_AUDIT campaigns ────────────────────────
