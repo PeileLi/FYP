@@ -36,7 +36,7 @@ public class Campaign {
     private BigDecimal currentAmount;
 
     @Column(nullable = false)
-    private String status; // PENDING, ACTIVE, SUSPENDED, COMPLETED, CLOSED, FROZEN
+    private String status; // PENDING, ACTIVE, SUSPENDED, COMPLETED, CLOSED
 
     @Column
     private String imageUrl;
@@ -89,12 +89,6 @@ public class Campaign {
 
     @Column(columnDefinition = "TEXT")
     private String fundUsagePlan;
-
-    @Column(columnDefinition = "TEXT")
-    private String freezeReason;
-
-    @Builder.Default
-    private Boolean unfreezeRequested = false;
 
     @PrePersist
     protected void onCreate() {

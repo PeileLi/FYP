@@ -35,24 +35,9 @@ public class AuditTaskController {
         return ResponseEntity.ok(auditTaskService.getMyCompletedTasks());
     }
 
-    /** Decline logs for a specific task. */
-    @GetMapping("/{id}/decline-logs")
-    public ResponseEntity<List<Map<String, Object>>> getDeclineLogs(@PathVariable Long id) {
-        return ResponseEntity.ok(auditTaskService.getDeclineLogs(id));
-    }
-
     /** Accept an open task. */
     @PostMapping("/{id}/accept")
     public ResponseEntity<Map<String, Object>> accept(@PathVariable Long id) {
         return ResponseEntity.ok(auditTaskService.acceptTask(id));
-    }
-
-    /** Decline a task (reason required). */
-    @PostMapping("/{id}/decline")
-    public ResponseEntity<Map<String, Object>> decline(
-            @PathVariable Long id,
-            @RequestBody Map<String, String> body) {
-        String reason = body.getOrDefault("reason", "").trim();
-        return ResponseEntity.ok(auditTaskService.declineTask(id, reason));
     }
 }

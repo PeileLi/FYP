@@ -42,15 +42,6 @@ export default function MyCampaigns() {
 
   const [copiedId, setCopiedId] = useState(null);
 
-  const handleRequestUnfreeze = async (campaignId) => {
-    try {
-      await campaignAPI.requestUnfreeze(campaignId);
-      fetchMyCampaigns();
-    } catch (error) {
-      alert(error.message || 'Failed to request unfreeze');
-    }
-  };
-
   const getVerificationBadge = (status) => {
     switch (status) {
       case 'VERIFIED':
@@ -303,23 +294,7 @@ export default function MyCampaigns() {
                       
                     </div>
 
-                    {/* Freeze / REQUIRES_INFO notice */}
-                    {campaign.status === 'FROZEN' && (
-                      <div className="mb-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-                        <p className="text-xs text-indigo-700 font-semibold mb-1">Campaign Frozen</p>
-                        {campaign.freezeReason && <p className="text-xs text-indigo-600 mb-2">{campaign.freezeReason}</p>}
-                        {!campaign.unfreezeRequested ? (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleRequestUnfreeze(campaign.id); }}
-                            className="text-xs font-medium px-3 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500"
-                          >
-                            Request Unfreeze
-                          </button>
-                        ) : (
-                          <span className="text-xs text-indigo-500 italic">Unfreeze requested — awaiting partner review</span>
-                        )}
-                      </div>
-                    )}
+                    {/* REQUIRES_INFO notice from auditor */}
                     {campaign.auditStatus === 'REQUIRES_INFO' && (
                       <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                         <p className="text-xs text-amber-700 font-semibold">Auditor requires additional information</p>

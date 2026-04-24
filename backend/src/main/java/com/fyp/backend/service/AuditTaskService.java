@@ -15,10 +15,9 @@ import java.util.*;
 @Slf4j
 public class AuditTaskService {
 
-    private final AuditTaskRepository           taskRepo;
-    private final AuditTaskDeclineLogRepository  declineLogRepo;
-    private final CampaignRepository            campaignRepo;
-    private final PartnerScopeService           scopeService;
+    private final AuditTaskRepository  taskRepo;
+    private final CampaignRepository   campaignRepo;
+    private final PartnerScopeService  scopeService;
 
     // ── Sync: create tasks for PENDING_AUDIT campaigns ────────────────────────
 
@@ -56,14 +55,6 @@ public class AuditTaskService {
                 .map(t -> toMap(t, me)).toList();
     }
 
-    /** Decline logs for a task (only accessible if partner was assigned or any partner). */
-    public List<Map<String, Object>> getDeclineLogs(Long taskId) {
-        AuditTask task = taskRepo.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found"));
-        return declineLogRepo.findByTaskOrderByCreatedAtDesc(task).stream()
-                .map(this::toDeclineMap).toList();
-    }
-
     // ── State transitions ─────────────────────────────────────────────────────
 
     /**
@@ -90,50 +81,6 @@ public class AuditTaskService {
         campaignRepo.save(campaign);
 
         log.info("Partner {} accepted task {} for campaign {}", me.getUsername(), taskId, campaign.getId());
-        return toMap(task, me);
-    }
-
-    /**
-     * Partner declines a task they previously accepted:
-     *   log the reason, reset task to OPEN, campaign.auditStatus → PENDING_AUDIT
-     * Also allows declining an OPEN task to record that this partner won't take it.
-     */
-    @Transactional
-    public Map<String, Object> declineTask(Long taskId, String reason) {
-        if (reason == null || reason.isBlank()) {
-            throw new IllegalArgumentException("Decline reason is required");
-        }
-        User me = scopeService.currentPartner();
-        AuditTask task = taskRepo.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found: " + taskId));
-
-        if (task.getStatus() == Status.COMPLETED) {
-            throw new IllegalStateException("Cannot decline a completed task");
-        }
-
-        // If partner is trying to decline a task assigned to someone else, block it
-        if (task.getStatus() == Status.ACCEPTED && !me.equals(task.getAssignedPartner())) {
-            throw new IllegalStateException("You are not assigned to this task");
-        }
-
-        // Log the decline
-        declineLogRepo.save(AuditTaskDeclineLog.builder()
-                .task(task)
-                .partner(me)
-                .reason(reason)
-                .build());
-
-        // Reset task to OPEN
-        task.setAssignedPartner(null);
-        task.setStatus(Status.OPEN);
-        taskRepo.save(task);
-
-        // Reset campaign audit status back to pending
-        Campaign campaign = task.getCampaign();
-        campaign.setAuditStatus("PENDING_AUDIT");
-        campaignRepo.save(campaign);
-
-        log.info("Partner {} declined task {} (reason: {})", me.getUsername(), taskId, reason);
         return toMap(task, me);
     }
 
@@ -183,19 +130,6 @@ public class AuditTaskService {
         cm.put("createdAt",     c.getCreatedAt() != null ? c.getCreatedAt().toString() : "");
         m.put("campaign", cm);
 
-        // Attach recent decline count
-        long declines = declineLogRepo.findByTaskOrderByCreatedAtDesc(t).size();
-        m.put("declineCount", declines);
-
-        return m;
-    }
-
-    private Map<String, Object> toDeclineMap(AuditTaskDeclineLog l) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("id",        l.getId());
-        m.put("partner",   l.getPartner() != null ? l.getPartner().getDisplayName() : "");
-        m.put("reason",    l.getReason());
-        m.put("createdAt", l.getCreatedAt() != null ? l.getCreatedAt().toString() : "");
         return m;
     }
 }

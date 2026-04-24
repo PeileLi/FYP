@@ -210,22 +210,6 @@ public class CampaignController {
         }
     }
 
-    @PutMapping("/{id}/request-unfreeze")
-    public ResponseEntity<?> requestUnfreeze(@PathVariable Long id) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || "anonymousUser".equals(authentication.getPrincipal().toString())) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Authentication required"));
-        }
-        try {
-            String email = authentication.getName();
-            CampaignResponse response = campaignService.requestUnfreeze(id, email);
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
-        }
-    }
-
     @PostMapping("/{id}/withdraw")
     public ResponseEntity<?> requestWithdrawal(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

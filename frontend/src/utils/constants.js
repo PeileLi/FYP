@@ -18,7 +18,6 @@ export const CAMPAIGN_STATUS = {
     SUSPENDED: { label: 'Suspended',      bg: 'bg-red-100',     text: 'text-red-700',     dot: 'bg-red-400',     border: 'border-red-200' },
     COMPLETED: { label: 'Completed',      bg: 'bg-blue-100',    text: 'text-blue-700',    dot: 'bg-blue-400',    border: 'border-blue-200' },
     CLOSED:    { label: 'Closed',         bg: 'bg-gray-200',    text: 'text-gray-600',    dot: 'bg-gray-400',    border: 'border-gray-200' },
-    FROZEN:    { label: 'Frozen',         bg: 'bg-indigo-100',  text: 'text-indigo-700',  dot: 'bg-indigo-400',  border: 'border-indigo-200' },
 };
 
 export const getStatusClasses = (status) => {

@@ -130,6 +130,16 @@ public class CampaignService {
 
         campaign.setImageUrl(imageUrl);
         Campaign saved = campaignRepository.save(campaign);
+
+        // imageUrl is part of the off-chain detail hash anchored on the
+        // blockchain, so we must refresh the on-chain dataHash here, otherwise
+        // verification will report a Hash Mismatch on the next read.
+        try {
+            syncCampaignDataToBlockchain(saved);
+        } catch (Exception e) {
+            log.warn("Failed to sync cover image change to blockchain: {}", e.getMessage());
+        }
+
         return mapToResponse(saved);
     }
 
@@ -315,74 +325,6 @@ public class CampaignService {
         }
     }
 
-    @Transactional
-    public CampaignResponse freezeCampaign(Long campaignId, String reason) {
-        Campaign campaign = campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new RuntimeException("Campaign not found"));
-        if (!"ACTIVE".equals(campaign.getStatus())) {
-            throw new RuntimeException("Only ACTIVE campaigns can be frozen");
-        }
-        campaign.setStatus("FROZEN");
-        campaign.setFreezeReason(reason);
-        campaign.setUnfreezeRequested(false);
-        campaignRepository.save(campaign);
-        syncStatusToBlockchain(campaign, "FROZEN");
-        return mapToResponse(campaign);
-    }
-
-    @Transactional
-    public CampaignResponse closeCampaignByPartner(Long campaignId, String reason) {
-        Campaign campaign = campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new RuntimeException("Campaign not found"));
-        if ("COMPLETED".equals(campaign.getStatus()) || "CLOSED".equals(campaign.getStatus())) {
-            throw new RuntimeException("Campaign is already closed or completed");
-        }
-        campaign.setStatus("CLOSED");
-        campaign.setFreezeReason(reason);
-        if (campaign.getCompletedAt() == null) {
-            campaign.setCompletedAt(java.time.LocalDateTime.now());
-        }
-        campaignRepository.save(campaign);
-        syncStatusToBlockchain(campaign, "SUSPENDED");
-        return mapToResponse(campaign);
-    }
-
-    @Transactional
-    public CampaignResponse requestUnfreeze(Long campaignId, String username) {
-        Campaign campaign = campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new RuntimeException("Campaign not found"));
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        if (!campaign.getOrganizer().getId().equals(user.getId())) {
-            throw new RuntimeException("Only the campaign organizer can request unfreeze");
-        }
-        if (!"FROZEN".equals(campaign.getStatus())) {
-            throw new RuntimeException("Campaign is not frozen");
-        }
-        campaign.setUnfreezeRequested(true);
-        campaignRepository.save(campaign);
-        return mapToResponse(campaign);
-    }
-
-    @Transactional
-    public CampaignResponse reviewUnfreeze(Long campaignId, boolean approved) {
-        Campaign campaign = campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new RuntimeException("Campaign not found"));
-        if (!"FROZEN".equals(campaign.getStatus())) {
-            throw new RuntimeException("Campaign is not frozen");
-        }
-        if (approved) {
-            campaign.setStatus("ACTIVE");
-            campaign.setFreezeReason(null);
-            campaign.setUnfreezeRequested(false);
-            syncStatusToBlockchain(campaign, "ACTIVE");
-        } else {
-            campaign.setUnfreezeRequested(false);
-        }
-        campaignRepository.save(campaign);
-        return mapToResponse(campaign);
-    }
-
     /**
      * Syncs the full campaign data (goalAmount, dataHash) to blockchain using
      * the UpdateCampaign chaincode function, which archives the old version.
@@ -467,8 +409,17 @@ public class CampaignService {
                       nullSafe(campaign.getDescription()) + "|" +
                       nullSafe(campaign.getCategory()) + "|" +
                       nullSafe(campaign.getImageUrl()) + "|" +
-                      (campaign.getGoalAmount() != null ? campaign.getGoalAmount().toPlainString() : "0");
+                      normalizeAmount(campaign.getGoalAmount());
         return sha256Hex(data);
+    }
+
+    /**
+     * Canonicalise a monetary BigDecimal so that values that are numerically
+     */
+    private static String normalizeAmount(BigDecimal value) {
+        if (value == null) return "0";
+        BigDecimal stripped = value.stripTrailingZeros();
+        return stripped.toPlainString();
     }
 
     public static String sha256Hex(String input) {
@@ -535,8 +486,6 @@ public class CampaignService {
                 .partnerNote(campaign.getPartnerNote())
                 .endorsedBy(campaign.getEndorsedBy() != null ? campaign.getEndorsedBy().getDisplayName() : null)
                 .endorsedAt(campaign.getEndorsedAt())
-                .freezeReason(campaign.getFreezeReason())
-                .unfreezeRequested(Boolean.TRUE.equals(campaign.getUnfreezeRequested()))
                 .build();
     }
 }

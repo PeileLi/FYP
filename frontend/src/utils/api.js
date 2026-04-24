@@ -309,12 +309,6 @@ export const campaignAPI = {
         });
     },
 
-    requestUnfreeze: async (id) => {
-        return apiRequest(`/campaigns/${id}/request-unfreeze`, {
-            method: 'PUT',
-        });
-    },
-
 };
 
 // Donation API
@@ -396,18 +390,6 @@ export const partnerAPI = {
     getMyTasks:        () => apiRequest('/partner/tasks/mine',      { method: 'GET' }),
     getCompletedTasks: () => apiRequest('/partner/tasks/completed', { method: 'GET' }),
     acceptTask:        (id) => apiRequest(`/partner/tasks/${id}/accept`,  { method: 'POST', body: '{}' }),
-    declineTask:       (id, reason) => apiRequest(`/partner/tasks/${id}/decline`, {
-        method: 'POST',
-        body: JSON.stringify({ reason }),
-    }),
-    // Material Review
-    getCampaignDetail:    (id) => apiRequest(`/partner/campaigns/${id}/detail`, { method: 'GET' }),
-    submitVerification:   (id, body) => apiRequest(`/partner/campaigns/${id}/verification`, { method: 'POST', body: JSON.stringify(body) }),
-    getVerifications:     (id) => apiRequest(`/partner/campaigns/${id}/verifications`, { method: 'GET' }),
-    getChainRecords:      (id) => apiRequest(`/partner/campaigns/${id}/chain-records`, { method: 'GET' }),
-    freezeCampaign:       (id, reason) => apiRequest(`/partner/audit/campaigns/${id}/freeze`, { method: 'POST', body: JSON.stringify({ reason }) }),
-    closeCampaignByPartner: (id, reason) => apiRequest(`/partner/audit/campaigns/${id}/close`, { method: 'POST', body: JSON.stringify({ reason }) }),
-    reviewUnfreeze:       (id, approved) => apiRequest(`/partner/audit/campaigns/${id}/review-unfreeze`, { method: 'POST', body: JSON.stringify({ approved }) }),
     // Profile
     getProfile: () => apiRequest('/partner/profile', { method: 'GET' }),
     updateProfile: (body) => apiRequest('/partner/profile', { method: 'PUT', body: JSON.stringify(body) }),

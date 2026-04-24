@@ -43,10 +43,6 @@ public class CampaignResponse {
     private String endorsedBy;
     private LocalDateTime endorsedAt;
 
-    // Freeze info
-    private String freezeReason;
-    private Boolean unfreezeRequested;
-    
     // Progress percentage
     public double getProgress() {
         if (goalAmount.compareTo(BigDecimal.ZERO) == 0) {
